@@ -13,14 +13,22 @@
   </div>
   <header>
     <h1 id="title">Default quality</h1>
-    <p>Used for every YouTube video, unless you remembered a different one for that video.</p>
+    <p>Used for every YouTube video, unless its channel or the video itself has its own setting.</p>
   </header>
   <div id="options" class="options" role="radiogroup" aria-labelledby="title"></div>
   <div class="memory">
     <span id="memory-count">No videos remembered</span>
     <button type="button" id="forget-all" class="link" hidden>Forget all</button>
   </div>
-  <p class="hint">In the player, the quality button (next to the gear) changes only the current video. To save it, use "Remember for this video" or "Make default" at the bottom of that menu.</p>
+  <section class="channels" aria-labelledby="ch-title">
+    <div class="sec-head">
+      <h2 id="ch-title">Channel defaults</h2>
+      <button type="button" id="channels-clear" class="link" hidden>Remove all</button>
+    </div>
+    <p class="empty" id="channels-empty">None yet. On any video, open the quality menu and choose "Set as default for this channel".</p>
+    <ul id="channel-list" class="channel-list"></ul>
+  </section>
+  <p class="hint">In the player, the quality button (next to the gear) changes only the current video. To save it, use "Remember for this video", "Set as default for this channel" or "Make default" at the bottom of that menu.</p>
   <p class="status" id="status" role="status" aria-live="polite"></p>
   <script src="popup.js"></script>
 </body>

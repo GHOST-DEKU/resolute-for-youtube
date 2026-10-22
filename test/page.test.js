@@ -20,8 +20,19 @@ let levels = ['hd1080', 'hd720', 'large', 'medium', 'auto'];
 let videoId = 'vid1';
 let playing = 'medium';
 const calls = [];
+const UC = (c) => `UC${c.repeat(22)}`; // valid-looking channel id
+const CH_A = UC('a'); const CH_B = UC('b');
+let channelOf = {}; // videoId -> { id, name }; unknown videos fall back to channel "Other"
+let responseLag = false; // true = player data still describes the previous video
+let lastResponseVid = 'vid1';
 const p = document.getElementById('movie_player');
 Object.assign(p, {
+  getPlayerResponse: () => {
+    const v = responseLag ? lastResponseVid : videoId;
+    if (!responseLag) lastResponseVid = videoId;
+    const c = channelOf[v] || { id: UC('z'), name: 'Other' };
+    return c.id === null ? { videoDetails: { videoId: v } } : { videoDetails: { videoId: v, channelId: c.id, author: c.name } };
+  },
   getAvailableQualityLevels: () => levels,
   getVideoData: () => ({ video_id: videoId }),
   getPlaybackQuality: () => playing,
@@ -39,6 +50,7 @@ const fromExt = (value) => toPage('pref', value);
 
 window.eval(fs.readFileSync(path.join(__dirname, '..', 'page.js'), 'utf8'));
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+let overridesBackup = {};
 const open = () => document.querySelector('.yqx-button').dispatchEvent(new window.MouseEvent('click', { bubbles: true, detail: 1 }));
 
 (async () => {
@@ -47,6 +59,9 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   await wait(400);
   assert.ok(document.querySelector('.yqx-button').classList.contains('yqx-pending'), 'waits for remembered videos too');
   toPage('overrides', { vidR: 'small' });
+  await wait(400);
+  assert.ok(document.querySelector('.yqx-button').classList.contains('yqx-pending'), 'waits for channel defaults too');
+  toPage('channels', {});
   await wait(400);
 
   const btn = document.querySelector('.yqx-button');
@@ -155,6 +170,101 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   document.activeElement.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   assert.ok(!menu.classList.contains('yqx-open'));
   assert.strictEqual(document.activeElement, btn, 'focus back on button');
+
+  // ---------- per-channel defaults ----------
+  const go = async (vid, ms = 80) => { videoId = vid; document.dispatchEvent(new window.Event('yt-navigate-finish')); await wait(ms); };
+  const chanRow = menu.querySelector('.yqx-channel');
+  const chanRemove = menu.querySelector('.yqx-channel-remove');
+  const pillFrom = () => btn.querySelector('.yqx-pill').dataset.from;
+  fromExt('highest'); await wait(50);
+  levels = ['hd2160', 'hd1440', 'hd1080', 'hd720', 'large', 'medium', 'small', 'tiny', 'auto'];
+  channelOf = { a1: { id: CH_A, name: 'Alpha' }, a2: { id: CH_A, name: 'Alpha' }, b1: { id: CH_B, name: 'Beta' } };
+  toPage('channels', { [CH_A]: { q: 'hd1080', name: 'Alpha' }, [CH_B]: { q: 'hd2160', name: 'Beta' } });
+  await go('a1');
+  assert.strictEqual(calls.at(-1), 'hd1080', 'channel A default 1080p applied');
+  assert.strictEqual(pillFrom(), 'channel');
+  assert.match(menu.querySelector('.yqx-chan').textContent, /Alpha · channel default 1080p/, 'menu shows channel default');
+  await go('b1');
+  assert.strictEqual(calls.at(-1), 'hd2160', 'switching to channel B uses 4K');
+  levels = ['hd1080', 'hd720', 'large', 'auto'];
+  await go('a2');
+  assert.strictEqual(calls.at(-1), 'hd1080', 'same channel, next video: 1080p');
+  channelOf.b2 = { id: CH_B, name: 'Beta' };
+  await go('b2');
+  assert.strictEqual(calls.at(-1), 'hd1080', 'channel B wants 4K, video has max 1080p: uses highest below');
+  await go('c1');
+  assert.strictEqual(calls.at(-1), 'hd1080', 'channel without default: global Highest');
+  assert.strictEqual(pillFrom(), 'default');
+  assert.match(menu.querySelector('.yqx-chan').textContent, /no channel default \(global: Highest available\)/);
+
+  // Remembered video beats channel default
+  overridesBackup = { a3: 'medium' }; channelOf.a3 = { id: CH_A, name: 'Alpha' }; levels.push('medium');
+  toPage('overrides', overridesBackup);
+  await go('a3');
+  assert.strictEqual(calls.at(-1), 'medium', 'remembered video wins over its channel');
+
+  // Set a channel default from the menu (channel without one)
+  channelOf.c2 = { id: UC('c'), name: 'Gamma' };
+  await go('c2');
+  open(); menu.querySelector('[data-q=large]').click();
+  assert.strictEqual(calls.at(-1), 'large');
+  open();
+  assert.strictEqual(chanRow.querySelector('.yqx-label').textContent, 'Set as default for this channel');
+  chanRow.click();
+  assert.deepStrictEqual(sent.at(-1), { source: 'yqx-page', type: 'channel', channelId: UC('c'), value: 'large', name: 'Gamma' });
+  assert.match(menu.querySelector('.yqx-now').textContent, /Saved for Gamma/, 'clear feedback');
+  assert.strictEqual(pillFrom(), 'channel');
+  assert.strictEqual(chanRow.querySelector('.yqx-note').textContent, 'Remove');
+  // Update: pick another quality, row offers update + separate remove
+  menu.querySelector('[data-q=hd720]').click(); open();
+  assert.strictEqual(chanRow.querySelector('.yqx-label').textContent, 'Update channel default');
+  assert.ok(!chanRemove.hidden, 'remove row shown while they differ');
+  chanRow.click();
+  assert.deepStrictEqual(sent.at(-1).value, 'hd720', 'channel default updated');
+  assert.ok(chanRemove.hidden);
+  // Remove: quality keeps playing, falls back to global next time
+  const before2 = calls.length;
+  chanRow.click();
+  assert.deepStrictEqual(sent.at(-1), { source: 'yqx-page', type: 'channel', channelId: UC('c'), value: null });
+  assert.strictEqual(calls.length, before2, 'removing does not change what plays now');
+  document.body.dispatchEvent(new window.MouseEvent('pointerdown', { bubbles: true }));
+
+  // Missing channel id: never guesses; waits briefly, then global default
+  channelOf.x1 = { id: null };
+  toPage('channels', { [CH_A]: { q: 'hd720', name: 'Alpha' } });
+  await go('x1', 2600);
+  assert.strictEqual(calls.at(-1), 'hd1080', 'no channel id: global default');
+  open();
+  assert.strictEqual(chanRow.getAttribute('aria-disabled'), 'true', 'channel row disabled');
+  assert.match(menu.querySelector('.yqx-chan').textContent, /Channel not detected/);
+  document.body.dispatchEvent(new window.MouseEvent('pointerdown', { bubbles: true }));
+
+  // Stale player data (still the previous video) is never trusted for the new video
+  channelOf.a4 = { id: CH_A, name: 'Alpha' };
+  lastResponseVid = 'b1'; responseLag = true;            // data still says channel B's video
+  videoId = 'a4'; document.dispatchEvent(new window.Event('yt-navigate-finish'));
+  await wait(400);
+  assert.notStrictEqual(calls.at(-1), 'hd2160', "channel B's 4K never applied to channel A's video");
+  responseLag = false;                                    // data catches up
+  await wait(800);
+  assert.strictEqual(calls.at(-1), 'hd720', "then channel A's own default applies");
+
+  // Channel renamed: same id, stored name refreshed
+  toPage('channels', { [CH_A]: { q: 'hd720', name: 'Old Alpha Name' } });
+  channelOf.a5 = { id: CH_A, name: 'Alpha Renamed' };
+  await go('a5');
+  assert.strictEqual(calls.at(-1), 'hd720', 'renamed channel still matched by id');
+  assert.deepStrictEqual(sent.at(-1), { source: 'yqx-page', type: 'channel', channelId: CH_A, value: 'hd720', name: 'Alpha Renamed' });
+
+  // Corrupted storage is ignored safely
+  toPage('channels', { notAnId: { q: 'hd720' }, [CH_B]: { q: 'bogus' }, [UC('d')]: null });
+  channelOf.d1 = { id: UC('d'), name: 'Delta' };
+  await go('d1');
+  assert.strictEqual(calls.at(-1), 'hd1080', 'corrupted entries ignored -> global default');
+
+  // Global default change applies to channels without their own default
+  fromExt('hd720'); await wait(80);
+  assert.strictEqual(calls.at(-1), 'hd720', 'new global default applied');
 
   // No toolbar at all -> floating fallback
   document.querySelector('.ytp-chrome-bottom').remove();

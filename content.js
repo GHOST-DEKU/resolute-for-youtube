@@ -7,6 +7,8 @@
  * Stored:
  *  - sync  "qualityPreference": the default for all videos
  *  - local "videoOverrides":    { videoId: quality } for videos the user chose to remember
+ *  - local "channelPrefs":      { UCchannelId: { q: quality, name } } channel defaults
+ *    (name is only for showing the list; the id is the key, so renames don't matter)
  */
 (() => {
   'use strict';
@@ -14,6 +16,9 @@
   const api = globalThis.browser ?? globalThis.chrome;
   const KEY = 'qualityPreference';
   const OVERRIDES = 'videoOverrides';
+  const CHANNELS = 'channelPrefs';
+  const MAX_CHANNELS = 2000; // shortcut: drops the oldest beyond this; raise if users hit it
+  const CHANNEL_ID = /^UC[\w-]{22}$/;
   const MAX_REMEMBERED = 1000; // shortcut: drops the oldest beyond this; raise if users hit it
   const DEFAULT_PREF = 'highest';
   const VALID = new Set([
@@ -43,9 +48,29 @@
       return {};
     }
   }
+  /** Only well-formed entries survive; corrupted data is dropped, never applied. */
+  function cleanChannels(map) {
+    const out = {};
+    if (map && typeof map === 'object') {
+      for (const [id, v] of Object.entries(map)) {
+        if (CHANNEL_ID.test(id) && v && VALID.has(v.q)) {
+          out[id] = { q: v.q, name: typeof v.name === 'string' ? v.name.slice(0, 100) : '' };
+        }
+      }
+    }
+    return out;
+  }
+  async function readChannels() {
+    try {
+      return cleanChannels((await api.storage.local.get(CHANNELS))[CHANNELS]);
+    } catch {
+      return {};
+    }
+  }
   async function sendAll() {
     send({ type: 'pref', value: await readPreference() });
     send({ type: 'overrides', value: await readOverrides() });
+    send({ type: 'channels', value: await readChannels() });
   }
 
   window.addEventListener('message', async (event) => {
@@ -64,6 +89,16 @@
         const ids = Object.keys(map);
         for (const id of ids.slice(0, Math.max(0, ids.length - MAX_REMEMBERED))) delete map[id];
         await api.storage.local.set({ [OVERRIDES]: map });
+      } else if (msg.type === 'channel' && CHANNEL_ID.test(msg.channelId)) {
+        const map = await readChannels();
+        delete map[msg.channelId]; // re-adding moves it to the newest position
+        if (VALID.has(msg.value)) {
+          const name = typeof msg.name === 'string' ? msg.name.trim().slice(0, 100) : '';
+          map[msg.channelId] = { q: msg.value, name };
+        }
+        const ids = Object.keys(map);
+        for (const id of ids.slice(0, Math.max(0, ids.length - MAX_CHANNELS))) delete map[id];
+        await api.storage.local.set({ [CHANNELS]: map });
       }
     } catch { /* storage unavailable; the page still applies the choice */ }
   });
@@ -76,6 +111,9 @@
       }
       if (area === 'local' && changes[OVERRIDES]) {
         send({ type: 'overrides', value: changes[OVERRIDES].newValue || {} });
+      }
+      if (area === 'local' && changes[CHANNELS]) {
+        send({ type: 'channels', value: cleanChannels(changes[CHANNELS].newValue) });
       }
     });
   } catch { /* ignore */ }

@@ -11,7 +11,8 @@
  * Which quality a video gets (first match wins):
  *   1. a pick made in the menu for this video right now (not saved)
  *   2. a quality the user chose to remember for this video
- *   3. the default for all videos
+ *   3. the default the user saved for this video's channel
+ *   4. the default for all videos ("Auto" lets YouTube decide)
  * Saved values live in extension storage; content.js passes them here.
  */
 (() => {
@@ -50,7 +51,12 @@
   let prefKnown = false;
   let overrides = {};            // { videoId: quality } remembered on purpose
   let overridesKnown = false;
+  let channels = {};             // { UCchannelId: { q, name } } channel defaults
+  let channelsKnown = false;
   let temp = null;               // { vid, q } pick for the current video only
+  const channelCache = new Map(); // videoId -> { id, name } once detected
+  const renamed = new Set();      // "id|name" pairs whose stored name we already refreshed
+  let flashTimer = 0;
   let lastApplied = '';   // "videoId|quality" already applied
   let lastVideoId = '';
   let forcedEarlier = false;
@@ -103,7 +109,37 @@
     // Not available? Use the best one below it (or the lowest if none is below).
     return levels.find((q) => HEIGHT[q] <= want) || levels[levels.length - 1];
   }
-  const ready = () => prefKnown && overridesKnown;
+  const ready = () => prefKnown && overridesKnown && channelsKnown;
+  const CHANNEL_ID = /^UC[\w-]{22}$/;
+
+  /**
+   * The channel of a video, from the player's own data for that exact video.
+   * Uses the stable "UC…" channel id, never the display name. Returns null when unsure,
+   * so one channel's setting can never be applied to another channel's video.
+   */
+  function channelFor(p, vid) {
+    if (!vid) return null;
+    if (channelCache.has(vid)) return channelCache.get(vid);
+    const sources = [
+      () => p && call(p, 'getPlayerResponse'),
+      () => window.ytInitialPlayerResponse // first page load; checked against the video id below
+    ];
+    for (const get of sources) {
+      let details = null;
+      try { details = (get() || {}).videoDetails; } catch { details = null; }
+      if (details && details.videoId === vid && CHANNEL_ID.test(details.channelId)) {
+        const found = { id: details.channelId, name: String(details.author || '').trim().slice(0, 100) };
+        if (channelCache.size > 500) channelCache.clear(); // keep memory small on long sessions
+        channelCache.set(vid, found);
+        return found;
+      }
+    }
+    return null;
+  }
+  function channelPref(ch) {
+    const saved = ch && channels[ch.id];
+    return saved && VALID.has(saved.q) ? saved : null;
+  }
   function currentVid(p) {
     // During ads YouTube may report the ad's id, so keep the last real video.
     if (!p) return '';
@@ -111,9 +147,11 @@
   }
   /** Quality this video should use, and where that choice comes from. */
   function choiceFor(vid) {
-    const base = vid && VALID.has(overrides[vid])
-      ? { q: overrides[vid], from: 'remembered' }
-      : { q: preference, from: 'default' };
+    let base;
+    const saved = channelPref(channelFor(getPlayer(), vid));
+    if (vid && VALID.has(overrides[vid])) base = { q: overrides[vid], from: 'remembered' };
+    else if (saved) base = { q: saved.q, from: 'channel' };
+    else base = { q: preference, from: 'default' };
     return temp && temp.vid === vid && temp.q !== base.q ? { q: temp.q, from: 'now' } : base;
   }
   function forceQuality(p, q) {
@@ -126,6 +164,7 @@
     clearTimeout(applyTimer);
     clearTimeout(verifyTimer);
     let tries = 0;
+    let channelTries = 0;
 
     const attempt = () => {
       const p = getPlayer();
@@ -138,6 +177,18 @@
         if (tries <= 120) applyTimer = setTimeout(attempt, tries < 20 ? 250 : 1000);
         return;
       }
+
+      // Give the channel id a moment to appear (avoids switching twice: global, then channel),
+      // but only when a channel default could actually change the result.
+      const ch = channelFor(p, vid);
+      const channelMatters = !force && Object.keys(channels).length > 0 &&
+        !(temp && temp.vid === vid) && !VALID.has(overrides[vid]);
+      if (!ch && channelMatters && channelTries < 8) {
+        channelTries += 1;
+        applyTimer = setTimeout(attempt, 250);
+        return;
+      }
+      refreshChannelName(ch);
 
       if (temp && temp.vid !== vid) temp = null; // a pick "for now" ends with its video
       const want = choiceFor(vid).q;
@@ -179,8 +230,19 @@
     if (vid && vid !== lastVideoId) {
       lastVideoId = vid;
       scheduleApply(false);
+    } else if (vid && lastApplied.startsWith(`${vid}|`) && lastApplied !== `${vid}|${choiceFor(vid).q}`) {
+      scheduleApply(false); // e.g. the channel id showed up late and has its own default
     }
     updateUI();
+  }
+
+  /** Channels can be renamed; keep the stored display name current (id stays the key). */
+  function refreshChannelName(ch) {
+    const saved = channelPref(ch);
+    if (!saved || !ch.name || saved.name === ch.name || renamed.has(`${ch.id}|${ch.name}`)) return;
+    renamed.add(`${ch.id}|${ch.name}`); // once per name, so a storage echo can't loop
+    channels[ch.id] = { q: saved.q, name: ch.name };
+    postToExt({ type: 'channel', channelId: ch.id, value: saved.q, name: ch.name });
   }
 
   function hookPlayer(p) {
@@ -205,7 +267,9 @@
   const ICONS = {
     check: 'M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z',
     pin: 'M16 9V4h1a1 1 0 0 0 0-2H7a1 1 0 0 0 0 2h1v5a3 3 0 0 1-3 3v2h5.97v7l1 1 1-1v-7H19v-2a3 3 0 0 1-3-3z',
-    star: 'M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z'
+    star: 'M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z',
+    channel: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z',
+    close: 'M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'
   };
   function icon(name, className) {
     const NS = 'http://www.w3.org/2000/svg';
@@ -264,13 +328,17 @@
     // Menu (inside the player, so it also works in fullscreen)
     const menu = el('div', 'yqx-menu', { id: 'yqx-menu', role: 'menu', 'aria-label': 'Video quality' });
     const head = el('div', 'yqx-head', { 'aria-hidden': 'true' });
+    const headRow = el('div', 'yqx-headrow');
     const title = el('span', 'yqx-title');
     title.textContent = 'Quality for this video';
     const now = el('span', 'yqx-now');
-    head.append(title, now);
+    headRow.append(title, now);
+    const chan = el('div', 'yqx-chan'); // which channel, and whether it has its own default
+    head.append(headRow, chan);
+    const live = el('div', 'yqx-live', { role: 'status', 'aria-live': 'polite' }); // spoken feedback
     const list = el('div', 'yqx-list');
     const foot = el('div', 'yqx-foot');
-    menu.append(head, list, foot); // only the list scrolls; title and save rows stay visible
+    menu.append(head, list, foot, live); // only the list scrolls; title and save rows stay visible
 
     for (const o of OPTIONS) {
       const item = el('div', 'yqx-item', { role: 'menuitemradio', tabindex: '-1', 'aria-checked': 'false' });
@@ -298,6 +366,8 @@
       return row;
     };
     ui.rememberRow = footRow('remember', 'pin', 'menuitemcheckbox', toggleRemember);
+    ui.channelRow = footRow('channel', 'channel', 'menuitemcheckbox', toggleChannel);
+    ui.channelRemoveRow = footRow('channel-remove', 'close', 'menuitem', removeChannel);
     ui.defaultRow = footRow('default', 'star', 'menuitem', makeDefault);
 
     // Hovering an item moves keyboard focus with it (like native menus).
@@ -323,7 +393,7 @@
 
     const tip = el('div', 'yqx-tip', { 'aria-hidden': 'true' });
 
-    Object.assign(ui, { btn, pill, menu, list, now, tip });
+    Object.assign(ui, { btn, pill, menu, list, now, chan, live, tip });
   }
 
   function injectStyle() {
@@ -404,7 +474,12 @@
     const known = levels.length > 0;
     const playing = p ? playingLabel(p) : '';
     const target = resolveTarget(choice.q, levels);
-    const source = { now: 'this video only', remembered: 'remembered for this video', default: 'default' }[choice.from];
+    const source = {
+      now: 'this video only', remembered: 'remembered for this video',
+      channel: 'default for this channel', default: 'default'
+    }[choice.from];
+    const ch = channelFor(p, vid);
+    const saved = channelPref(ch);
 
     setPill(opt.short);
     ui.pill.dataset.from = choice.from;
@@ -412,7 +487,12 @@
     if (ui.tip.classList.contains('yqx-show')) ui.tip.textContent = ui.tipText;
     ui.btn.setAttribute('aria-label',
       `Video quality: ${opt.label}, ${source}${playing ? `. Now playing ${playing}` : ''}`);
-    ui.now.textContent = playing ? `Playing ${playing}` : '';
+    if (!flashTimer) ui.now.textContent = playing ? `Playing ${playing}` : '';
+    ui.chan.textContent = !vid ? ''
+      : !ch ? 'Channel not detected · channel defaults off for this video'
+      : saved ? `${ch.name || 'This channel'} · channel default ${optionById(saved.q).label}`
+      : `${ch.name || 'This channel'} · no channel default (global: ${optionById(preference).label})`;
+    ui.chan.classList.toggle('yqx-chan-set', !!saved);
 
     // Bottom rows: save on purpose.
     const remembered = choice.from === 'remembered';
@@ -420,6 +500,23 @@
       remembered ? 'Forget' : opt.label, !vid);
     ui.rememberRow.setAttribute('aria-checked', String(remembered));
     ui.rememberRow.classList.toggle('yqx-on', remembered);
+    // Channel row: set / update / remove this channel's default.
+    const chName = ch && ch.name ? ch.name : 'this channel';
+    if (!ch) {
+      setRow(ui.channelRow, 'Default for this channel', 'Channel not detected', true);
+    } else if (!saved) {
+      setRow(ui.channelRow, 'Set as default for this channel', opt.label, false);
+    } else if (saved.q === choice.q) {
+      setRow(ui.channelRow, `Default for ${chName}`, 'Remove', false);
+    } else {
+      setRow(ui.channelRow, 'Update channel default', `${optionById(saved.q).label} → ${opt.label}`, false);
+    }
+    const channelOn = !!saved && saved.q === choice.q;
+    ui.channelRow.setAttribute('aria-checked', String(channelOn));
+    ui.channelRow.classList.toggle('yqx-on', channelOn);
+    ui.channelRemoveRow.hidden = !saved || channelOn; // separate remove only while they differ
+    if (saved) setRow(ui.channelRemoveRow, 'Remove channel default', optionById(saved.q).label, false);
+
     const isDefault = choice.q === preference;
     setRow(ui.defaultRow, isDefault ? 'Your default for all videos' : 'Make default for all videos',
       isDefault ? '' : opt.label, isDefault);
@@ -520,7 +617,7 @@
   }
 
   function onMenuKey(e) {
-    const items = [...ui.menu.querySelectorAll('.yqx-item')];
+    const items = [...ui.menu.querySelectorAll('.yqx-item:not([hidden])')];
     const i = items.indexOf(document.activeElement);
     let handled = true;
     switch (e.key) {
@@ -563,15 +660,64 @@
       delete overrides[vid];
       temp = { vid, q: choice.q }; // forgetting doesn't change what's playing now
       postToExt({ type: 'remember', videoId: vid, value: null });
+      flash('Forgotten for this video');
     } else {
       overrides[vid] = choice.q;
       temp = null;
       postToExt({ type: 'remember', videoId: vid, value: choice.q });
+      flash('Remembered for this video');
     }
     updateUI();
   }
 
-  /** Bottom row 2: make this video's quality the default for all videos. */
+  /** Short confirmation in the menu header (and for screen readers). */
+  function flash(message) {
+    clearTimeout(flashTimer);
+    ui.now.textContent = `✓ ${message}`;
+    ui.now.classList.add('yqx-flash');
+    ui.live.textContent = message;
+    flashTimer = setTimeout(() => {
+      flashTimer = 0;
+      ui.now.classList.remove('yqx-flash');
+      updateUI();
+    }, 1800);
+  }
+
+  /** Bottom row: save this video's quality as its channel's default (or remove it). */
+  function toggleChannel() {
+    const p = getPlayer();
+    const vid = currentVid(p);
+    const ch = channelFor(p, vid);
+    if (!ch) return;
+    const q = choiceFor(vid).q;
+    const saved = channelPref(ch);
+    if (saved && saved.q === q) {
+      removeChannel();
+      return;
+    }
+    channels[ch.id] = { q, name: ch.name };
+    if (temp && temp.vid === vid && temp.q === q) temp = null; // now it's simply the channel default
+    postToExt({ type: 'channel', channelId: ch.id, value: q, name: ch.name });
+    flash(saved ? `Channel default updated to ${optionById(q).label}` : `Saved for ${ch.name || 'this channel'}`);
+    updateUI();
+  }
+
+  function removeChannel() {
+    const p = getPlayer();
+    const vid = currentVid(p);
+    const ch = channelFor(p, vid);
+    if (!ch || !channels[ch.id]) return;
+    const choice = choiceFor(vid);
+    delete channels[ch.id];
+    if (choice.from === 'channel') temp = { vid, q: choice.q }; // removing doesn't change what's playing now
+    postToExt({ type: 'channel', channelId: ch.id, value: null });
+    flash('Channel default removed');
+    updateUI();
+    // The remove row may have just vanished; keep keyboard focus on something visible.
+    if (ui.menu.contains(document.activeElement) && document.activeElement.hidden) focusItem(ui.channelRow);
+  }
+
+  /** Bottom row: make this video's quality the default for all videos. */
   function makeDefault() {
     const vid = currentVid(getPlayer());
     const q = choiceFor(vid).q;
@@ -579,7 +725,8 @@
     preference = q;
     if (temp && temp.vid === vid) temp = null; // now it's simply the default
     postToExt({ type: 'set', value: q });
-    lastApplied = `${vid}|${q}`; // already playing; no need to re-apply
+    lastApplied = `${vid}|${choiceFor(vid).q}`; // already playing; no need to re-apply
+    flash('Saved as default for all videos');
     updateUI();
   }
 
@@ -621,6 +768,14 @@
       overrides = { ...msg.value };
       overridesKnown = true;
       scheduleApply(false);
+    } else if (msg.type === 'channels' && msg.value && typeof msg.value === 'object') {
+      // Keep only well-formed entries; anything corrupted is ignored, never applied.
+      channels = {};
+      for (const [id, v] of Object.entries(msg.value)) {
+        if (CHANNEL_ID.test(id) && v && VALID.has(v.q)) channels[id] = { q: v.q, name: String(v.name || '') };
+      }
+      channelsKnown = true;
+      scheduleApply(false);
     } else {
       return;
     }
@@ -632,6 +787,7 @@
     if (!ready()) {
       prefKnown = true;
       overridesKnown = true;
+      channelsKnown = true;
       updateUI();
       scheduleApply(false);
     }
@@ -699,6 +855,7 @@
   box-shadow:0 0 0 1.5px rgba(0,0,0,.55);opacity:0;transform:scale(.4);transition:opacity .18s ease,transform .24s ${EASE}}
 .yqx-pill[data-from="now"]::after{opacity:1;transform:none;background:#fff}
 .yqx-pill[data-from="remembered"]::after{opacity:1;transform:none;background:#3ea6ff}
+.yqx-pill[data-from="channel"]::after{opacity:1;transform:none;background:#c58af9}
 #movie_player .yqx-button[aria-expanded="true"] .yqx-pill::after{box-shadow:0 0 0 1.5px rgba(28,28,28,.9)}
 .yqx-pill.yqx-swap{animation:yqx-swap .24s ${EASE}}
 @keyframes yqx-swap{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
@@ -715,7 +872,13 @@
   transition:opacity .14s ease,transform .2s ${EASE},visibility 0s linear .2s}
 #movie_player .yqx-menu.yqx-open{opacity:1;visibility:visible;transform:none;
   transition:opacity .16s ease,transform .24s ${EASE},visibility 0s}
-.yqx-head{display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:8px 16px 8px 16px;font-weight:500;color:#fff}
+.yqx-head{padding:8px 16px;color:#fff}
+.yqx-headrow{display:flex;justify-content:space-between;align-items:baseline;gap:16px;font-weight:500}
+.yqx-chan{margin-top:3px;font-size:12px;color:rgba(255,255,255,.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.yqx-chan.yqx-chan-set{color:#d7b8ff}
+.yqx-now.yqx-flash{color:#8fd19e;animation:yqx-swap .24s ${EASE}}
+.yqx-live{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.yqx-item[hidden]{display:none}
 .yqx-now{color:rgba(255,255,255,.6);font-weight:400;font-size:12px;white-space:nowrap}
 .yqx-list{position:relative;flex:1 1 auto;min-height:72px;overflow-y:auto;overscroll-behavior:contain;
   scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.3) transparent}
@@ -742,10 +905,12 @@
 .yqx-action[aria-disabled="true"]:hover{background:transparent}
 .yqx-action[aria-disabled="true"] .yqx-label{color:rgba(255,255,255,.5)}
 .yqx-default.yqx-on .yqx-icon{color:#fff}
+.yqx-channel.yqx-on .yqx-icon{color:#c58af9;transform:scale(1.08)}
+.yqx-channel.yqx-on .yqx-label{color:#fff;font-weight:500}
 #movie_player.ytp-big-mode .yqx-icon{width:22px;height:22px}
 #movie_player.ytp-big-mode .yqx-menu{font-size:16px;min-width:340px}
 #movie_player.ytp-big-mode .yqx-item{height:44px}
-#movie_player.ytp-big-mode .yqx-now,#movie_player.ytp-big-mode .yqx-note{font-size:14px}
+#movie_player.ytp-big-mode .yqx-now,#movie_player.ytp-big-mode .yqx-note,#movie_player.ytp-big-mode .yqx-chan{font-size:14px}
 
 #movie_player .yqx-tip{position:absolute;z-index:73;padding:5px 9px;border-radius:4px;background:rgba(28,28,28,.9);
   color:#eee;font-size:12.5px;line-height:1.3;font-weight:500;white-space:nowrap;pointer-events:none;

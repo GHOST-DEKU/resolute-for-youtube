@@ -10,8 +10,9 @@ Resolute: Video Quality Control ("the extension") lets you choose the video qual
 |---|---|---|
 | Your **default quality** (for example "1080p" or "Highest available") | When you pick a default in the popup or click **Make default for all videos** in the player menu | Your browser's extension storage (`storage.sync`). If you have turned on Chrome Sync or Firefox Sync, your browser copies this setting to your other signed-in browsers. That copying is done by your browser and your Google or Mozilla account, not by the extension or its developer. |
 | **Video IDs you choose to remember**, each with its quality (for example `dQw4w9WgXcQ → 480p`) | Only when you click **Remember for this video** | Your browser's local extension storage (`storage.local`), on this device only. It is never synced. At most the 1,000 most recent are kept. |
+| **Channel defaults**: the YouTube channel ID (for example `UCxxxxxxxxxxxxxxxxxxxxxx`), the channel's display name, and the chosen quality | Only when you click **Set as default for this channel** (or edit the list in the popup) | Your browser's local extension storage (`storage.local`), on this device only. It is never synced. The name is kept only so the list in the popup is readable; it is updated if the channel renames itself. At most 2,000 channels are kept. |
 
-The extension reads the ID of the video currently playing, and the list of qualities the YouTube player offers for it, so that it can apply your choice. It uses these only on your device, at that moment, and does not keep them unless you click **Remember for this video**.
+The extension reads the ID of the video currently playing, the ID and name of its channel, and the list of qualities the YouTube player offers for it, so that it can apply your choice. It uses these only on your device, at that moment, and does not keep them unless you click **Remember for this video** or **Set as default for this channel**.
 
 ## What the extension does not do
 
@@ -30,6 +31,7 @@ The extension reads the ID of the video currently playing, and the list of quali
 
 - **Forget one video:** open the quality menu on that video and click **Remembered for this video** (Forget).
 - **Forget all videos:** click the extension's toolbar icon, then **Forget all**.
+- **Remove a channel default:** in the player menu on one of that channel's videos, or in the toolbar popup under **Channel defaults** (the × button). **Remove all** clears every channel default.
 - **Remove everything:** uninstalling the extension deletes all data it stored.
 
 ## Changes to this policy

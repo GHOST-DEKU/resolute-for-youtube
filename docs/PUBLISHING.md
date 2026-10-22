@@ -155,6 +155,10 @@ Use the unzipped release copy (section 3). Open DevTools → **Console** while t
 | 14 | Browser restart | Close Chrome fully, reopen, open a video | Default and remembered videos are kept |
 | 15 | Keyboard | Tab to the button, ↓ to open, arrows, Enter, Esc | Works; Space still pauses the video after a mouse click on the button |
 | 16 | Console | Watch the Console during all tests | No red errors coming from the extension |
+| 17 | Channel default | Video from channel A → pick 1080p → menu → **Set as default for this channel** | "✓ Saved for A"; header shows "A · channel default 1080p"; purple dot |
+| 18 | Switch channels | Open another A video, then a channel B video, then A again | A videos: 1080p; B (no default): global default; never mixed up |
+| 19 | Edit / remove in popup | Popup → Channel defaults → change A to 720p, then × | Next A video plays 720p; after ×, A uses the global default |
+| 20 | Channel + remembered video | Remember 480p on one A video | That video: 480p; other A videos: channel default |
 
 ### Should check (fix if it breaks)
 - An embedded video on another site (e.g. a blog with a YouTube embed): the button appears in the embed.
@@ -247,7 +251,7 @@ A rejected update never affects the live version. ([review process](https://deve
 - [ ] 2-Step Verification on; fee paid; publisher name set; contact email **verified**; trader status chosen
 - [ ] `python3 scripts/build.py chrome` succeeds
 - [ ] Unzipped release loads in Chrome with **no Errors** button
-- [ ] All 16 mandatory tests pass on **real YouTube**
+- [ ] All 20 mandatory tests pass on **real YouTube**
 - [ ] Repo is **public**; privacy policy link opens in a signed-out window
 - [ ] Description pasted from `store/LISTING.md`; category and language set
 - [ ] Small promo tile uploaded; at least 1 screenshot (ideally 4–5); icon shows correctly

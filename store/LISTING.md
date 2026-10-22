@@ -11,9 +11,9 @@ Everything below matches what the code actually does (checked against `page.js`,
 Resolute: Video Quality Control
 ```
 
-**Summary / short description** (comes from `manifest.json` "description", 116/132 characters)
+**Summary / short description** (comes from `manifest.json` "description", 125/132 characters)
 ```
-Pick video quality from a button inside the YouTube player. Set a default, or remember a quality for just one video.
+Pick video quality from a button inside the YouTube player. Set a default for all videos, for each channel, or for one video.
 ```
 
 **Detailed description**
@@ -23,7 +23,10 @@ Resolute adds a quality button to the YouTube player, right next to the settings
 HOW IT WORKS
 • Pick a quality from the menu: it changes the current video only. Nothing is saved.
 • Remember for this video: that video will always open at the quality you chose.
-• Make default for all videos: every video uses that quality, unless you remembered a different one for it.
+• Set as default for this channel: every video from that channel uses that quality (for example, 4K for one channel, 720p for another).
+• Make default for all videos: every other video uses that quality.
+
+Which setting wins: a quality remembered for the video, then the channel's default, then your global default. Channels are recognised by their permanent channel ID, so renamed channels keep their setting.
 
 QUALITY OPTIONS
 Auto, Highest available, 144p, 240p, 360p, 480p, 720p, 1080p, 1440p and 2160p (4K).
@@ -34,7 +37,7 @@ DETAILS
 • Works on youtube.com and on YouTube videos embedded in other websites.
 • Waits for ads to finish before applying your quality.
 • Keyboard friendly: Tab to the button, arrow keys to move, Enter to choose, Esc to close.
-• The toolbar icon lets you set your default and clear remembered videos.
+• The toolbar icon lets you set your global default, see, edit and remove channel defaults, and clear remembered videos.
 
 PRIVACY
 Your settings stay in your browser. The extension sends no data anywhere and has no analytics or ads.
@@ -69,12 +72,12 @@ YouTube is a trademark of Google LLC. Resolute is not made, endorsed, or sponsor
 
 **Single purpose description**
 ```
-Lets users choose the playback quality of YouTube videos from a button in the YouTube player, and optionally save that choice as a default or for a specific video.
+Lets users choose the playback quality of YouTube videos from a button in the YouTube player, and optionally save that choice as a global default, a default for a channel, or for a specific video.
 ```
 
 **Permission justification — storage**
 ```
-Saves the user's chosen default video quality, and the qualities of videos the user explicitly chose to remember, so they are applied the next time a video plays. Data stays in the browser's extension storage.
+Saves the user's chosen default video quality, the qualities of videos and channels the user explicitly chose to save (channel ID and name, video ID), so they are applied the next time a video plays. Data stays in the browser's extension storage and is never sent anywhere.
 ```
 
 **Host permission justification** (content scripts on youtube.com and youtube-nocookie.com)
@@ -87,7 +90,7 @@ The extension adds its quality button to the YouTube video player and applies th
 
 **Data usage — what user data do you collect?**
 - ✅ **Web browsing activity** — tick this.
-  *Why:* when you click "Remember for this video", the extension saves that video's ID. Google defines web browsing activity as information about the web resources a user interacts with, and its User Data FAQ says data must be disclosed even when it is only stored locally. Ticking it is the accurate, safe choice.
+  *Why:* when you click "Remember for this video" or "Set as default for this channel", the extension saves that video's ID or that channel's ID and name (on the device only). Google defines web browsing activity as information about the web resources a user interacts with, and its User Data FAQ says data must be disclosed even when it is only stored locally. Ticking it is the accurate, safe choice.
 - ⬜ Everything else (personally identifiable info, health, financial, authentication, personal communications, location, website content, user activity, etc.) — **leave unticked**; the extension does not handle these.
 
 **Certifications** — tick all three (they are all true for this extension). The dashboard wording is roughly:

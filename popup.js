@@ -23,7 +23,7 @@
 
   for (const [id, label] of OPTIONS) {
     const row = document.createElement('label');
-    row.className = 'row';
+    row.className = id === 'auto' || id === 'highest' ? 'row wide' : 'row';
     const input = document.createElement('input');
     input.type = 'radio';
     input.name = 'quality';
@@ -99,9 +99,95 @@
   });
   checkAccess();
 
+  // Channel defaults: view, change, remove (keyed by the stable channel id).
+  const CHANNELS = 'channelPrefs';
+  const CHANNEL_ID = /^UC[\w-]{22}$/;
+  const VALID = new Set(OPTIONS.map(([id]) => id));
+  const list = document.getElementById('channel-list');
+  const empty = document.getElementById('channels-empty');
+  const clearAll = document.getElementById('channels-clear');
+  let channels = {};
+  let shownIds = '';
+  const clean = (map) => Object.fromEntries(Object.entries(map && typeof map === 'object' ? map : {})
+    .filter(([id, v]) => CHANNEL_ID.test(id) && v && VALID.has(v.q)));
+  const saveChannels = () => api.storage.local.set({ [CHANNELS]: channels });
+
+  function showChannels(map) {
+    channels = clean(map);
+    const ids = Object.keys(channels).sort((a, b) =>
+      (channels[a].name || a).localeCompare(channels[b].name || b, undefined, { sensitivity: 'base' }));
+    empty.hidden = ids.length > 0;
+    clearAll.hidden = ids.length === 0;
+    clearAll.textContent = 'Remove all';
+    delete clearAll.dataset.confirm;
+    if (ids.join() === shownIds) { // same channels: just update values (keeps keyboard focus)
+      for (const id of ids) list.querySelector(`select[data-id="${id}"]`).value = channels[id].q;
+      return;
+    }
+    shownIds = ids.join();
+    list.replaceChildren(...ids.map((id) => {
+      const name = channels[id].name || id;
+      const li = document.createElement('li');
+      li.className = 'channel';
+      const link = document.createElement('a');
+      link.href = `https://www.youtube.com/channel/${id}`;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = name;
+      link.title = `${name} (${id})`;
+      const pick = document.createElement('select');
+      pick.dataset.id = id;
+      pick.setAttribute('aria-label', `Default quality for ${name}`);
+      for (const [q, label] of OPTIONS) pick.append(new Option(label, q, false, q === channels[id].q));
+      pick.addEventListener('change', () => {
+        channels[id] = { ...channels[id], q: pick.value };
+        saveChannels().then(() => flash(`Saved: ${name} → ${pick.selectedOptions[0].text}`))
+          .catch(() => flash('Could not save. Please try again.'));
+      });
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'remove';
+      remove.textContent = '×';
+      remove.setAttribute('aria-label', `Remove default for ${name}`);
+      remove.title = 'Remove';
+      remove.addEventListener('click', () => {
+        const next = li.nextElementSibling || li.previousElementSibling;
+        delete channels[id];
+        saveChannels().then(() => {
+          flash(`Removed ${name}`);
+          (next && next.querySelector('select') || clearAll).focus(); // keep keyboard users in place
+        }).catch(() => flash('Could not remove. Please try again.'));
+      });
+      li.append(link, pick, remove);
+      return li;
+    }));
+  }
+  function flash(text) {
+    status.textContent = text;
+    status.classList.add('show');
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(() => status.classList.remove('show'), 2200);
+  }
+  api.storage.local.get(CHANNELS).then((r) => showChannels(r[CHANNELS])).catch(() => showChannels({}));
+  let clearTimer = 0;
+  clearAll.addEventListener('click', () => {
+    if (!clearAll.dataset.confirm) { // first click asks, second click clears
+      clearAll.dataset.confirm = '1';
+      clearAll.textContent = 'Click again to confirm';
+      clearTimeout(clearTimer);
+      clearTimer = setTimeout(() => { clearAll.textContent = 'Remove all'; delete clearAll.dataset.confirm; }, 3000);
+      return;
+    }
+    clearTimeout(clearTimer);
+    channels = {};
+    saveChannels().then(() => flash('All channel defaults removed'))
+      .catch(() => flash('Could not remove. Please try again.'));
+  });
+
   // Stay in sync if things change in the player while the popup is open.
   api.storage.onChanged.addListener((changes, area) => {
     if (area === 'sync' && changes[KEY]) select(changes[KEY].newValue);
     if (area === 'local' && changes[OVERRIDES]) showMemory(changes[OVERRIDES].newValue);
+    if (area === 'local' && changes[CHANNELS]) showChannels(changes[CHANNELS].newValue);
   });
 })();

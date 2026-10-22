@@ -22,7 +22,7 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
 
 (async () => {
   await tick();
-  assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides'], 'sends default and remembered videos');
+  assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides', 'channels'], 'sends default, remembered videos and channel defaults');
   assert.strictEqual(posted[0].value, 'hd1080');
 
   await fromPage({ type: 'remember', videoId: 'dQw4w9WgXcQ', value: 'large' });
@@ -43,6 +43,28 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
   const keys = Object.keys(store.local.videoOverrides);
   assert.strictEqual(keys.length, 1000);
   assert.ok(!keys.includes('vid00000') && keys.at(-1) === 'newestVideo', 'drops the oldest');
+
+  // Channel defaults
+  const CH = 'UC' + 'a'.repeat(22);
+  await tick();
+  assert.deepStrictEqual(posted.slice(0, 3).map((m) => m.type), ['pref', 'overrides', 'channels'], 'sends channel defaults too');
+  await fromPage({ type: 'channel', channelId: CH, value: 'hd1080', name: '  Alpha  ' });
+  assert.deepStrictEqual(store.local.channelPrefs, { [CH]: { q: 'hd1080', name: 'Alpha' } }, 'saves channel default');
+  await fromPage({ type: 'channel', channelId: CH, value: 'hd2160', name: 'Alpha' });
+  assert.strictEqual(store.local.channelPrefs[CH].q, 'hd2160', 'updates channel default');
+  await fromPage({ type: 'channel', channelId: 'not-a-channel', value: 'hd720', name: 'x' });
+  await fromPage({ type: 'channel', channelId: 'UC' + 'b'.repeat(22), value: 'bogus', name: 'x' });
+  await fromPage({ type: 'channel', channelId: CH, value: 'hd720', name: 'x'.repeat(500) });
+  assert.strictEqual(Object.keys(store.local.channelPrefs).length, 1, 'rejects bad ids and qualities');
+  assert.strictEqual(store.local.channelPrefs[CH].name.length, 100, 'name length capped');
+  await fromPage({ type: 'channel', channelId: CH, value: null });
+  assert.deepStrictEqual(store.local.channelPrefs, {}, 'removes channel default');
+  // Corrupted storage is cleaned on read
+  store.local.channelPrefs = { junk: 1, [CH]: { q: 'hd720', name: 7 }, ['UC' + 'c'.repeat(22)]: 'oops' };
+  await fromPage({ type: 'channel', channelId: 'UC' + 'd'.repeat(22), value: 'large', name: 'Delta' });
+  assert.deepStrictEqual(store.local.channelPrefs, {
+    [CH]: { q: 'hd720', name: '' }, ['UC' + 'd'.repeat(22)]: { q: 'large', name: 'Delta' }
+  }, 'corrupted entries dropped, valid ones kept');
 
   console.log('All checks passed');
 })().catch((e) => { console.error(e); process.exit(1); });

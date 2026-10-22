@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Resolute: Video Quality Control",
   "version": "1.0.0",
-  "description": "Pick video quality from a button inside the YouTube player. Set a default, or remember a quality for just one video.",
+  "description": "Pick video quality from a button inside the YouTube player. Set a default for all videos, for each channel, or for one video.",
   "minimum_chrome_version": "111",
   "permissions": ["storage"],
   "host_permissions": ["https://www.youtube.com/*", "https://www.youtube-nocookie.com/*"],

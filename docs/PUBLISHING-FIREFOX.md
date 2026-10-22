@@ -119,6 +119,10 @@ npx web-ext run --source-dir dist\firefox-check --start-url https://www.youtube.
 | 13 | Site access off | `about:addons` → Permissions → turn YouTube **off** → popup shows **Allow on YouTube** → click it → access back on, button returns after reload |
 | 14 | Keyboard | Tab to the button, ↓, arrows, Enter, Esc work; Space pauses the video after a mouse click on the button |
 | 15 | Console | No red errors from the add-on in either console |
+| 16 | Channel default | Channel A video → pick 1080p → **Set as default for this channel**: "✓ Saved for A", header "A · channel default 1080p", purple dot |
+| 17 | Switch channels | Another A video → 1080p; a channel B video → global default; back to A → 1080p |
+| 18 | Edit / remove in popup | Popup → Channel defaults → change A to 720p → next A video 720p; × → A uses global default |
+| 19 | Channel + remembered video | Remember 480p on one A video: that video 480p, other A videos the channel default |
 
 If any mandatory test fails, **don't submit**. Send me what happened and I'll fix it.
 
@@ -221,7 +225,7 @@ When a reviewer writes to you:
 - [ ] Mozilla account created; **2FA on**; agreement and policies read
 - [ ] `py scripts\build.py firefox` succeeds
 - [ ] `npx web-ext lint --source-dir dist\firefox-check` → 0 errors (and 0 warnings)
-- [ ] All 15 mandatory tests pass in **real Firefox**
+- [ ] All 19 mandatory tests pass in **real Firefox**
 - [ ] Upload: **On this site**, **Firefox** only, source code: **No**
 - [ ] Name, summary, description, category, support site/email and license filled from `store/LISTING-FIREFOX.md`
 - [ ] Notes to Reviewer pasted

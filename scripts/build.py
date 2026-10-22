@@ -61,7 +61,7 @@ def main():
             problems.append(f'{f} is not {size}x{size}')
     for f in ('content.js', 'page.js', 'popup.js'):
         text = (ROOT / f).read_text()
-        if re.search(r'\beval\(|new Function\(|https?://(?!www\.w3\.org/|www\.youtube(-nocookie)?\.com/\*)', text):
+        if re.search(r'\beval\(|new Function\(|https?://(?!www\.w3\.org/|www\.youtube(-nocookie)?\.com/)', text):
             problems.append(f'{f} may contain remote code or network URLs; check it')
     if target == 'firefox':
         gecko = manifest.get('browser_specific_settings', {}).get('gecko', {})

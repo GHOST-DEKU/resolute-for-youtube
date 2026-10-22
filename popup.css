@@ -49,7 +49,8 @@ h1 { margin: 0 0 2px; font-size: 15px; font-weight: 600; }
 header p, .hint { margin: 0; color: var(--muted); font-size: 12px; }
 .hint { padding: 8px 6px 0; border-top: 1px solid var(--border); margin-top: 6px; }
 
-.options { display: flex; flex-direction: column; }
+.options { display: grid; grid-template-columns: 1fr 1fr; column-gap: 4px; }
+.options .wide, .options .sep { grid-column: 1 / -1; }
 .row {
   display: flex; align-items: center; gap: 10px;
   padding: 7px 8px; border-radius: 8px; cursor: pointer;
@@ -74,6 +75,31 @@ header p, .hint { margin: 0; color: var(--muted); font-size: 12px; }
 .link:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .link[data-confirm] { color: #d93025; }
 .hint { border-top: 0; }
+
+.channels { margin-top: 8px; padding: 8px 6px 0; border-top: 1px solid var(--border); }
+.sec-head { display: flex; align-items: center; justify-content: space-between; }
+h2 { margin: 0; font-size: 13px; font-weight: 600; }
+.empty { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+.empty[hidden] { display: none; }
+.channel-list { list-style: none; margin: 6px 0 0; padding: 0; max-height: 168px; overflow-y: auto; }
+.channel { display: flex; align-items: center; gap: 6px; padding: 3px 0; }
+.channel a {
+  flex: 1; min-width: 0; color: var(--text); text-decoration: none;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.channel a:hover { text-decoration: underline; }
+.channel select {
+  font: inherit; font-size: 12px; padding: 2px 4px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--bg); color: var(--text);
+}
+.channel .remove {
+  width: 24px; height: 24px; flex: none; border: 0; border-radius: 6px; cursor: pointer;
+  background: none; color: var(--muted); font-size: 16px; line-height: 1;
+}
+.channel .remove:hover { background: var(--row-hover); color: var(--text); }
+.channel a:focus-visible, .channel select:focus-visible, .channel .remove:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 1px;
+}
 
 .status {
   min-height: 16px; margin: 6px 6px 0; font-size: 12px; color: var(--accent);

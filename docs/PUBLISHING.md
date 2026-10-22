@@ -26,7 +26,7 @@ If those pages say something different when you read them, follow the pages.
 
 1. Get the files, either way:
    - **Download ZIP** from the GitHub repo page (green **Code** button), then unzip it, or
-   - build the Chrome package (`py scripts\build.py chrome` on Windows, `python3 scripts/build.py chrome` elsewhere) and unzip `dist/resolute-chrome-v1.0.0.zip`.
+   - build the Chrome package (`py scripts\build.py chrome` on Windows, `python3 scripts/build.py chrome` elsewhere) and unzip `dist/resolute-chrome-v1.1.0.zip`.
 2. Move the unzipped folder somewhere permanent, for example `Documents\Extensions\resolute`. **Don't delete or move it later**, because Chrome loads the extension from that folder every time.
 3. Open `chrome://extensions`.
 4. Turn on **Developer mode** (top-right switch).

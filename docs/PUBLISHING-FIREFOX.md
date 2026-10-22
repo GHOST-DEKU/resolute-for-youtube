@@ -73,14 +73,14 @@ Build and check, every release:
 
 ```bat
 py scripts\build.py firefox
-powershell -Command "Expand-Archive dist\resolute-firefox-v1.0.0.zip -DestinationPath dist\firefox-check -Force"
+powershell -Command "Expand-Archive dist\resolute-firefox-v1.1.0.zip -DestinationPath dist\firefox-check -Force"
 npx web-ext lint --source-dir dist\firefox-check
 ```
 
-On Mac or Linux, use `python3` instead of `py`, and `unzip -o dist/resolute-firefox-v1.0.0.zip -d dist/firefox-check` instead of the PowerShell line.
+On Mac or Linux, use `python3` instead of `py`, and `unzip -o dist/resolute-firefox-v1.1.0.zip -d dist/firefox-check` instead of the PowerShell line.
 
 ### What the build does
-`scripts/build.py firefox` creates `dist/resolute-firefox-v1.0.0.zip`. It refuses to build if something is wrong. It checks:
+`scripts/build.py firefox` creates `dist/resolute-firefox-v1.1.0.zip`. It refuses to build if something is wrong. It checks:
 - `manifest.json` is at the **ZIP root**;
 - every referenced file is included;
 - the Firefox ID and data-collection declaration exist;
@@ -142,6 +142,10 @@ npx web-ext run --source-dir dist\firefox-check --start-url https://www.youtube.
 | 17 | Switch channels | Another A video → 1080p; a channel B video → global default; back to A → 1080p |
 | 18 | Edit / remove in popup | Popup → Channel defaults → change A to 720p → next A video 720p; × → A uses global default |
 | 19 | Channel + remembered video | Remember 480p on one A video: that video 480p, other A videos the channel default |
+| 20 | ⏸ button | A ⏸ button sits right after the mic button next to the search box, in light and dark YouTube themes; one button only |
+| 21 | Open videos paused | Turn it on (⏸ button or popup; the other one updates). Open a video: it opens paused. Press play: it plays and stays playing |
+| 22 | Autoplay-next and ads | With it on, let a video end: the next one opens paused. A video with an ad: the ad plays, then the video opens paused |
+| 23 | Turn it off | Turn it off: videos autoplay again as normal |
 
 If any mandatory test fails, **don't submit**. Send me what happened and I'll fix it.
 
@@ -160,7 +164,7 @@ Guide: [Submitting an add-on](https://extensionworkshop.com/documentation/publis
 2. **How to distribute:** choose **On this site**.
    - This lists the add-on publicly on addons.mozilla.org.
    - *On your own* only signs a file for you to share yourself. That's not what you want.
-3. **Upload** `dist/resolute-firefox-v1.0.0.zip`.
+3. **Upload** `dist/resolute-firefox-v1.1.0.zip`.
    - Max size is 200 MB; yours is about 22 KB.
    - The validator runs again: it should show no errors or warnings.
 4. **Platforms:** tick **Firefox** only. Don't tick Firefox for Android.
@@ -247,7 +251,7 @@ When a reviewer writes to you:
 - [ ] Mozilla account created; **2FA on**; agreement and policies read
 - [ ] `py scripts\build.py firefox` succeeds
 - [ ] `npx web-ext lint --source-dir dist\firefox-check` → 0 errors (and 0 warnings)
-- [ ] All 19 mandatory tests pass in **real Firefox**
+- [ ] All 23 mandatory tests pass in **real Firefox**
 - [ ] Upload: **On this site**, **Firefox** only, source code: **No**
 - [ ] Name, summary, description, category, support site/email and license filled from `store/LISTING-FIREFOX.md`
 - [ ] Notes to Reviewer pasted

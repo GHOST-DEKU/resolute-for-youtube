@@ -26,9 +26,9 @@ Resolute: Video Quality Control
 resolute-video-quality
 ```
 
-**Summary** (224/250 characters)
+**Summary** (198/250 characters)
 ```
-Change YouTube video quality from a button inside the player. Pick a quality for just the current video, remember it for that video, save it as the default for the video's channel, or make it your global default. Auto to 4K.
+Change YouTube video quality from a button inside the player: for one video, a channel, or all videos (Auto to 4K). Optional: stop autoplay, so videos open paused and start only when you press play.
 ```
 
 **Description**
@@ -49,11 +49,16 @@ Auto, Highest available, 144p, 240p, 360p, 480p, 720p, 1080p, 1440p and 2160p (4
 • If you choose a quality a video doesn't have, the closest lower quality is used, and the menu tells you which one.
 • YouTube decides which qualities each video offers. Your connection and YouTube itself can still affect playback.
 
+No autoplay (optional)
+• Turn on "Open videos paused" with the button next to YouTube's search box or in the toolbar popup.
+• Videos (including the next one YouTube autoplays) open paused and start only when you press play.
+• Your own play is never undone, and ads are left alone.
+
 Details
 • Works on youtube.com and on YouTube videos embedded in other websites.
 • Waits for ads to finish before applying your quality.
 • Keyboard friendly: Tab to the button, arrow keys to move, Enter to choose, Esc to close.
-• The toolbar icon lets you set your global default, see, edit and remove channel defaults, and clear remembered videos.
+• The toolbar icon lets you set your global default, turn "Open videos paused" on or off, see, edit and remove channel defaults, and clear remembered videos.
 
 Privacy
 Your settings stay in your browser. The extension sends no data anywhere and has no analytics or ads.
@@ -93,6 +98,7 @@ Tell me which one and I'll add a matching `LICENSE` file to the repo.
 - No remote code, no eval, no network requests. Data collection declared as "none": settings are kept only in storage.sync / storage.local.
 - page.js runs in the MAIN world because YouTube's player methods (getAvailableQualityLevels, setPlaybackQualityRange, getPlayerResponse on #movie_player) are only reachable from the page. getPlayerResponse is used only to read the current video's channel ID (videoDetails.channelId) for per-channel defaults. content.js bridges to extension storage via window.postMessage; all incoming values are validated against an allow-list.
 - How to test: open any youtube.com video. A quality button (shows "Max" by default) appears left of the player's settings gear. Pick a quality: it applies to that video only. "Remember for this video" / "Make default for all videos" at the bottom of the menu save the choice. No login required.
+- "Open videos paused" (off by default): a pause-icon button is added next to YouTube's search box, plus a switch in the toolbar popup. When on, page.js calls the player's pauseVideo() once, the first time each video starts on its own; plays started by the user (pointer in the player, K/Space/media keys within the last second) are never paused. The setting is one boolean in storage.sync ("stopAutoplay").
 ```
 
 ---

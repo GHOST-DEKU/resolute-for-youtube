@@ -20,7 +20,15 @@ Options: Auto · Highest available · 144p · 240p · 360p · 480p · 720p · 10
 Which one wins when a video loads: **pick for now → remembered for this video → channel default → global default** (Auto = YouTube decides).
 
 The menu header shows the current channel and whether it has its own default (or "no channel default (global: …)"). A short ✓ message confirms every save.
-The label dot shows where the quality comes from: none = global default, white = this video only, blue = remembered video, purple = channel default.
+The dot on the button shows where the quality comes from: none = global default, hollow ring = this video only (not saved), filled grey-violet = remembered video, filled mauve = channel default.
+
+### Design
+The popup and the in-player menu use a design **inspired by Material 3 Expressive** (not an official Material implementation):
+- **Shapes:** pill buttons and chips, connected button groups, and a selected item that morphs from a pill to a rounded square.
+- **Colour roles:** primary = global default, secondary = this video, tertiary = channel.
+- **Motion:** spring-like, and switched off when the system's "reduce motion" setting is on.
+- **Surfaces:** translucent and frosted. In the player, the video shows through the menu.
+- **Theme:** the popup has a **System / Light / Dark** switch. The in-player menu is always dark, like YouTube's own player controls.
 
 **Toolbar popup:** set the global default; under **Channel defaults** see every saved channel, change its quality, remove it (×) or **Remove all**; clear remembered videos with **Forget all**.
 

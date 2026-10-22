@@ -7,29 +7,94 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <div class="notice" id="access" role="alert" hidden>
-    <p>The quality button can't appear because this extension isn't allowed to run on YouTube.</p>
-    <button type="button" id="grant">Allow on YouTube</button>
-  </div>
-  <header>
-    <h1 id="title">Default quality</h1>
-    <p>Used for every YouTube video, unless its channel or the video itself has its own setting.</p>
-  </header>
-  <div id="options" class="options" role="radiogroup" aria-labelledby="title"></div>
-  <div class="memory">
-    <span id="memory-count">No videos remembered</span>
-    <button type="button" id="forget-all" class="link" hidden>Forget all</button>
-  </div>
-  <section class="channels" aria-labelledby="ch-title">
-    <div class="sec-head">
-      <h2 id="ch-title">Channel defaults</h2>
-      <button type="button" id="channels-clear" class="link" hidden>Remove all</button>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <img src="icons/icon48.png" alt="" width="32" height="32">
+        <div>
+          <h1>Resolute</h1>
+          <p>Video quality for YouTube</p>
+        </div>
+      </div>
+      <div class="theme" id="theme" role="radiogroup" aria-label="Theme">
+        <button type="button" role="radio" data-theme="system" aria-label="Match system theme" title="Match system">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22A10 10 0 1 1 12 2a10 10 0 0 1 0 20zm0-2V4a8 8 0 1 0 0 16z"/></svg>
+        </button>
+        <button type="button" role="radio" data-theme="light" aria-label="Light theme" title="Light">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17a5 5 0 1 1 0-10 5 5 0 0 1 0 10zM11 1h2v3h-2zm0 19h2v3h-2zM3.5 4.9l1.4-1.4 2.1 2.1-1.4 1.4zm12.1 12.1 1.4-1.4 2.1 2.1-1.4 1.4zM1 11h3v2H1zm19 0h3v2h-3zM3.5 19.1l2.1-2.1 1.4 1.4-2.1 2.1zM15.6 5.6l2.1-2.1 1.4 1.4-2.1 2.1z"/></svg>
+        </button>
+        <button type="button" role="radio" data-theme="dark" aria-label="Dark theme" title="Dark">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 0 1-1.5-17.9A7 7 0 0 0 20.9 13.5 9 9 0 0 1 12 21z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="notice" id="access" role="alert" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 21 12 2l11 19zm12-3v-2h-2v2zm0-4v-4h-2v4z"/></svg>
+      <div>
+        <p>The quality button can't appear: this extension isn't allowed to run on YouTube.</p>
+        <button type="button" class="btn filled" id="grant">Allow on YouTube</button>
+      </div>
     </div>
-    <p class="empty" id="channels-empty">None yet. On any video, open the quality menu and choose "Set as default for this channel".</p>
-    <ul id="channel-list" class="channel-list"></ul>
-  </section>
-  <p class="hint">In the player, the quality button (next to the gear) changes only the current video. To save it, use "Remember for this video", "Set as default for this channel" or "Make default" at the bottom of that menu.</p>
-  <p class="status" id="status" role="status" aria-live="polite"></p>
+
+    <section class="card card-global" aria-labelledby="g-title">
+      <div class="card-head">
+        <span class="badge badge-primary" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+        </span>
+        <div>
+          <h2 id="g-title">Global default</h2>
+          <p>For videos without their own setting</p>
+        </div>
+      </div>
+      <fieldset class="quality" id="options">
+        <legend class="sr-only">Global default quality</legend>
+        <div class="segmented" id="modes"></div>
+        <div class="chips" id="resolutions"></div>
+      </fieldset>
+    </section>
+
+    <section class="card card-channels" aria-labelledby="ch-title">
+      <div class="card-head">
+        <span class="badge badge-tertiary" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+        </span>
+        <div class="grow">
+          <h2 id="ch-title">Channel defaults</h2>
+          <p id="channel-count">Beat the global default</p>
+        </div>
+        <button type="button" id="channels-clear" class="btn text" hidden>Remove all</button>
+      </div>
+      <p class="empty" id="channels-empty">None yet. On any video, open the quality menu and choose <b>Set as default for this channel</b>.</p>
+      <ul id="channel-list" class="channel-list"></ul>
+    </section>
+
+    <section class="card card-row" aria-labelledby="m-title">
+      <span class="badge badge-secondary" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M16 9V4h1a1 1 0 0 0 0-2H7a1 1 0 0 0 0 2h1v5a3 3 0 0 1-3 3v2h5.97v7l1 1 1-1v-7H19v-2a3 3 0 0 1-3-3z"/></svg>
+      </span>
+      <div class="grow">
+        <h2 id="m-title">Remembered videos</h2>
+        <p id="memory-count">No videos remembered</p>
+      </div>
+      <button type="button" id="forget-all" class="btn text" hidden>Forget all</button>
+    </section>
+
+    <p class="hint">Tip: player picks apply to one video until saved.</p>
+  </div>
+
+  <dialog id="confirm" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+    <form method="dialog">
+      <h2 id="confirm-title"></h2>
+      <p id="confirm-text"></p>
+      <div class="actions">
+        <button class="btn text" value="cancel">Cancel</button>
+        <button class="btn filled danger" value="ok" id="confirm-ok">Remove</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="snackbar" id="status" role="status" aria-live="polite"></div>
   <script src="popup.js"></script>
 </body>
 </html>

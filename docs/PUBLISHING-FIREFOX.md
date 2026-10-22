@@ -1,8 +1,27 @@
 # Publishing Resolute on Firefox Add-ons (AMO)
 
-A step-by-step guide for a first-time publisher. Steps marked **👤 You** need your Mozilla account. Everything else is already prepared in this repo.
+**Firefox is this project's main distribution channel.** Resolute is *not* on the Chrome Web Store; for Chrome, see [PUBLISHING.md](PUBLISHING.md).
+
+**Status:** prepared and validated, **not yet submitted**. Nothing has been published on addons.mozilla.org yet, so there's no public install link.
+
+This is a step-by-step guide for a first-time publisher. Steps marked **👤 You** need your Mozilla account. Everything else is already prepared in this repo.
 
 Facts that change over time are linked to Mozilla's official pages, checked on **22 October 2026**. If a page says something different when you read it, follow the page.
+
+---
+
+## 0. Ways to get Resolute into Firefox
+
+Firefox only installs add-ons that **Mozilla has signed**. This applies to the normal release and beta versions of Firefox. Signing is free and happens through addons.mozilla.org (AMO), even if you never list the add-on publicly. ([Signing and distribution](https://extensionworkshop.com/documentation/publish/signing-and-distribution-overview/))
+
+| Option | Who it's for | Signed? | Updates | Notes |
+|---|---|---|---|---|
+| **Listed on AMO** (the plan) | Everyone | ✅ by Mozilla | Automatic | One-click install from addons.mozilla.org. This guide's main path (sections 2–5). |
+| **Self-distributed** ("On your own" in the Developer Hub) | People you give the file to | ✅ by Mozilla | Only if you host an `update_url`, otherwise manual | You get a signed `.xpi` to host yourself. Users install it from a web link served as `application/x-xpinstall`, or with ⚙ → **Install Add-on From File** in `about:addons`. No AMO page, no discovery. ([Self-distribution](https://extensionworkshop.com/documentation/publish/self-distribution/), [installing](https://extensionworkshop.com/documentation/publish/install-self-distributed/)) |
+| **Temporary install** (`about:debugging`) | You, for testing | ❌ not needed | — | Removed when Firefox closes. See section 4. |
+| **Unsigned install** | Testing only | ❌ | — | Only works in Firefox **Developer Edition, Nightly or ESR**, with `xpinstall.signatures.required` set to `false` in `about:config`. Not possible in regular Firefox. |
+
+Listed and self-distributed versions go through the same signing, with the same add-on ID. Pick **one** main channel for public users (this project: listed on AMO).
 
 ---
 
@@ -157,7 +176,10 @@ Guide: [Submitting an add-on](https://extensionworkshop.com/documentation/publis
    - No review time is promised, and it varies.
    - Watch the email of your Mozilla account.
 9. **After it's listed:** on the add-on's **Edit Product Page**, add:
-   - **screenshots:** the same 1280×800 ones you made for Chrome. Mozilla recommends 1280×800 or a 1.6:1 ratio, and putting explanations in captions rather than on the image. ([listing tips](https://extensionworkshop.com/documentation/develop/create-an-appealing-listing/))
+   - **screenshots:** take 3–4 at 1280×800 on real YouTube in Firefox, plus `store/screenshot-popup-1280x800.png`. Mozilla recommends 1280×800 or a 1.6:1 ratio, and putting explanations in captions rather than on the image.
+     *How to take an exact 1280×800 shot:*
+     1. Press Ctrl+Shift+M (Responsive Design Mode) and set the size to 1280 × 800.
+     2. Click the camera icon in that toolbar. ([listing tips](https://extensionworkshop.com/documentation/develop/create-an-appealing-listing/))
    - the **homepage** URL.
 10. **Verify the public listing:**
     - Open it in a private window.

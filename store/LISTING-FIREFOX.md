@@ -102,4 +102,4 @@ Tell me which one and I'll add a matching `LICENSE` file to the repo.
 | Asset | File | Notes |
 |---|---|---|
 | Icon | from the manifest (`icons/*.png`) | AMO shows the manifest icon; you can also upload one on the listing edit page (32×32 / 64×64, PNG or JPEG). |
-| Screenshots | the same 1280×800 shots you take for Chrome, plus `store/screenshot-popup-1280x800.png` | Mozilla recommends 1280×800 (or a 1.6:1 ratio). Explain features in the caption field, not as text on the image. Added on the listing edit page after submission. |
+| Screenshots | 3–4 shots at 1280×800 taken in Firefox on real YouTube (steps in `docs/PUBLISHING-FIREFOX.md`), plus `store/screenshot-popup-1280x800.png` | Mozilla recommends 1280×800 (or a 1.6:1 ratio). Explain features in the caption field, not as text on the image. Added on the listing edit page after submission. |

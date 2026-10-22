@@ -2,7 +2,10 @@
 
 A Chrome / Firefox extension that adds a **quality button inside the YouTube player** (next to the ⚙ settings button).
 
-📦 Publishing: [Chrome Web Store](docs/PUBLISHING.md) · [Firefox Add-ons](docs/PUBLISHING-FIREFOX.md) · 🔒 [Privacy policy](PRIVACY.md)
+📦 **Distribution**
+- **Firefox:** [Mozilla Add-ons publishing guide](docs/PUBLISHING-FIREFOX.md). Planned for addons.mozilla.org; **not yet submitted**, so there's no store link yet.
+- **Chrome:** [Manual installation and distribution guide](docs/PUBLISHING.md). **Not on the Chrome Web Store** (its developer registration fee isn't being paid); install it yourself in Developer mode.
+- 🔒 [Privacy policy](PRIVACY.md)
 
 Options: Auto · Highest available · 144p · 240p · 360p · 480p · 720p · 1080p · 1440p · 2160p (4K)
 
@@ -37,16 +40,23 @@ The popup and the in-player menu use a design **inspired by Material 3 Expressiv
 - The ID is only accepted when the player data is for the **same video** that is playing, so one channel's setting is never applied to another channel's video during page changes.
 - If no channel ID can be found within about 2 seconds, the video uses your global default and the menu says "Channel not detected".
 
-## Install (unpacked)
+## Install
 
-**Chrome / Edge**
-1. Open `chrome://extensions` and turn on **Developer mode**.
-2. Click **Load unpacked** and pick this folder.
+**Chrome** (manual, no store; see the [full guide and its limits](docs/PUBLISHING.md)):
+1. Download this repo (**Code → Download ZIP**) and unzip it somewhere permanent.
+2. Open `chrome://extensions` and turn on **Developer mode**.
+3. Click **Load unpacked** and pick the folder that contains `manifest.json`.
 
-**Firefox (140+)**
-1. Open `about:debugging#/runtime/this-firefox`.
-2. Click **Load Temporary Add-on** and pick `manifest.json`.
-3. If the button doesn't appear, open `about:addons` → this extension → **Permissions** and allow YouTube.
+It won't update automatically. A downloaded ZIP or `.crx` can't be installed by just opening it in Chrome on Windows or macOS.
+
+**Firefox 140+:**
+- **Once it's listed** on Mozilla Add-ons, install it from there with one click and automatic updates. Not available yet.
+- **For testing now:**
+  1. Open `about:debugging#/runtime/this-firefox`.
+  2. Click **Load Temporary Add-on** and pick `manifest.json`. It's removed when Firefox closes.
+  3. If the button doesn't appear, open `about:addons` → Resolute → **Permissions** and allow YouTube.
+
+**Other Chromium browsers (Edge, Brave, …):** each browser has its own rules; see the [Chrome guide, section 5](docs/PUBLISHING.md#5-legitimate-alternatives-for-chromium-based-browsers).
 
 ## How it works
 
@@ -70,7 +80,7 @@ node test/content.test.js
 ```
 Runs the scripts against a fake YouTube player and fake storage (placement, menu, this-video picks, remember/forget, channel defaults incl. switching channels, missing/stale channel IDs, renamed channels and corrupted data, global default, fallback, ads, no duplicates, keyboard).
 
-## Build the store packages
+## Build the packages
 
 ```
 python3 scripts/build.py chrome    # -> dist/resolute-chrome-v<version>.zip

@@ -1,4 +1,6 @@
-# Chrome Web Store — copy-ready text
+# Chrome Web Store — copy-ready text (not in use)
+
+> **Not in use.** Resolute is not being published on the Chrome Web Store (see [docs/PUBLISHING.md](../docs/PUBLISHING.md)). This text is kept only in case that plan changes. It hasn't been submitted anywhere. Some details (privacy answers, screenshots) would need re-checking before any future submission.
 
 Everything below matches what the code actually does (checked against `page.js`, `content.js`, `popup.js`).
 
@@ -59,7 +61,7 @@ YouTube is a trademark of Google LLC. Resolute is not made, endorsed, or sponsor
 | Store icon | `icons/icon128.png` (already inside the ZIP) | 128×128 |
 | Small promo tile (required) | `store/small-promo-440x280.png` | 440×280 |
 | Marquee promo tile (optional) | `store/marquee-1400x560.png` | 1400×560 |
-| Screenshots (1 required, up to 5) | You take 3–4 on real YouTube (steps in `docs/PUBLISHING.md`), plus `store/screenshot-popup-1280x800.png` | 1280×800 |
+| Screenshots (1 required, up to 5) | You take 3–4 on real YouTube (take them on real YouTube at 1280×800), plus `store/screenshot-popup-1280x800.png` | 1280×800 |
 
 **Additional fields**
 - Homepage URL: `https://github.com/GHOST-DEKU/youtube-quality-control`

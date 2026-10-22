@@ -2,6 +2,8 @@
 
 **Effective date:** 22 October 2026
 
+Resolute is available by manual installation in Chrome and is planned for Mozilla Add-ons (Firefox). This policy covers the extension's own behaviour in any browser.
+
 Resolute: Video Quality Control ("the extension") lets you choose the video quality of YouTube videos from a button inside the YouTube player. This policy explains exactly what the extension stores and what it does not do.
 
 ## What the extension stores
@@ -9,6 +11,7 @@ Resolute: Video Quality Control ("the extension") lets you choose the video qual
 | What | When | Where it is stored |
 |---|---|---|
 | Your **default quality** (for example "1080p" or "Highest available") | When you pick a default in the popup or click **Make default for all videos** in the player menu | Your browser's extension storage (`storage.sync`). If you have turned on Chrome Sync or Firefox Sync, your browser copies this setting to your other signed-in browsers. That copying is done by your browser and your Google or Mozilla account, not by the extension or its developer. |
+| Your **popup theme** (System, Light or Dark) | When you pick a theme in the toolbar popup | Your browser's extension storage (`storage.sync`), synced by your browser like the default quality. |
 | **Video IDs you choose to remember**, each with its quality (for example `dQw4w9WgXcQ → 480p`) | Only when you click **Remember for this video** | Your browser's local extension storage (`storage.local`), on this device only. It is never synced. At most the 1,000 most recent are kept. |
 | **Channel defaults**: the YouTube channel ID (for example `UCxxxxxxxxxxxxxxxxxxxxxx`), the channel's display name, and the chosen quality | Only when you click **Set as default for this channel** (or edit the list in the popup) | Your browser's local extension storage (`storage.local`), on this device only. It is never synced. The name is kept only so the list in the popup is readable; it is updated if the channel renames itself. At most 2,000 channels are kept. |
 
@@ -33,6 +36,8 @@ The extension reads the ID of the video currently playing, the ID and name of it
 - **Forget all videos:** click the extension's toolbar icon, then **Forget all**.
 - **Remove a channel default:** in the player menu on one of that channel's videos, or in the toolbar popup under **Channel defaults** (the × button). **Remove all** clears every channel default.
 - **Remove everything:** uninstalling the extension deletes all data it stored.
+
+The popup's channel list links to each channel's page on YouTube. Following such a link is ordinary browsing that you choose to do; the extension doesn't send anything by itself.
 
 ## Changes to this policy
 

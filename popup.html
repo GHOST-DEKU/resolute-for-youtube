@@ -69,20 +69,39 @@
       <ul id="channel-list" class="channel-list"></ul>
     </section>
 
-    <label class="card card-row card-autoplay" for="autoplay">
-      <span class="badge badge-pause" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zm6.5 0H17v14h-3.5z"/></svg>
-      </span>
-      <div class="grow">
-        <h2 id="ap-title">Open videos paused</h2>
-        <p id="ap-text">No autoplay. Videos start only when you press play.</p>
+    <section class="card card-autoplay" aria-labelledby="ap-title">
+      <div class="card-head">
+        <span class="badge badge-pause" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zm6.5 0H17v14h-3.5z"/></svg>
+        </span>
+        <div>
+          <h2 id="ap-title">Start paused</h2>
+          <p>Stop autoplay. Pressing play always works.</p>
+        </div>
       </div>
-      <span class="switch">
-        <input type="checkbox" role="switch" id="autoplay" aria-labelledby="ap-title" aria-describedby="ap-text">
-        <span class="track" aria-hidden="true"></span>
-        <span class="thumb" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></span>
-      </span>
-    </label>
+      <label class="ap-row" for="ap-opened">
+        <span class="grow">
+          <span class="ap-name" id="ap-opened-t">Videos I open</span>
+          <span class="ap-hint" id="ap-opened-d">Clicked, linked or in a new tab</span>
+        </span>
+        <span class="switch">
+          <input type="checkbox" role="switch" id="ap-opened" aria-labelledby="ap-opened-t" aria-describedby="ap-opened-d">
+          <span class="track" aria-hidden="true"></span>
+          <span class="thumb" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></span>
+        </span>
+      </label>
+      <label class="ap-row" for="ap-next">
+        <span class="grow">
+          <span class="ap-name" id="ap-next-t">Next in queue or playlist</span>
+          <span class="ap-hint" id="ap-next-d">When one video follows another</span>
+        </span>
+        <span class="switch">
+          <input type="checkbox" role="switch" id="ap-next" aria-labelledby="ap-next-t" aria-describedby="ap-next-d">
+          <span class="track" aria-hidden="true"></span>
+          <span class="thumb" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></span>
+        </span>
+      </label>
+    </section>
 
     <section class="card card-row" aria-labelledby="m-title">
       <span class="badge badge-secondary" aria-hidden="true">

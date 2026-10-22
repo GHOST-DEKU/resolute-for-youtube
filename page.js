@@ -15,9 +15,11 @@
  *   4. the default for all videos ("Auto" lets YouTube decide)
  * Saved values live in extension storage; content.js passes them here.
  *
- * Optional "open videos paused": the first time each video starts playing on its own,
- * it is paused. A play you start yourself (click/tap in the player, K, Space,
- * media key) is never undone.
+ * Optional autoplay control, two independent settings:
+ *   - "Videos I open": a video you open (click, link, new tab) starts paused.
+ *   - "Next in queue or playlist": a video that follows another one by itself starts paused.
+ * "Next" means the previous video ended and you haven't clicked or typed since.
+ * A play you start yourself (click/tap in the player, K, Space, media key) is never undone.
  */
 (() => {
   'use strict';
@@ -58,10 +60,14 @@
   let channels = {};             // { UCchannelId: { q, name } } channel defaults
   let channelsKnown = false;
   let temp = null;               // { vid, q } pick for the current video only
-  let holdAutoplay = false;      // "open videos paused" setting
+  let holdOpened = false;        // "Videos I open" start paused
+  let holdNext = false;          // "Next in queue or playlist" start paused
   let autoplayKnown = false;
   let heldVid = '';              // video whose first start was already checked
   let lastPlayGesture = 0;       // time of the user's last play-like input
+  let lastInput = 0;             // time of the user's last click/tap/key anywhere (not on our own controls)
+  let endedAt = 0;               // when a video last played to its end
+  let endedVid = '';
   const channelCache = new Map(); // videoId -> { id, name } once detected
   const renamed = new Set();      // "id|name" pairs whose stored name we already refreshed
   let flashTimer = 0;
@@ -265,73 +271,276 @@
     }).observe(p, { attributes: true, attributeFilter: ['class'] });
   }
 
-  // ---------- open videos paused ----------
+  // ---------- autoplay control ----------
   const PLAY_KEYS = new Set([' ', 'k', 'K', 'MediaPlayPause', 'MediaPlay']);
   function holdIfAutoplayed() {
-    if (!holdAutoplay) return;
     const p = getPlayer();
     const v = p && p.querySelector('video');
     if (!v || v.paused || p.classList.contains('ad-showing')) return; // ads: wait for the real video
     const vid = videoIdOf(p);
     if (!vid || vid === heldVid) return;  // only the first start of each video
-    heldVid = vid;
+    heldVid = vid; // tracked even when off, so switching on never pauses the video already playing
+    const next = endedAt > 0 && endedVid !== vid && endedAt > lastInput; // followed on by itself
+    endedAt = 0;
     if (Date.now() - lastPlayGesture < 1000) return; // you pressed play: leave it playing
-    call(p, 'pauseVideo');
+    if (next ? holdNext : holdOpened) call(p, 'pauseVideo');
   }
+  const ownControl = (t) => !!(mast.btn && t && t.nodeType === 1 && (mast.btn.contains(t) || mast.menu.contains(t)));
 
-  // ---------- the same switch next to YouTube's search box (top page only) ----------
+  // ---------- autoplay button next to YouTube's search box (top page only) ----------
+  // Material 3 Expressive "unfolding split button". At rest it is one small shape beside the mic button:
+  //   the glyph  ▶ → ⏸            = videos you open start paused
+  //   the wavy ring unwinds       = next videos in a queue/playlist start paused
+  //   the shape: circle → cookie → rounded square, tinted soft → solid = how much is on
+  // Pointing at it unfolds a split button: [shape + words] switches both settings, [chevron] opens a menu
+  // with a switch for each. It floats over empty space, so YouTube's layout never moves.
   const IS_TOP = window === window.top && location.hostname === 'www.youtube.com';
-  const mast = { btn: null, tip: null, tipTimer: 0, note: '' };
-  function buildMast() {
-    const btn = el('button', 'yqx-ap', { id: 'yqx-autoplay', type: 'button', 'aria-pressed': 'false' });
-    const NS = 'http://www.w3.org/2000/svg';
-    const svg = document.createElementNS(NS, 'svg');
-    svg.setAttribute('viewBox', '0 0 24 24');
-    svg.setAttribute('aria-hidden', 'true');
-    for (const x of ['7', '13.5']) { // two pause bars (animated separately)
-      const r = document.createElementNS(NS, 'rect');
-      Object.entries({ x, y: '5', width: '3.5', height: '14', rx: '1.2', fill: 'currentColor' }).forEach(([k, v]) => r.setAttribute(k, v));
-      svg.append(r);
+  const mast = { btn: null, lead: null, trail: null, lbl: null, menu: null, rows: {}, live: null, hover: false, open: false, word: '' };
+  const summary = () => (holdOpened && holdNext ? 'Videos wait for you'
+    : holdOpened ? 'Opened videos wait' : holdNext ? 'Next videos wait' : 'Autoplay on');
+  const shortWord = () => (holdOpened && holdNext ? 'No autoplay' : holdOpened ? 'Opened wait' : holdNext ? 'Next wait' : 'Autoplay');
+  const NS = 'http://www.w3.org/2000/svg';
+  // Shapes are polygons with the same number of points, so clip-path can morph between them.
+  const SHAPES = (() => {
+    const N = 72;
+    const poly = (f) => `polygon(${Array.from({ length: N }, (_, i) => {
+      const t = (i / N) * Math.PI * 2;
+      const r = f(t);
+      return `${(50 + r * Math.cos(t)).toFixed(2)}% ${(50 + r * Math.sin(t)).toFixed(2)}%`;
+    }).join(',')})`;
+    return [
+      poly(() => 50), // circle
+      poly((t) => 45 + 5 * Math.cos(7 * t)), // 7-sided cookie
+      poly((t) => (0.92 * 50) / ((Math.abs(Math.cos(t)) ** 5 + Math.abs(Math.sin(t)) ** 5) ** 0.2)) // rounded square
+    ];
+  })();
+  // Wavy ring like M3 Expressive's wavy progress: smooth wavy arc + flat faint track with small end gaps.
+  const WAVE = (() => {
+    let d = '';
+    for (let i = 0; i <= 320; i++) {
+      const t = (i / 320) * Math.PI * 2;
+      const r = 20.5 + 1.35 * Math.sin(8 * t);
+      d += `${i ? 'L' : 'M'}${(24 + r * Math.cos(t)).toFixed(3)} ${(24 + r * Math.sin(t)).toFixed(3)}`;
     }
-    btn.append(svg);
-    btn.addEventListener('click', () => {
-      holdAutoplay = !holdAutoplay;
-      postToExt({ type: 'autoplay', value: holdAutoplay });
-      btn.classList.remove('yqx-ap-bump');
-      void btn.offsetWidth; // restart the animation
-      btn.classList.add('yqx-ap-bump');
-      updateMast();
-      showMastTip(holdAutoplay ? 'Videos will open paused' : 'Autoplay is back on', 1600);
+    return `${d}Z`;
+  })();
+  function svgEl(tag, attrs) {
+    const n = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+    return n;
+  }
+  function ring(cls) {
+    const svg = svgEl('svg', { class: cls, viewBox: '0 0 48 48', 'aria-hidden': 'true' });
+    svg.append(svgEl('circle', { class: 'yqx-track', cx: '24', cy: '24', r: '20.5', pathLength: '100' }),
+      svgEl('path', { class: 'yqx-act', d: WAVE, pathLength: '100' }));
+    return svg;
+  }
+  function glyph() { // two halves of ▶ that become the two bars of ⏸
+    const g = el('span', 'yqx-ap-glyph');
+    g.append(el('i', 'yqx-ap-l'), el('i', 'yqx-ap-r'));
+    return g;
+  }
+  function buildMast() {
+    const btn = el('span', 'yqx-au', { id: 'yqx-autoplay' });
+    const row = el('span', 'yqx-au-row');
+    const lead = el('button', 'yqx-au-lead', { type: 'button', 'aria-pressed': 'false' });
+    const ms = el('span', 'yqx-ms', { 'aria-hidden': 'true' });
+    const core = el('span', 'yqx-ms-core');
+    core.append(glyph());
+    ms.append(ring('yqx-wave'), el('span', 'yqx-ms-shape'), core);
+    const lbl = el('span', 'yqx-au-lbl', { 'aria-hidden': 'true' });
+    lbl.append(el('span', 'yqx-in'), el('span', 'yqx-out'));
+    lead.append(ms, lbl);
+    const trail = el('button', 'yqx-au-trail', {
+      type: 'button', tabindex: '-1', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-controls': 'yqx-apm', 'aria-label': 'Autoplay settings'
     });
-    btn.addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'Enter') e.stopPropagation(); });
-    btn.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') showMastTip(); });
-    btn.addEventListener('pointerleave', () => hideMastTip());
-    btn.addEventListener('focus', () => { if (btn.matches(':focus-visible')) showMastTip(); });
-    btn.addEventListener('blur', () => hideMastTip());
-    mast.btn = btn;
-    mast.tip = el('div', 'yqx-ap-tip', { 'aria-hidden': 'true' });
+    const chev = svgEl('svg', { class: 'yqx-chev', viewBox: '0 0 12 12', 'aria-hidden': 'true' });
+    chev.append(svgEl('path', { d: 'M2 4.2 6 8l4-3.8', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+    trail.append(chev);
+    row.append(lead, trail);
+    btn.append(row);
+
+    // The menu: one row per setting. Each row's icon is the part of the button it controls.
+    const menu = el('div', 'yqx-apm', { id: 'yqx-apm', role: 'menu', 'aria-label': 'Start paused' });
+    const title = el('div', 'yqx-apm-title', { 'aria-hidden': 'true' });
+    title.textContent = 'Start paused';
+    const list = el('div', 'yqx-apm-list');
+    const makeRow = (key, name, hint) => {
+      const r = el('div', `yqx-apm-row yqx-apm-row-${key}`, { role: 'menuitemcheckbox', tabindex: '-1', 'aria-checked': 'false', 'aria-label': `${name}: ${hint}` });
+      const ico = el('span', 'yqx-apm-ico', { 'aria-hidden': 'true' });
+      if (key === 'opened') ico.append(glyph());
+      else {
+        const nx = el('span', 'yqx-apm-next'); // ⏭
+        nx.append(el('i'), el('i'));
+        ico.append(nx);
+      }
+      const text = el('span', 'yqx-apm-text');
+      const b = el('span', 'yqx-apm-name');
+      b.textContent = name;
+      const sm = el('span', 'yqx-apm-hint');
+      sm.textContent = hint;
+      text.append(b, sm);
+      const sw = el('span', 'yqx-apm-sw', { 'aria-hidden': 'true' });
+      const knob = el('i');
+      const check = svgEl('svg', { class: 'yqx-sw-on', viewBox: '0 0 24 24' });
+      check.append(svgEl('path', { d: 'M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z' }));
+      const cross = svgEl('svg', { class: 'yqx-sw-off', viewBox: '0 0 24 24' });
+      cross.append(svgEl('path', { d: 'M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z' }));
+      knob.append(check, cross);
+      sw.append(knob);
+      r.append(ico, text, sw);
+      r.addEventListener('click', () => toggleHold(key));
+      list.append(r);
+      return r;
+    };
+    mast.rows.opened = makeRow('opened', 'Videos I open', 'Clicked, linked or in a new tab');
+    mast.rows.next = makeRow('next', 'Next in queue or playlist', 'When one video follows another');
+    const foot = el('div', 'yqx-apm-foot', { 'aria-hidden': 'true' });
+    foot.textContent = 'Pressing play always works.';
+    const live = el('div', 'yqx-live', { role: 'status', 'aria-live': 'polite' });
+    menu.append(title, list, foot, live);
+
+    const narrow = () => btn.classList.contains('yqx-ap-end');
+    lead.addEventListener('click', (e) => {
+      if (narrow()) { // no room to unfold: the shape opens the menu
+        if (mast.open) closeApMenu(e.detail === 0);
+        else openApMenu(lead, e.detail === 0);
+        return;
+      }
+      const all = !(holdOpened || holdNext); // one click: everything waits, or everything plays again
+      holdOpened = all;
+      holdNext = all;
+      saveHold();
+      mast.live.textContent = all ? 'Videos will start paused' : 'Autoplay is back on';
+    });
+    trail.addEventListener('click', (e) => {
+      if (mast.open) closeApMenu(e.detail === 0);
+      else openApMenu(trail, e.detail === 0);
+    });
+    for (const b of [lead, trail]) {
+      b.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); openApMenu(narrow() ? lead : trail, true); }
+        if ([' ', 'Enter', 'ArrowDown', 'ArrowUp', 'k', 'K'].includes(e.key)) e.stopPropagation(); // keep YouTube's shortcuts out
+      });
+    }
+    btn.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') { mast.hover = true; unfold(); } });
+    btn.addEventListener('pointerleave', () => { mast.hover = false; fold(); });
+    btn.addEventListener('focusin', () => { if (btn.querySelector(':focus-visible')) unfold(); });
+    btn.addEventListener('focusout', () => setTimeout(fold));
+    menu.addEventListener('keydown', onApMenuKey);
+    menu.addEventListener('keyup', (e) => e.stopPropagation());
+    menu.addEventListener('pointermove', (e) => {
+      const r = e.target.closest('.yqx-apm-row');
+      if (r && menu.contains(document.activeElement) && document.activeElement !== r) r.focus({ preventScroll: true });
+    });
+    Object.assign(mast, { btn, lead, trail, lbl, menu, live });
+  }
+  function saveHold() {
+    postToExt({ type: 'autoplay', value: { opened: holdOpened, next: holdNext } });
+    updateMast();
+  }
+  function toggleHold(key) {
+    if (key === 'opened') holdOpened = !holdOpened;
+    else holdNext = !holdNext;
+    saveHold();
+    const on = key === 'opened' ? holdOpened : holdNext;
+    mast.live.textContent = `${key === 'opened' ? 'Videos you open' : 'Next videos'} will ${on ? 'start paused' : 'play by themselves'}`;
+  }
+  /** Unfold into the split button (not in narrow windows, where there is no room). */
+  function unfold() {
+    if (!mast.btn || mast.btn.classList.contains('yqx-ap-end')) return;
+    mast.btn.classList.add('yqx-open');
+    mast.trail.tabIndex = 0;
+    mast.lead.style.width = `${40 + 8 - 3 + mast.lbl.scrollWidth + 16}px`;
+  }
+  function fold() {
+    if (!mast.btn || mast.hover || mast.open || mast.btn.contains(document.activeElement)) return;
+    mast.btn.classList.remove('yqx-open');
+    mast.lead.style.width = '';
+    mast.trail.tabIndex = -1;
+  }
+  function openApMenu(anchor, byKeyboard) {
+    if (mast.open) return;
+    mast.open = true;
+    mast.anchor = anchor;
+    placeApMenu();
+    mast.menu.classList.add('yqx-show');
+    mast.trail.setAttribute('aria-expanded', 'true');
+    mast.btn.classList.add('yqx-menu-open');
+    if (byKeyboard) mast.rows.opened.focus({ preventScroll: true });
+  }
+  function closeApMenu(returnFocus) {
+    if (!mast.open) return;
+    mast.open = false;
+    mast.menu.classList.remove('yqx-show');
+    mast.trail.setAttribute('aria-expanded', 'false');
+    mast.btn.classList.remove('yqx-menu-open');
+    if (returnFocus && mast.anchor) mast.anchor.focus({ preventScroll: true });
+    else if (mast.menu.contains(document.activeElement)) document.activeElement.blur();
+    setTimeout(fold);
+  }
+  function placeApMenu() {
+    const r = (mast.anchor || mast.btn).getBoundingClientRect();
+    const w = mast.menu.offsetWidth || 312;
+    const vw = document.documentElement.clientWidth || window.innerWidth;
+    const narrow = mast.btn.classList.contains('yqx-ap-end');
+    let left = narrow ? r.right - w : r.left - 8;
+    left = Math.min(Math.max(8, left), Math.max(8, vw - w - 8));
+    mast.menu.style.left = `${left}px`;
+    mast.menu.style.top = `${r.bottom + 10}px`;
+    mast.menu.style.transformOrigin = `${Math.round(r.left + r.width / 2 - left)}px 0`;
+  }
+  function onApMenuKey(e) {
+    const rows = [mast.rows.opened, mast.rows.next];
+    const i = rows.indexOf(document.activeElement);
+    let handled = true;
+    switch (e.key) {
+      case 'ArrowDown': case 'ArrowUp': rows[(i + 1) % 2].focus(); break;
+      case 'Home': rows[0].focus(); break;
+      case 'End': rows[1].focus(); break;
+      case ' ': case 'Enter': if (i >= 0) toggleHold(i === 0 ? 'opened' : 'next'); break;
+      case 'Escape': case 'Tab': closeApMenu(true); break;
+      default: handled = false;
+    }
+    if (handled) e.preventDefault();
+    e.stopPropagation(); // keep YouTube's shortcuts out while in the menu
+  }
+  /** Roll the label: the old word slides up and out, the new one rolls in from below. */
+  function rollWord(w) {
+    if (w === mast.word) return;
+    const inEl = mast.lbl.firstChild;
+    const outEl = mast.lbl.lastChild;
+    outEl.textContent = mast.word;
+    inEl.textContent = w;
+    for (const [node, op, tf] of [[outEl, '1', 'none'], [inEl, '0', 'translateY(8px)']]) {
+      node.style.transition = 'none';
+      node.style.opacity = op;
+      node.style.transform = tf;
+      void node.offsetWidth; // restart from that frame
+      node.style.transition = '';
+      node.style.opacity = '';
+      node.style.transform = '';
+    }
+    mast.word = w;
   }
   function updateMast() {
     if (!mast.btn) return;
-    const on = holdAutoplay;
-    mast.btn.setAttribute('aria-pressed', String(on));
-    mast.btn.setAttribute('aria-label', 'Open videos paused');
-    mast.note = on ? 'Videos open paused · click to allow autoplay' : 'Autoplay on · click to open videos paused';
-    if (mast.tip.classList.contains('yqx-show') && !mast.tipTimer) mast.tip.textContent = mast.note;
-  }
-  function showMastTip(text, ms) {
-    clearTimeout(mast.tipTimer);
-    mast.tipTimer = 0;
-    mast.tip.textContent = text || mast.note;
-    const r = mast.btn.getBoundingClientRect();
-    mast.tip.style.top = `${r.bottom + 8}px`;
-    mast.tip.style.left = `${r.left + r.width / 2}px`;
-    mast.tip.classList.add('yqx-show');
-    if (ms) mast.tipTimer = setTimeout(() => { mast.tipTimer = 0; hideMastTip(true); }, ms);
-  }
-  function hideMastTip(force) {
-    if (mast.tipTimer && !force) return; // let the click feedback finish
-    if (mast.tip) mast.tip.classList.remove('yqx-show');
+    const b = mast.btn;
+    const level = Number(holdOpened) + Number(holdNext);
+    b.dataset.opened = String(holdOpened);
+    b.dataset.next = String(holdNext);
+    b.dataset.level = String(level); // 0 none, 1 one, 2 both
+    b.querySelector('.yqx-ms-shape').style.clipPath = SHAPES[level];
+    const narrow = b.classList.contains('yqx-ap-end');
+    mast.lead.setAttribute('aria-pressed', String(level > 0));
+    mast.lead.setAttribute('aria-label', narrow ? `Autoplay: ${summary()}. Opens settings`
+      : `Autoplay: ${summary()}. Click to ${level ? 'allow autoplay' : 'pause all videos'}`);
+    mast.rows.opened.setAttribute('aria-checked', String(holdOpened));
+    mast.rows.next.setAttribute('aria-checked', String(holdNext));
+    mast.menu.dataset.opened = String(holdOpened);
+    rollWord(shortWord());
+    // new word, new width (only if still unfolded by the time the frame comes)
+    if (b.classList.contains('yqx-open')) requestAnimationFrame(() => { if (b.classList.contains('yqx-open')) unfold(); });
   }
   function ensureMast() {
     if (!IS_TOP || !autoplayKnown) return;
@@ -339,13 +548,24 @@
     if (!center) return;
     injectStyle();
     if (!mast.btn) buildMast();
-    const voice = center.querySelector(':scope > #voice-search-button');
-    if (mast.btn.parentElement !== center) {
-      if (voice) voice.after(mast.btn);
+    // Narrow windows hide the search box; then sit at the start of the right-hand icons instead.
+    const end = document.querySelector('ytd-masthead #end');
+    const narrow = !center.offsetWidth && end && end.offsetWidth > 0;
+    const parent = narrow ? end : center;
+    if (narrow && mast.btn.classList.contains('yqx-open')) { mast.hover = false; fold(); }
+    mast.btn.classList.toggle('yqx-ap-end', !!narrow);
+    if (mast.btn.parentElement !== parent) {
+      const voice = center.querySelector(':scope > #voice-search-button');
+      if (narrow) end.prepend(mast.btn);
+      else if (voice) voice.after(mast.btn);
       else center.append(mast.btn);
     }
-    if (mast.tip.parentElement !== document.body && document.body) document.body.append(mast.tip);
-    document.querySelectorAll('.yqx-ap').forEach((b) => { if (b !== mast.btn) b.remove(); });
+    if (document.body && mast.menu.parentElement !== document.body) document.body.append(mast.menu);
+    // The menu follows YouTube's theme, which lives on <html dark>.
+    mast.menu.toggleAttribute('dark', document.documentElement.hasAttribute('dark'));
+    document.querySelectorAll('.yqx-au').forEach((x) => { if (x !== mast.btn) x.remove(); });
+    document.querySelectorAll('.yqx-apm').forEach((x) => { if (x !== mast.menu) x.remove(); });
+    if (mast.open) placeApMenu();
     updateMast();
   }
 
@@ -873,8 +1093,9 @@
       overrides = { ...msg.value };
       overridesKnown = true;
       scheduleApply(false);
-    } else if (msg.type === 'autoplay' && typeof msg.value === 'boolean') {
-      holdAutoplay = msg.value;
+    } else if (msg.type === 'autoplay' && msg.value && typeof msg.value.opened === 'boolean' && typeof msg.value.next === 'boolean') {
+      holdOpened = msg.value.opened;
+      holdNext = msg.value.next;
       autoplayKnown = true;
       ensureMast();
       updateMast();
@@ -933,15 +1154,26 @@
       }
     }, true);
   }
+  // A video that plays to its end: the next one to start without any input from you counts as "next".
+  document.addEventListener('ended', (e) => {
+    const p = getPlayer();
+    if (p && e.target instanceof HTMLVideoElement && p.contains(e.target) && !p.classList.contains('ad-showing')) {
+      endedAt = Date.now();
+      endedVid = videoIdOf(p);
+    }
+  }, true);
   // Remember when the user asks for playback, so their own play is never paused.
   document.addEventListener('pointerdown', (e) => {
+    if (!ownControl(e.target)) lastInput = Date.now();
+    if (mast.open && !ownControl(e.target)) closeApMenu(false);
     const p = getPlayer();
     const ours = ui.menu && (ui.menu.contains(e.target) || ui.btn.contains(e.target)); // quality menu isn't "play"
     if (p && p.contains(e.target) && !ours) lastPlayGesture = Date.now();
   }, true);
   document.addEventListener('keydown', (e) => {
     const t = e.target;
-    if (mast.btn && mast.btn.contains(t)) return; // Space on our switch toggles it, it isn't "play"
+    if (ownControl(t)) return; // keys on our own button/menu aren't "play"
+    lastInput = Date.now();
     const typing = t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)); // e.g. a space in search
     if (PLAY_KEYS.has(e.key) && !typing) lastPlayGesture = Date.now();
   }, true);
@@ -950,10 +1182,12 @@
   }, true);
   document.addEventListener('keydown', (e) => {
     if (ui.open && e.key === 'Escape' && !ui.menu.contains(e.target)) closeMenu(false);
+    if (mast.open && e.key === 'Escape' && !ownControl(e.target)) closeApMenu(false);
   }, true);
   const relayout = () => requestAnimationFrame(() => {
     if (ui.open) positionMenu();
     hideTip();
+    ensureMast(); // wide <-> narrow top bar
   });
   window.addEventListener('resize', relayout);
   document.addEventListener('fullscreenchange', relayout);
@@ -968,14 +1202,14 @@
   // Roles: primary = global default, secondary = this video, tertiary = channel.
   const CSS = `
 #movie_player{
-  --yqx-primary:#bfc2ff;--yqx-on-primary:#1a1f73;--yqx-primary-container:#33378b;--yqx-on-primary-container:#e0e0ff;
-  --yqx-secondary:#c5c4dd;--yqx-secondary-container:#444559;--yqx-on-secondary-container:#e1e0f9;
-  --yqx-tertiary:#eab6d6;--yqx-tertiary-container:#5f3854;--yqx-on-tertiary-container:#ffd8ef;
+  --yqx-primary:#ffb4ab;--yqx-on-primary:#690005;--yqx-primary-container:#93000a;--yqx-on-primary-container:#ffdad6;
+  --yqx-secondary:#e7bdb8;--yqx-secondary-container:#5d3f3c;--yqx-on-secondary-container:#ffdad6;
+  --yqx-tertiary:#dec48c;--yqx-tertiary-container:#564419;--yqx-on-tertiary-container:#fbdfa6;
   --yqx-success:#9ed69e;
-  --yqx-surface:rgba(24,24,30,.58);--yqx-surface-high:rgba(255,255,255,.08);--yqx-surface-highest:rgba(255,255,255,.12);
+  --yqx-surface:rgba(30,20,19,.58);--yqx-surface-high:rgba(255,255,255,.08);--yqx-surface-highest:rgba(255,255,255,.12);
   --yqx-glass-edge:rgba(255,255,255,.14);
-  --yqx-on-surface:#e4e1e9;--yqx-on-surface-variant:#c7c5d0;--yqx-outline-variant:#46464f;
-  --yqx-inverse-surface:#e4e1e9;--yqx-inverse-on-surface:#303036;
+  --yqx-on-surface:#f1dedc;--yqx-on-surface-variant:#d8c2bf;--yqx-outline-variant:#534341;
+  --yqx-inverse-surface:#f1dedc;--yqx-inverse-on-surface:#392e2d;
   --yqx-spring-fast:cubic-bezier(.42,1.67,.21,.9);--yqx-spring:cubic-bezier(.38,1.21,.22,1);
   --yqx-ease:cubic-bezier(.34,.8,.34,1);--yqx-exit:cubic-bezier(.3,0,.8,.15);
 }
@@ -1113,35 +1347,133 @@
 #movie_player .yqx-tip.yqx-show{opacity:1;transform:none}
 #movie_player.ytp-big-mode .yqx-tip{font-size:15px}
 
-/* ---------- "open videos paused" switch beside the search box (matches YouTube's mic button) ---------- */
-#yqx-autoplay{position:relative;flex:none;box-sizing:border-box;width:40px;height:40px;margin:0 0 0 8px;padding:0;border:0;
-  display:grid;place-items:center;border-radius:20px;cursor:pointer;
-  background:rgba(0,0,0,.05);color:#0f0f0f;-webkit-tap-highlight-color:transparent;
-  transition:background-color .2s cubic-bezier(.34,.8,.34,1),color .2s cubic-bezier(.34,.8,.34,1),
-    border-radius .35s cubic-bezier(.42,1.67,.21,.9),transform .35s cubic-bezier(.42,1.67,.21,.9)}
-#yqx-autoplay svg{width:24px;height:24px;overflow:visible}
-#yqx-autoplay rect{transform-box:fill-box;transform-origin:center}
-#yqx-autoplay:hover{background:rgba(0,0,0,.1)}
-#yqx-autoplay:active{transform:scale(.9)}
-#yqx-autoplay:focus-visible{outline:2px solid #065fd4;outline-offset:2px}
-#yqx-autoplay[aria-pressed="true"]{background:#4a4fa6;color:#fff;border-radius:12px}
-#yqx-autoplay[aria-pressed="true"]:hover{background:#5a5fb6}
-html[dark] #yqx-autoplay{background:rgba(255,255,255,.1);color:#f1f1f1}
-html[dark] #yqx-autoplay:hover{background:rgba(255,255,255,.2)}
-html[dark] #yqx-autoplay:focus-visible{outline-color:#3ea6ff}
-html[dark] #yqx-autoplay[aria-pressed="true"]{background:#bfc2ff;color:#1a1f73}
-html[dark] #yqx-autoplay[aria-pressed="true"]:hover{background:#d0d2ff}
-/* on toggle: the two bars squash and spring back one after the other */
-#yqx-autoplay.yqx-ap-bump rect{animation:yqx-bar .45s cubic-bezier(.38,1.21,.22,1)}
-#yqx-autoplay.yqx-ap-bump rect+rect{animation-delay:.05s}
-@keyframes yqx-bar{30%{transform:scaleY(.55)}}
-.yqx-ap-tip{position:fixed;z-index:2300;transform:translate(-50%,-4px);padding:8px;border-radius:4px;
-  background:rgba(97,97,97,.92);color:#fff;font:400 12px/1.3 "Roboto",Arial,sans-serif;white-space:nowrap;pointer-events:none;
-  opacity:0;transition:opacity .15s cubic-bezier(.34,.8,.34,1),transform .3s cubic-bezier(.38,1.21,.22,1)}
-.yqx-ap-tip.yqx-show{opacity:1;transform:translate(-50%,0)}
+/* ---------- "open videos paused" button beside the search box ---------- */
+/* @yqx-ap-css-start (the design preview page copies this block) */
+/* Material 3 Expressive tokens (seed: Resolute red). Springs are CSS linear() approximations. */
+.yqx-au,.yqx-apm{
+  --yqx-sp:linear(0,.0105 1.4%,.0436 3%,.1754 6.6%,.4153 11.8%,.6593 17.9%,.8448 24.5%,.9578 31.8%,1.0148 39.8%,1.0306 47.6%,1.0222 58.5%,1.0039 76%,1);
+  --yqx-ease:cubic-bezier(.2,0,0,1);
+  --yqx-fg:#231918;--yqx-sub:#534341;--yqx-rest:#f2f2f2;--yqx-rest-h:#e5e5e5;--yqx-shape0:#fff;
+  --yqx-cont:#f6e9e7;--yqx-cont-h:#eeddda;--yqx-pc:#ffdad6;--yqx-opc:#410002;--yqx-p:#b3261e;--yqx-op:#fff;
+  --yqx-menu:rgba(255,240,238,.62);--yqx-item:rgba(255,255,255,.55);--yqx-sel:rgba(255,218,214,.82);--yqx-edge:rgba(255,255,255,.7);
+  --yqx-outline:#857371;--yqx-track:#f5e2df;--yqx-focus:#065fd4}
+[dark] .yqx-au,.yqx-apm[dark]{
+  --yqx-fg:#f1dedc;--yqx-sub:#d8c2bf;--yqx-rest:#272727;--yqx-rest-h:#3f3f3f;--yqx-shape0:#4a3e3c;
+  --yqx-cont:#322826;--yqx-cont-h:#3d3231;--yqx-pc:#93000a;--yqx-opc:#ffdad6;--yqx-p:#ffb4ab;--yqx-op:#690005;
+  --yqx-menu:rgba(30,20,19,.58);--yqx-item:rgba(255,255,255,.07);--yqx-sel:rgba(147,0,10,.62);--yqx-edge:rgba(255,255,255,.14);
+  --yqx-outline:#a08c8a;--yqx-track:#3d3231;--yqx-focus:#3ea6ff}
+
+/* ---------- the button: a shape at rest, a split button when unfolded ---------- */
+.yqx-au{position:relative;flex:none;width:40px;height:40px;margin:0 0 0 8px;z-index:5;color:var(--yqx-fg)}
+.yqx-au.yqx-ap-end{margin:0 8px 0 0}
+.yqx-au-row{position:absolute;top:0;left:0;height:40px;display:flex;gap:2px}
+.yqx-ap-end .yqx-au-row{left:auto;right:0}
+.yqx-au button{height:40px;margin:0;border:0;padding:0;cursor:pointer;color:inherit;display:flex;align-items:center;background:transparent;
+  font:600 14px/1 "Roboto",Arial,sans-serif;-webkit-tap-highlight-color:transparent}
+.yqx-au button:focus-visible{outline:2px solid var(--yqx-focus);outline-offset:2px}
+.yqx-au-lead{width:40px;overflow:hidden;gap:8px;white-space:nowrap;border-radius:20px;
+  transition:width .6s var(--yqx-sp),background-color .25s var(--yqx-ease),border-radius .55s var(--yqx-sp),box-shadow .3s var(--yqx-ease)}
+.yqx-au-trail{width:0;overflow:hidden;justify-content:center;border-radius:6px 20px 20px 6px;opacity:0;
+  transition:width .55s var(--yqx-sp),opacity .2s var(--yqx-ease),background-color .25s var(--yqx-ease),border-radius .55s var(--yqx-sp),box-shadow .3s var(--yqx-ease)}
+.yqx-au.yqx-open .yqx-au-lead{background:var(--yqx-cont);border-radius:20px 6px 6px 20px;box-shadow:0 4px 16px rgba(0,0,0,.12)}
+.yqx-au.yqx-open .yqx-au-lead:hover{background:var(--yqx-cont-h)}
+.yqx-au.yqx-open .yqx-au-trail{width:36px;opacity:1;background:var(--yqx-cont);box-shadow:0 4px 16px rgba(0,0,0,.12);transition-delay:.06s,.1s,0s,0s,0s}
+.yqx-au.yqx-open .yqx-au-trail:hover{background:var(--yqx-cont-h)}
+.yqx-au .yqx-au-trail[aria-expanded="true"]{width:40px;border-radius:20px;background:var(--yqx-pc);color:var(--yqx-opc)}
+.yqx-chev{width:12px;height:12px;flex:none;transition:transform .55s var(--yqx-sp)}
+.yqx-au-trail[aria-expanded="true"] .yqx-chev{transform:rotate(180deg)}
+/* rolling label */
+.yqx-au-lbl{display:grid;opacity:0;transform:translateX(-8px);transition:opacity .2s var(--yqx-ease),transform .55s var(--yqx-sp)}
+.yqx-au.yqx-open .yqx-au-lbl{opacity:1;transform:none;transition-delay:.08s}
+.yqx-au-lbl span{grid-area:1/1;transition:opacity .2s var(--yqx-ease),transform .45s var(--yqx-sp)}
+.yqx-au-lbl .yqx-out{opacity:0;transform:translateY(-8px)}
+
+/* the shape: circle -> cookie -> rounded square (clip-path set from JS), tint = how much is on */
+.yqx-ms{position:relative;flex:none;width:34px;height:34px;margin:3px}
+.yqx-ms-shape{position:absolute;inset:3px;background:var(--yqx-rest);
+  transition:clip-path .7s var(--yqx-sp),background-color .3s var(--yqx-ease),transform .7s var(--yqx-sp)}
+.yqx-au.yqx-open .yqx-ms-shape{background:var(--yqx-shape0)}
+.yqx-au:not(.yqx-open) .yqx-au-lead:hover .yqx-ms-shape{background:var(--yqx-rest-h)}
+.yqx-au[data-level="1"] .yqx-ms-shape{background:var(--yqx-pc)!important}
+.yqx-au[data-level="2"] .yqx-ms-shape{background:var(--yqx-p)!important}
+.yqx-ms-core{position:absolute;inset:0;display:grid;place-items:center;color:var(--yqx-fg);transition:color .3s var(--yqx-ease)}
+.yqx-au[data-level="1"] .yqx-ms-core{color:var(--yqx-opc)}
+.yqx-au[data-level="2"] .yqx-ms-core{color:var(--yqx-op)}
+.yqx-au-lead:hover .yqx-ms-shape{transform:rotate(18deg)}
+.yqx-au-lead:active .yqx-ms-shape{transform:rotate(18deg) scale(.9)}
+.yqx-au[data-level="2"] .yqx-au-lead:hover .yqx-ms-shape{transform:scale(1.06)} /* a tilted square reads as a card */
+.yqx-au[data-level="2"] .yqx-au-lead:active .yqx-ms-shape{transform:scale(.9)}
+
+/* wavy ring = YouTube's "up next" countdown = next videos play by themselves; it unwinds when they wait */
+.yqx-wave{position:absolute;inset:-3px;width:calc(100% + 6px);height:calc(100% + 6px);transform:rotate(-90deg);overflow:visible;pointer-events:none}
+.yqx-wave .yqx-act{fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:72 28;opacity:.75;
+  transition:stroke-dasharray .7s var(--yqx-ease),opacity .4s var(--yqx-ease)}
+.yqx-wave .yqx-track{fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-dasharray:0 76 20 4;opacity:.22;transition:opacity .4s var(--yqx-ease)}
+.yqx-au[data-next="true"] .yqx-act{stroke-dasharray:0 100;opacity:0}
+.yqx-au[data-next="true"] .yqx-track{opacity:0}
+.yqx-au-lead:hover .yqx-wave{animation:yqx-sweep 1.4s var(--yqx-ease)}
+@keyframes yqx-sweep{from{transform:rotate(-90deg)}to{transform:rotate(270deg)}}
+
+/* glyph = videos you open: ▶ split in two halves, each half becomes one bar of ⏸ */
+.yqx-ap-glyph{position:relative;display:block;width:11px;height:14px;transition:transform .5s var(--yqx-sp)}
+.yqx-ap-glyph i{position:absolute;inset:0;background:currentColor;transition:clip-path .55s var(--yqx-sp)}
+.yqx-ap-l{clip-path:polygon(0 0,50% 25%,50% 75%,0 100%)}
+.yqx-ap-r{clip-path:polygon(50% 25%,100% 50%,100% 50%,50% 75%);transition-delay:.04s!important}
+[data-opened="true"] .yqx-ap-glyph{transform:translateX(-1px)}
+[data-opened="true"] .yqx-ap-l{clip-path:polygon(0 0,36% 0,36% 100%,0 100%)}
+[data-opened="true"] .yqx-ap-r{clip-path:polygon(64% 0,100% 0,100% 100%,64% 100%)}
+
+/* ---------- the menu (M3 Expressive) ---------- */
+.yqx-apm{position:fixed;z-index:2300;box-sizing:border-box;width:312px;max-width:calc(100vw - 16px);padding:6px;border-radius:24px;
+  background:var(--yqx-menu);color:var(--yqx-fg);
+  -webkit-backdrop-filter:blur(28px) saturate(1.6);backdrop-filter:blur(28px) saturate(1.6); /* frosted, like the quality menu */
+  box-shadow:inset 0 0 0 1px var(--yqx-edge),0 2px 6px rgba(0,0,0,.1),0 16px 40px rgba(0,0,0,.22);
+  font:400 14px/1.35 "Roboto",Arial,sans-serif;user-select:none;-webkit-user-select:none;
+  opacity:0;visibility:hidden;transform:translateY(-8px) scale(.9);
+  transition:opacity .15s var(--yqx-ease),transform .25s var(--yqx-ease),visibility 0s linear .25s}
+.yqx-apm.yqx-show{opacity:1;visibility:visible;transform:none;transition:opacity .2s var(--yqx-ease),transform .55s var(--yqx-sp),visibility 0s}
+.yqx-apm-title{padding:10px 14px 8px;font-size:13px;font-weight:500;letter-spacing:.2px;color:var(--yqx-sub)}
+.yqx-apm-list{display:flex;flex-direction:column;gap:2px}
+.yqx-apm-row{display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 12px;border-radius:6px;background:var(--yqx-item);cursor:pointer;outline:none;
+  transition:background-color .25s var(--yqx-ease),color .25s var(--yqx-ease),border-radius .5s var(--yqx-sp)}
+.yqx-apm-row:first-child{border-radius:18px 18px 6px 6px}
+.yqx-apm-row:last-child{border-radius:6px 6px 18px 18px}
+.yqx-apm-row:hover{background:color-mix(in srgb,var(--yqx-fg) 6%,var(--yqx-item))}
+.yqx-apm-row[aria-checked="true"]{background:var(--yqx-sel);color:var(--yqx-opc);border-radius:18px}
+.yqx-apm-row:focus-visible{box-shadow:inset 0 0 0 2px var(--yqx-focus)}
+.yqx-apm-ico{width:36px;height:36px;flex:none;display:grid;place-items:center;border-radius:50%;background:var(--yqx-cont);
+  transition:border-radius .55s var(--yqx-sp),background-color .25s var(--yqx-ease),color .25s var(--yqx-ease)}
+.yqx-apm-row[aria-checked="true"] .yqx-apm-ico{background:var(--yqx-p);color:var(--yqx-op);border-radius:12px}
+.yqx-apm-ico .yqx-ap-glyph{width:10px;height:12px}
+.yqx-apm-next{position:relative;display:block;width:12px;height:12px}
+.yqx-apm-next i{position:absolute;top:0;bottom:0;background:currentColor}
+.yqx-apm-next i:first-child{left:0;width:8.5px;clip-path:polygon(0 0,100% 50%,0 100%)}
+.yqx-apm-next i:last-child{right:0;width:2.4px;border-radius:1px}
+.yqx-apm-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.yqx-apm-name{font-weight:500;font-size:14.5px}
+.yqx-apm-hint{font-size:12px;opacity:.8}
+/* M3 switch with icons in the thumb */
+.yqx-apm-sw{position:relative;flex:none;width:52px;height:32px;border-radius:16px;background:color-mix(in srgb,var(--yqx-track) 80%,transparent);box-shadow:inset 0 0 0 2px var(--yqx-outline);
+  transition:background-color .25s var(--yqx-ease),box-shadow .25s var(--yqx-ease)}
+.yqx-apm-sw i{position:absolute;top:50%;left:16px;width:16px;height:16px;border-radius:50%;background:var(--yqx-outline);transform:translate(-50%,-50%);
+  display:grid;place-items:center;color:var(--yqx-track);transition:left .5s var(--yqx-sp),width .4s var(--yqx-sp),height .4s var(--yqx-sp),background-color .25s var(--yqx-ease)}
+.yqx-apm-sw svg{grid-area:1/1;width:12px;height:12px;fill:currentColor;transition:opacity .2s var(--yqx-ease)}
+.yqx-sw-on{opacity:0}
+.yqx-apm-row[aria-checked="true"] .yqx-apm-sw{background:var(--yqx-p);box-shadow:none}
+.yqx-apm-row[aria-checked="true"] .yqx-apm-sw i{left:36px;width:24px;height:24px;background:var(--yqx-op);color:var(--yqx-p)}
+.yqx-apm-row[aria-checked="true"] .yqx-sw-on{opacity:1}
+.yqx-apm-row[aria-checked="true"] .yqx-sw-off{opacity:0}
+.yqx-apm-row:active .yqx-apm-sw i{width:28px;height:28px}
+.yqx-apm-foot{padding:10px 14px 8px;font-size:12px;color:var(--yqx-sub)}
+/* no backdrop blur in this browser: use solid surfaces rather than a see-through menu that's hard to read */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .yqx-apm{background:#fff0ee}.yqx-apm .yqx-apm-row{background:#fff}.yqx-apm .yqx-apm-row[aria-checked="true"]{background:#ffdad6}
+  .yqx-apm[dark]{background:#231918}.yqx-apm[dark] .yqx-apm-row{background:#322826}.yqx-apm[dark] .yqx-apm-row[aria-checked="true"]{background:#93000a}
+}
+@media (prefers-reduced-motion: reduce){.yqx-au *,.yqx-apm,.yqx-apm *{transition:none!important;animation:none!important}}
+/* @yqx-ap-css-end */
 
 @media (prefers-reduced-motion: reduce){
-  #yqx-autoplay,#yqx-autoplay rect,.yqx-ap-tip{transition:none!important;animation:none!important}
   .yqx-menu,.yqx-pill,.yqx-pill::after,.yqx-check,.yqx-iconbox,.yqx-tip,.yqx-item,.yqx-now{transition:none!important;animation:none!important}
 }`;
 })();

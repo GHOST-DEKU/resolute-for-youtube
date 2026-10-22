@@ -272,18 +272,23 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   fromExt('hd720'); await wait(80);
   assert.strictEqual(calls.at(-1), 'hd720', 'new global default applied');
 
-  // ---------- open videos paused ----------
+  // ---------- autoplay control: "Videos I open" and "Next in queue or playlist" ----------
   const startsPlaying = async (vid) => {
     videoId = vid; videoPaused = false;
     videoEl.dispatchEvent(new window.Event('playing'));
     await wait(20);
   };
+  const ends = () => videoEl.dispatchEvent(new window.Event('ended'));
+  const both = (opened, next) => toPage('autoplay', { opened, next });
   let before3 = pauses;
   await startsPlaying('ap0');
-  assert.strictEqual(pauses, before3, 'setting off: autoplay left alone');
-  toPage('autoplay', true);
+  assert.strictEqual(pauses, before3, 'both off: autoplay left alone');
+  both(true, true);
+  await startsPlaying('ap0');
+  assert.strictEqual(pauses, before3, 'switching on never pauses the video already playing');
+  await wait(1050);
   await startsPlaying('ap1');
-  assert.strictEqual(pauses, before3 + 1, 'setting on: video that starts by itself is paused');
+  assert.strictEqual(pauses, before3 + 1, 'opened video that starts by itself is paused');
   await startsPlaying('ap1');
   assert.strictEqual(pauses, before3 + 1, 'pressing play afterwards is never undone');
   p.querySelector('.ytp-chrome-bottom').dispatchEvent(new window.MouseEvent('pointerdown', { bubbles: true }));
@@ -305,26 +310,79 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   assert.strictEqual(pauses, before3 + 2, 'ads are not touched');
   p.classList.remove('ad-showing');
   await startsPlaying('ap5');
-  assert.strictEqual(pauses, before3 + 3, 'the real video after the ad opens paused');
-  toPage('autoplay', false);
-  await startsPlaying('ap6');
-  assert.strictEqual(pauses, before3 + 3, 'turning it off restores autoplay');
+  assert.strictEqual(pauses, before3 + 3, 'the real video after the ad starts paused');
 
-  // Same switch beside the search box
+  // Independent settings: "next" = previous video ended and no click/key since
+  both(true, false);
+  ends(); await startsPlaying('nx1');
+  assert.strictEqual(pauses, before3 + 3, 'only "Videos I open" on: next video in a playlist plays');
+  ends(); document.body.dispatchEvent(new window.MouseEvent('pointerdown', { bubbles: true }));
+  await startsPlaying('nx2');
+  assert.strictEqual(pauses, before3 + 4, 'after the end you clicked another video: that is "opened" -> paused');
+  both(false, true);
+  ends(); await startsPlaying('nx3');
+  assert.strictEqual(pauses, before3 + 5, 'only "Next" on: the video that follows starts paused');
+  document.body.dispatchEvent(new window.MouseEvent('pointerdown', { bubbles: true }));
+  await startsPlaying('nx4');
+  assert.strictEqual(pauses, before3 + 5, 'only "Next" on: a video you open plays');
+  both(false, false);
+  ends(); await startsPlaying('nx5');
+  assert.strictEqual(pauses, before3 + 5, 'both off: everything autoplays again');
+  videoPaused = true;
+
+  // The unfolding split button beside the search box
   const ap = document.getElementById('yqx-autoplay');
-  assert.ok(ap, 'switch added to the top bar');
+  const apm = document.getElementById('yqx-apm');
+  assert.ok(ap && apm, 'button and menu added');
   assert.strictEqual(ap.previousElementSibling.id, 'voice-search-button', 'sits right after the mic button');
-  assert.strictEqual(ap.getAttribute('aria-pressed'), 'false');
-  ap.click();
-  assert.deepStrictEqual(sent.at(-1), { source: 'yqx-page', type: 'autoplay', value: true }, 'saves the setting');
-  assert.strictEqual(ap.getAttribute('aria-pressed'), 'true');
+  const lead = ap.querySelector('.yqx-au-lead');
+  const trail = ap.querySelector('.yqx-au-trail');
+  assert.strictEqual(ap.dataset.level, '0');
+  assert.match(ap.querySelector('.yqx-ms-shape').style.clipPath, /^polygon\(/, 'shape drawn as a morphable polygon');
+  assert.strictEqual(lead.querySelector('.yqx-in').textContent, 'Autoplay', 'label says the state');
+  // unfold on hover
+  ap.dispatchEvent(new window.PointerEvent('pointerenter', { pointerType: 'mouse' }));
+  assert.ok(ap.classList.contains('yqx-open'), 'unfolds when pointed at');
+  assert.strictEqual(trail.tabIndex, 0, 'chevron reachable once unfolded');
+  // shape/words: one click switches both
+  lead.dispatchEvent(new window.MouseEvent('click', { bubbles: true, detail: 1 }));
+  assert.deepStrictEqual(sent.at(-1), { source: 'yqx-page', type: 'autoplay', value: { opened: true, next: true } }, 'shape click pauses all');
+  assert.strictEqual(ap.dataset.level, '2', 'both on = solid');
+  assert.strictEqual(lead.querySelector('.yqx-in').textContent, 'No autoplay', 'label rolls to the new state');
+  assert.match(lead.getAttribute('aria-label'), /Videos wait for you/);
   await startsPlaying('ap7');
-  assert.strictEqual(pauses, before3 + 4, 'switch works immediately');
-  toPage('autoplay', false); // changed in the popup
-  assert.strictEqual(ap.getAttribute('aria-pressed'), 'false', 'follows the popup');
+  assert.strictEqual(pauses, before3 + 6, 'works immediately');
+  lead.dispatchEvent(new window.MouseEvent('click', { bubbles: true, detail: 1 }));
+  assert.deepStrictEqual(sent.at(-1).value, { opened: false, next: false }, 'second click allows autoplay again');
+  // chevron: menu with a switch per setting
+  trail.dispatchEvent(new window.MouseEvent('click', { bubbles: true, detail: 1 }));
+  assert.ok(apm.classList.contains('yqx-show'), 'chevron opens the menu');
+  assert.strictEqual(trail.getAttribute('aria-expanded'), 'true');
+  assert.strictEqual(apm.querySelectorAll('[role=menuitemcheckbox]').length, 2, 'two switches');
+  apm.querySelector('.yqx-apm-row-opened').click();
+  assert.deepStrictEqual(sent.at(-1).value, { opened: true, next: false }, 'saves "Videos I open" alone');
+  assert.strictEqual(ap.dataset.level, '1', 'one on = soft tint');
+  assert.strictEqual(lead.querySelector('.yqx-in').textContent, 'Opened wait');
+  assert.ok(apm.classList.contains('yqx-show'), 'menu stays open after a switch');
+  const rowNext = apm.querySelector('.yqx-apm-row-next');
+  rowNext.focus();
+  rowNext.dispatchEvent(new window.KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+  assert.strictEqual(ap.dataset.next, 'true', 'Space toggles the focused switch');
+  rowNext.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  assert.ok(!apm.classList.contains('yqx-show'), 'Escape closes');
+  assert.strictEqual(document.activeElement, trail, 'focus back on the chevron');
+  trail.dispatchEvent(new window.MouseEvent('click', { bubbles: true, detail: 1 }));
+  document.body.dispatchEvent(new window.MouseEvent('pointerdown', { bubbles: true }));
+  assert.ok(!apm.classList.contains('yqx-show'), 'outside click closes');
+  trail.blur();
+  ap.dispatchEvent(new window.PointerEvent('pointerleave', { pointerType: 'mouse' }));
+  await wait(20);
+  assert.ok(!ap.classList.contains('yqx-open'), 'folds back when the pointer leaves');
+  both(false, false); // changed in the popup
+  assert.strictEqual(ap.dataset.level, '0', 'follows the popup');
+  assert.strictEqual(apm.querySelector('.yqx-apm-row-opened').getAttribute('aria-checked'), 'false');
   ap.remove(); await wait(400);
   assert.strictEqual(document.querySelectorAll('#yqx-autoplay').length, 1, 'comes back once if YouTube re-renders the bar');
-  videoPaused = true;
 
   // No toolbar at all -> floating fallback
   document.querySelector('.ytp-chrome-bottom').remove();

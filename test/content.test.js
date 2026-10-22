@@ -6,7 +6,7 @@ const vm = require('vm');
 
 const store = { sync: { qualityPreference: 'hd1080', stopAutoplay: true }, local: {} };
 const area = (name) => ({
-  get: async (k) => ({ [k]: store[name][k] }),
+  get: async (k) => Object.fromEntries((Array.isArray(k) ? k : [k]).map((x) => [x, store[name][x]])),
   set: async (o) => { Object.assign(store[name], JSON.parse(JSON.stringify(o))); }
 });
 const listeners = [];
@@ -24,7 +24,7 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
   await tick();
   assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides', 'channels', 'autoplay'], 'sends default, remembered videos, channel defaults and autoplay setting');
   assert.strictEqual(posted[0].value, 'hd1080');
-  assert.strictEqual(posted[3].value, true, 'autoplay setting passed on');
+  assert.strictEqual(JSON.stringify(posted[3].value), '{"opened":true,"next":true}', 'old single switch counts as both');
 
   await fromPage({ type: 'remember', videoId: 'dQw4w9WgXcQ', value: 'large' });
   assert.deepStrictEqual(store.local.videoOverrides, { dQw4w9WgXcQ: 'large' }, 'remembers a video');
@@ -33,10 +33,12 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
   await fromPage({ type: 'remember', videoId: 'bad id!', value: 'large' });
   await fromPage({ type: 'remember', videoId: 'abcdefghijk', value: 'nonsense' });
   assert.deepStrictEqual(store.local.videoOverrides, {}, 'rejects bad input');
-  await fromPage({ type: 'autoplay', value: false });
-  assert.strictEqual(store.sync.stopAutoplay, false, 'saves autoplay switch from the page');
-  await fromPage({ type: 'autoplay', value: 'yes' });
-  assert.strictEqual(store.sync.stopAutoplay, false, 'rejects non-boolean');
+  await fromPage({ type: 'autoplay', value: { opened: false, next: true } });
+  assert.strictEqual(store.sync.holdOpened, false, 'saves "videos I open" from the page');
+  assert.strictEqual(store.sync.holdNext, true, 'saves "next in queue" from the page');
+  await fromPage({ type: 'autoplay', value: { opened: 'yes', next: true } });
+  await fromPage({ type: 'autoplay', value: true });
+  assert.strictEqual(store.sync.holdOpened, false, 'rejects anything but two booleans');
   await fromPage({ type: 'set', value: 'hd720' });
   assert.strictEqual(store.sync.qualityPreference, 'hd720', 'saves default');
 

@@ -129,7 +129,7 @@ npx web-ext run --source-dir dist\firefox-check --start-url https://www.youtube.
 | 4 | This video only | Open another video: back to your default |
 | 5 | Highest available | Popup → Highest available; a 4K video plays its top quality |
 | 6 | Auto | Popup → Auto; after forcing a quality on one video, the next video is back on Auto |
-| 7 | Remember / forget | Remember 720p → reload → still 720p (blue dot); Forget → other video → back → default |
+| 7 | Remember / forget | Remember 720p → reload → still 720p (dusty pink dot); Forget → other video → back → default |
 | 8 | Make default | Pick 1080p → Make default → new video plays 1080p; popup shows 1080p |
 | 9 | Navigation | 5+ videos via recommendations, autoplay, back/forward: always exactly one button, right quality |
 | 10 | Fullscreen | Press F, open the menu: visible, usable, fits the screen |
@@ -138,14 +138,14 @@ npx web-ext run --source-dir dist\firefox-check --start-url https://www.youtube.
 | 13 | Site access off | `about:addons` → Permissions → turn YouTube **off** → popup shows **Allow on YouTube** → click it → access back on, button returns after reload |
 | 14 | Keyboard | Tab to the button, ↓, arrows, Enter, Esc work; Space pauses the video after a mouse click on the button |
 | 15 | Console | No red errors from the add-on in either console |
-| 16 | Channel default | Channel A video → pick 1080p → **Set as default for this channel**: "✓ Saved for A", header "A · channel default 1080p", purple dot |
+| 16 | Channel default | Channel A video → pick 1080p → **Set as default for this channel**: "✓ Saved for A", header "A · channel default 1080p", gold dot |
 | 17 | Switch channels | Another A video → 1080p; a channel B video → global default; back to A → 1080p |
 | 18 | Edit / remove in popup | Popup → Channel defaults → change A to 720p → next A video 720p; × → A uses global default |
 | 19 | Channel + remembered video | Remember 480p on one A video: that video 480p, other A videos the channel default |
-| 20 | ⏸ button | A ⏸ button sits right after the mic button next to the search box, in light and dark YouTube themes; one button only |
-| 21 | Open videos paused | Turn it on (⏸ button or popup; the other one updates). Open a video: it opens paused. Press play: it plays and stays playing |
-| 22 | Autoplay-next and ads | With it on, let a video end: the next one opens paused. A video with an ad: the ad plays, then the video opens paused |
-| 23 | Turn it off | Turn it off: videos autoplay again as normal |
+| 20 | Autoplay button | A small shape sits right after the mic button, in light and dark YouTube themes; one only. Pointing at it unfolds words + chevron; moving away folds it back |
+| 21 | Videos I open | Chevron → switch on "Videos I open" (popup updates too). Open a video: it starts paused. Press play: it plays and stays playing |
+| 22 | Next in queue | Switch only "Next in queue or playlist" on. Let a video end in a playlist: the next one starts paused. Click another video yourself: it plays |
+| 23 | Both / off, ads | Click the shape: both on ("No autoplay"); a video with an ad: the ad plays, then the video starts paused. Click again: everything autoplays as normal |
 
 If any mandatory test fails, **don't submit**. Send me what happened and I'll fix it.
 

@@ -5,7 +5,8 @@
   const THEME = 'uiTheme';
   const OVERRIDES = 'videoOverrides';
   const CHANNELS = 'channelPrefs';
-  const AUTOPLAY = 'stopAutoplay';
+  const HOLD = { opened: 'holdOpened', next: 'holdNext' };
+  const OLD_AUTOPLAY = 'stopAutoplay'; // older single switch: counts as both until either is set
   const DEFAULT_PREF = 'highest';
   const CHANNEL_ID = /^UC[\w-]{22}$/;
   // Same order as the in-player menu: two modes, then resolutions.
@@ -128,19 +129,29 @@
     }
   });
 
-  // ---------- open videos paused ----------
-  const autoplay = $('autoplay');
-  api.storage.sync.get(AUTOPLAY).then((r) => { autoplay.checked = r[AUTOPLAY] === true; }).catch(() => {});
-  autoplay.addEventListener('change', async () => {
-    const on = autoplay.checked;
-    try {
-      await api.storage.sync.set({ [AUTOPLAY]: on });
-      flash(on ? 'Videos will open paused' : 'Autoplay is back on');
-    } catch {
-      autoplay.checked = !on; // show the setting that is really saved
-      flash('Could not save. Please try again.');
-    }
-  });
+  // ---------- start paused: two independent switches ----------
+  const holdSwitch = { opened: $('ap-opened'), next: $('ap-next') };
+  const showHold = (r) => {
+    const old = r[OLD_AUTOPLAY] === true;
+    for (const k of ['opened', 'next']) holdSwitch[k].checked = typeof r[HOLD[k]] === 'boolean' ? r[HOLD[k]] : old;
+  };
+  const readHold = () => api.storage.sync.get([HOLD.opened, HOLD.next, OLD_AUTOPLAY]).then(showHold).catch(() => {});
+  readHold();
+  for (const k of ['opened', 'next']) {
+    holdSwitch[k].addEventListener('change', async () => {
+      const on = holdSwitch[k].checked;
+      try {
+        // Save both, so an old single switch never decides the other one later.
+        await api.storage.sync.set({ [HOLD.opened]: holdSwitch.opened.checked, [HOLD.next]: holdSwitch.next.checked });
+        flash(k === 'opened'
+          ? (on ? 'Videos you open will start paused' : 'Videos you open will play')
+          : (on ? 'Next videos will start paused' : 'Next videos will play by themselves'));
+      } catch {
+        holdSwitch[k].checked = !on; // show the setting that is really saved
+        flash('Could not save. Please try again.');
+      }
+    });
+  }
 
   // ---------- remembered videos ----------
   const count = $('memory-count');
@@ -252,7 +263,7 @@
   // ---------- stay in sync with changes made in the player or another window ----------
   api.storage.onChanged.addListener((changes, area) => {
     if (area === 'sync' && changes[KEY]) select(changes[KEY].newValue);
-    if (area === 'sync' && changes[AUTOPLAY]) autoplay.checked = changes[AUTOPLAY].newValue === true;
+    if (area === 'sync' && (changes[HOLD.opened] || changes[HOLD.next] || changes[OLD_AUTOPLAY])) readHold();
     if (area === 'sync' && changes[THEME]) applyTheme(changes[THEME].newValue);
     if (area === 'local' && changes[OVERRIDES]) showMemory(changes[OVERRIDES].newValue);
     if (area === 'local' && changes[CHANNELS]) showChannels(changes[CHANNELS].newValue);

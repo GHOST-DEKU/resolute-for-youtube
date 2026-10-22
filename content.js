@@ -6,7 +6,9 @@
  *
  * Stored:
  *  - sync  "qualityPreference": the default for all videos
- *  - sync  "stopAutoplay":      true = videos open paused (off unless the user turns it on)
+ *  - sync  "holdOpened":        true = videos you open start paused (off unless turned on)
+ *  - sync  "holdNext":          true = the next video in a queue/playlist starts paused (off unless turned on)
+ *    (older versions stored one "stopAutoplay" switch; it counts as both until either is set)
  *  - local "videoOverrides":    { videoId: quality } for videos the user chose to remember
  *  - local "channelPrefs":      { UCchannelId: { q: quality, name } } channel defaults
  *    (name is only for showing the list; the id is the key, so renames don't matter)
@@ -16,7 +18,10 @@
 
   const api = globalThis.browser ?? globalThis.chrome;
   const KEY = 'qualityPreference';
-  const AUTOPLAY = 'stopAutoplay';
+  const HOLD_OPENED = 'holdOpened';
+  const HOLD_NEXT = 'holdNext';
+  const OLD_AUTOPLAY = 'stopAutoplay';
+  const isPair = (v) => v && typeof v === 'object' && typeof v.opened === 'boolean' && typeof v.next === 'boolean';
   const OVERRIDES = 'videoOverrides';
   const CHANNELS = 'channelPrefs';
   const MAX_CHANNELS = 2000; // shortcut: drops the oldest beyond this; raise if users hit it
@@ -43,9 +48,14 @@
   }
   async function readAutoplay() {
     try {
-      return (await api.storage.sync.get(AUTOPLAY))[AUTOPLAY] === true;
+      const r = await api.storage.sync.get([HOLD_OPENED, HOLD_NEXT, OLD_AUTOPLAY]);
+      const old = r[OLD_AUTOPLAY] === true;
+      return {
+        opened: typeof r[HOLD_OPENED] === 'boolean' ? r[HOLD_OPENED] : old,
+        next: typeof r[HOLD_NEXT] === 'boolean' ? r[HOLD_NEXT] : old
+      };
     } catch {
-      return false;
+      return { opened: false, next: false };
     }
   }
   async function readOverrides() {
@@ -90,8 +100,8 @@
     try {
       if (msg.type === 'hello') {
         await sendAll();
-      } else if (msg.type === 'autoplay' && typeof msg.value === 'boolean') {
-        await api.storage.sync.set({ [AUTOPLAY]: msg.value });
+      } else if (msg.type === 'autoplay' && isPair(msg.value)) {
+        await api.storage.sync.set({ [HOLD_OPENED]: msg.value.opened, [HOLD_NEXT]: msg.value.next });
       } else if (msg.type === 'set' && VALID.has(msg.value)) {
         await api.storage.sync.set({ [KEY]: msg.value });
       } else if (msg.type === 'remember' && VIDEO_ID.test(msg.videoId)) {
@@ -121,8 +131,8 @@
       if (area === 'sync' && changes[KEY] && VALID.has(changes[KEY].newValue)) {
         send({ type: 'pref', value: changes[KEY].newValue });
       }
-      if (area === 'sync' && changes[AUTOPLAY]) {
-        send({ type: 'autoplay', value: changes[AUTOPLAY].newValue === true });
+      if (area === 'sync' && (changes[HOLD_OPENED] || changes[HOLD_NEXT] || changes[OLD_AUTOPLAY])) {
+        readAutoplay().then((value) => send({ type: 'autoplay', value }));
       }
       if (area === 'local' && changes[OVERRIDES]) {
         send({ type: 'overrides', value: changes[OVERRIDES].newValue || {} });

@@ -35,7 +35,7 @@
 | 📌 **Per-video memory** | "Remember for this video" and it always opens at that quality. |
 | 👤 **Per-channel defaults** | 4K for one creator, 720p for another. Recognised by channel ID, so renames don't break it. |
 | ⭐ **One global default** | For everything else. |
-| ⏸️ **No more autoplay** *(optional)* | Videos open paused and start only when you press play. |
+| ⏸️ **No more autoplay** *(optional)* | Two separate switches: videos you open, and the next video in a queue or playlist, can each start paused until you press play. |
 | 🔒 **Private by design** | No servers, no analytics, no network requests. Settings stay in your browser. |
 
 ---
@@ -45,7 +45,7 @@
 
 <p align="center">
   <img src="docs/menu.png" alt="The Resolute quality menu open inside the YouTube player" width="90%"><br>
-  <sub>The in-player menu (design preview: the video behind it and the channel are example content).</sub>
+  <sub>The real in-player menu, rendered from the extension's own code on a stand-in player. The video behind it and "Example Channel" are placeholders.</sub>
 </p>
 
 A pick in the menu changes **only the video you're watching**. Saving is always a deliberate extra click:
@@ -67,7 +67,7 @@ flowchart LR
 The first one that exists is used. "Auto" means YouTube decides.
 
 **Little things that help:**
-- The dot on the button tells you where the quality comes from: none = global default, hollow ring = this video only, grey-violet = remembered, mauve = channel default.
+- The dot on the button tells you where the quality comes from: none = global default, hollow ring = this video only, dusty pink = remembered, gold = channel default.
 - If a video doesn't have your quality, it uses the best one below it, and the menu says so ("Using 720p").
 - Qualities a video doesn't offer are dimmed as "Not available".
 - Keyboard: Tab to the button, ↑/↓ to open and move, Enter to pick, Esc to close.
@@ -77,15 +77,45 @@ The first one that exists is used. "Auto" means YouTube decides.
 <a id="autoplay"></a>
 ## ⏸️ No more autoplay
 
-Off by default. Switch it on with the **⏸ button right next to YouTube's search box**, or in the toolbar popup. Both stay in sync.
+Two settings, each off by default and independent of the other:
+
+| Setting | When it's on |
+|---|---|
+| ▶ **Videos I open** | A video you click, follow a link to, or open in a new tab starts **paused** |
+| ⏭ **Next in queue or playlist** | When a video ends and the next one starts by itself (autoplay, playlist, queue), that one starts **paused** |
+
+Pressing play always works: a click or tap in the player, **K**, **Space** or a media key is never undone. Ads are left alone; the real video after them follows your settings.
+
+### The button next to YouTube's search box
+
+At rest it's one small shape beside the mic button, and the shape *is* the state:
 
 <p align="center">
-  <img src="docs/autoplay-button.png" alt="The pause button beside YouTube's search box in light and dark themes, off and on" width="100%"><br>
-  <sub>The ⏸ button in YouTube's light and dark themes. Grey = autoplay allowed; indigo = videos open paused.</sub>
+  <img src="docs/autoplay-button.png" alt="The autoplay button in its four states, in YouTube's light and dark themes" width="100%"><br>
+  <sub>Rendered from the extension's own code on a stand-in for YouTube's top bar.</sub>
 </p>
 
-| When it's on | What happens |
-|---|---|
+- **▶ or ⏸ in the middle** = Videos I open (⏸ means they wait for you).
+- **The wavy ring** is YouTube's "up next" countdown. It unwinds when next videos wait.
+- **The shape and tint** show how much is on: grey circle = nothing, soft scalloped "cookie" = one setting, solid rounded square = both.
+
+Point at it and it **unfolds into a split button** (it floats over empty space, so YouTube's layout never moves):
+
+<p align="center">
+  <img src="docs/autoplay-unfold.png" alt="The button unfolded into a split button with a label and a chevron" width="80%">
+</p>
+
+- Click the **shape or the words** to switch both settings at once ("No autoplay" ↔ "Autoplay").
+- Click the **chevron** for a menu with a switch for each setting. Like the quality menu, it's frosted glass: whatever is behind it shows through, blurred.
+
+<p align="center">
+  <img src="docs/autoplay-menu.png" alt="The frosted menu with switches for Videos I open and Next in queue or playlist" width="100%"><br>
+  <sub>The colourful tiles are placeholder thumbnails, there to show the blur. Everything else is the extension's real code.</sub>
+</p>
+
+Keyboard: Tab to the button (it unfolds), Enter toggles both, ↓ opens the menu, Space switches, Esc closes. In narrow windows YouTube hides the search box, so the button moves next to the right-hand icons and a tap opens the menu. The popup has the same two switches; all of them stay in sync.
+
+---|---|
 | You open a video (link, thumbnail, new tab) | Opens **paused** |
 | A video ends and YouTube starts the next one | The next one opens **paused** |
 | You press play (click/tap the player, **K**, **Space**, or a media key) | **Plays.** Your own play is never undone. |
@@ -100,11 +130,11 @@ Off by default. Switch it on with the **⏸ button right next to YouTube's searc
 
 <p align="center">
   <img src="docs/popup.png" alt="The Resolute popup in light and dark themes" width="80%"><br>
-  <sub>The real popup in light and dark, with example channels.</sub>
+  <sub>The real popup in light and dark, rendered from the extension's code. The channels and counts are example data.</sub>
 </p>
 
 - Set the **global default** quality.
-- Switch **Open videos paused** on or off.
+- Switch **Videos I open** and **Next in queue or playlist** to start paused.
 - See every **channel default**: change its quality, remove it (×), or **Remove all**.
 - Clear remembered videos with **Forget all**.
 - Pick the popup theme: **System / Light / Dark**.
@@ -140,7 +170,7 @@ It won't update by itself. A downloaded ZIP or `.crx` can't be installed by just
 <details>
 <summary><b>Does it send my data anywhere?</b></summary>
 
-No. There's no code that makes network requests. Your global default and the autoplay setting are kept in your browser's synced extension storage; remembered videos and channel defaults stay on this device only. Full details in the [privacy policy](PRIVACY.md).
+No. There's no code that makes network requests. Your global default and the two autoplay settings are kept in your browser's synced extension storage; remembered videos and channel defaults stay on this device only. Full details in the [privacy policy](PRIVACY.md).
 </details>
 
 <details>
@@ -158,20 +188,22 @@ From the permanent channel ID (`UC…`) in YouTube's own player data for the vid
 <details>
 <summary><b>Will it break if YouTube changes its layout?</b></summary>
 
-Playback is never affected. If YouTube moves its controls, the quality button falls back to a small floating control above the progress bar. If YouTube redesigns its top bar, the ⏸ button may not appear, but the popup switch keeps working.
+Playback is never affected. If YouTube moves its controls, the quality button falls back to a small floating control above the progress bar. If YouTube redesigns its top bar, the autoplay button may not appear, but the popup switch keeps working.
 </details>
 
 <details>
 <summary><b>Does it work on Shorts or the mobile site?</b></summary>
 
-No. Shorts and m.youtube.com use a different player. "Open videos paused" also leaves Shorts and the muted hover previews on the home page alone.
+No. Shorts and m.youtube.com use a different player. The autoplay settings also leave Shorts and the muted hover previews on the home page alone.
 </details>
 
 ---
 
 ## ⚠️ Known limits
 
-- "Open videos paused" works by pausing a video right as it starts, so on a slow device you may hear a split second of sound first. YouTube offers no clean "don't autoplay" switch an extension can use.
+- The autoplay settings work by pausing a video right as it starts, so on a slow device you may hear a split second of sound first. YouTube offers no clean "don't autoplay" switch an extension can use.
+- "Next in queue or playlist" means the previous video played to its end and you didn't click or type before the next one started. If you click something in that moment, the next video counts as one you opened.
+- Material 3 Expressive spring motion uses CSS `linear()` easing (Chrome 113+, Firefox 112+). On Chrome 111–112 the button works the same, just without animation.
 - Channel defaults need the channel ID from YouTube's player data (`getPlayerResponse`). If YouTube stops providing it, videos fall back to the global default ("Channel not detected"). Nothing wrong is applied.
 - Remembered videos and channel defaults stay on the device where you saved them (not synced).
 - "Auto" after a forced quality uses `setPlaybackQualityRange('auto')`; verify on a real video.
@@ -185,9 +217,9 @@ No. Shorts and m.youtube.com use a different player. "Open videos paused" also l
 
 | File | Job |
 |------|-----|
-| `page.js` | Runs in YouTube's page (the "MAIN" world) so it can use the player's own methods. Adds the quality button + menu, applies the quality on every new video, waits for ads. Adds the ⏸ button beside the search box and, when "Open videos paused" is on, pauses each video the first time it starts by itself. |
-| `content.js` | Bridge to extension storage: the global default and the "Open videos paused" setting (both synced), remembered videos (this device, newest 1,000) and channel defaults (this device, newest 2,000). Validates every message and drops corrupted entries. |
-| `popup.*` | The toolbar popup: global default, autoplay switch, channel defaults, remembered videos, theme, and a fix for switched-off YouTube access. |
+| `page.js` | Runs in YouTube's page (the "MAIN" world) so it can use the player's own methods. Adds the quality button + menu, applies the quality on every new video, waits for ads. Adds the autoplay button beside the search box and, per your two autoplay settings, pauses a video the first time it starts by itself (telling "opened" apart from "next in queue"). |
+| `content.js` | Bridge to extension storage: the global default and the two autoplay settings (all synced), remembered videos (this device, newest 1,000) and channel defaults (this device, newest 2,000). Validates every message and drops corrupted entries. |
+| `popup.*` | The toolbar popup: global default, the two autoplay switches, channel defaults, remembered videos, theme, and a fix for switched-off YouTube access. |
 
 The two scripts talk through `window.postMessage`. No build step, no bundler, no libraries.
 </details>
@@ -195,12 +227,13 @@ The two scripts talk through `window.postMessage`. No build step, no bundler, no
 <details>
 <summary><b>Design</b></summary>
 
-The popup, the in-player menu and the ⏸ button are **inspired by Material 3 Expressive** (not an official Material implementation):
+The popup, the in-player menu and the autoplay button are **inspired by Material 3 Expressive** (not an official Material implementation):
 - **Shapes:** pill buttons and chips, connected button groups, and a selected item that morphs from a pill to a rounded square.
-- **Colour roles:** primary = global default, secondary = this video, tertiary = channel.
+- **Colour roles (from a red seed):** primary red = global default, dusty pink = this video, gold = channel.
+- **Shapes that morph:** the autoplay button changes shape (circle, cookie, rounded square) and has a wavy ring like M3 Expressive's wavy progress indicator.
 - **Motion:** spring-like, and switched off when the system's "reduce motion" setting is on.
-- **Surfaces:** translucent and frosted. In the player, the video shows through the menu.
-- **Theme:** the popup has System / Light / Dark. The in-player menu is always dark, like YouTube's own controls. The ⏸ button follows YouTube's light or dark top bar.
+- **Surfaces:** real frosted glass (`backdrop-filter`). In the player the video shows through the quality menu; on the page, the content shows through the autoplay menu. Browsers without blur get solid surfaces instead.
+- **Theme:** the popup has System / Light / Dark. The in-player menu is always dark, like YouTube's own controls. The autoplay button and its menu follow YouTube's light or dark theme.
 </details>
 
 <details>
@@ -211,7 +244,7 @@ npm i jsdom
 node test/page.test.js
 node test/content.test.js
 ```
-Runs the scripts against a fake YouTube player and fake storage: placement, menu, this-video picks, remember/forget, channel defaults (switching channels, missing or stale channel IDs, renamed channels, corrupted data), global default, fallback, ads, no duplicates, keyboard, and "Open videos paused" (paused on its own start, your play never undone, ads skipped, search-box typing and menu clicks not counted as play, the ⏸ button saving and following the popup).
+Runs the scripts against a fake YouTube player and fake storage: placement, menu, this-video picks, remember/forget, channel defaults (switching channels, missing or stale channel IDs, renamed channels, corrupted data), global default, fallback, ads, no duplicates, keyboard, and both autoplay settings (opened vs. next-in-queue detection, each setting on its own, your play never undone, ads skipped, search-box typing and menu clicks not counted as play, the switch never pausing the video already playing, the button unfolding, toggling both, its menu, keyboard and following the popup).
 </details>
 
 <details>

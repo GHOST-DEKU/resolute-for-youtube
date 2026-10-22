@@ -59,8 +59,38 @@
     statusTimer = setTimeout(() => status.classList.remove('show'), 2200);
   });
 
-  // Stay in sync if the choice changes in the player while the popup is open.
+  // Remembered videos: show how many, and let the user clear them (asks first).
+  const OVERRIDES = 'videoOverrides';
+  const count = document.getElementById('memory-count');
+  const forgetAll = document.getElementById('forget-all');
+  let confirmTimer = 0;
+  function showMemory(map) {
+    const n = Object.keys(map || {}).length;
+    count.textContent = n === 0 ? 'No videos remembered' : n === 1 ? '1 video remembered' : `${n} videos remembered`;
+    forgetAll.hidden = n === 0;
+    forgetAll.textContent = 'Forget all';
+    delete forgetAll.dataset.confirm;
+  }
+  api.storage.local.get(OVERRIDES).then((r) => showMemory(r[OVERRIDES])).catch(() => showMemory({}));
+  forgetAll.addEventListener('click', async () => {
+    if (!forgetAll.dataset.confirm) { // first click asks, second click clears
+      forgetAll.dataset.confirm = '1';
+      forgetAll.textContent = 'Click again to confirm';
+      clearTimeout(confirmTimer);
+      confirmTimer = setTimeout(() => { forgetAll.textContent = 'Forget all'; delete forgetAll.dataset.confirm; }, 3000);
+      return;
+    }
+    clearTimeout(confirmTimer);
+    try {
+      await api.storage.local.set({ [OVERRIDES]: {} });
+    } catch {
+      count.textContent = 'Could not clear. Please try again.';
+    }
+  });
+
+  // Stay in sync if things change in the player while the popup is open.
   api.storage.onChanged.addListener((changes, area) => {
     if (area === 'sync' && changes[KEY]) select(changes[KEY].newValue);
+    if (area === 'local' && changes[OVERRIDES]) showMemory(changes[OVERRIDES].newValue);
   });
 })();

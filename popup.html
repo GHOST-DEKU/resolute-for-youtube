@@ -8,11 +8,15 @@
 </head>
 <body>
   <header>
-    <h1 id="title">Video quality</h1>
-    <p>Applied to every YouTube video automatically.</p>
+    <h1 id="title">Default quality</h1>
+    <p>Used for every YouTube video, unless you remembered a different one for that video.</p>
   </header>
   <div id="options" class="options" role="radiogroup" aria-labelledby="title"></div>
-  <p class="hint">You can also change this from the quality button in the YouTube player, next to the settings (gear) button.</p>
+  <div class="memory">
+    <span id="memory-count">No videos remembered</span>
+    <button type="button" id="forget-all" class="link" hidden>Forget all</button>
+  </div>
+  <p class="hint">In the player, the quality button (next to the gear) changes only the current video. To save it, use "Remember for this video" or "Make default" at the bottom of that menu.</p>
   <p class="status" id="status" role="status" aria-live="polite"></p>
   <script src="popup.js"></script>
 </body>

@@ -1,8 +1,23 @@
 # YouTube Quality Control
 
-A Chrome / Firefox extension that adds a **quality button inside the YouTube player** (next to the ⚙ settings button). Pick a quality once and it is applied to the current video right away and to every video after it.
+A Chrome / Firefox extension that adds a **quality button inside the YouTube player** (next to the ⚙ settings button).
 
 Options: Auto · Highest available · 144p · 240p · 360p · 480p · 720p · 1080p · 1440p · 2160p (4K)
+
+![In-player quality menu](docs/menu.png)
+
+## Choosing vs. remembering
+
+| You do | What happens |
+|---|---|
+| Pick a quality in the menu | Changes **this video only**. Nothing is saved. Next video goes back to normal. |
+| 📌 **Remember for this video** | Saved. This video always opens at that quality. Click again to forget. |
+| ★ **Make default for all videos** | Saved. Every video uses it (unless it has its own remembered quality). |
+
+Which one wins when a video loads: **pick for now → remembered for this video → default**.
+
+The label dot shows where the quality comes from: none = default, white = this video only, blue = remembered.
+The toolbar popup sets the default and shows how many videos are remembered, with **Forget all**.
 
 ## Install (unpacked)
 
@@ -20,8 +35,8 @@ Options: Auto · Highest available · 144p · 240p · 360p · 480p · 720p · 10
 | File | Job |
 |------|-----|
 | `page.js` | Runs in YouTube's page so it can use the player's own methods. Adds the button + menu, applies the quality on every new video, waits for ads to finish. |
-| `content.js` | Bridge to extension storage (saves your choice, passes it to `page.js`). |
-| `popup.*` | Same choice from the toolbar icon (secondary). |
+| `content.js` | Bridge to extension storage: the default (synced) and remembered videos (this device, newest 1000). |
+| `popup.*` | Set the default; see / clear remembered videos. |
 
 - If the chosen quality isn't on a video, it uses the best quality below it (shown as "Using 720p" in the menu).
 - Unavailable qualities are dimmed with "Not available".
@@ -33,8 +48,9 @@ Options: Auto · Highest available · 144p · 240p · 360p · 480p · 720p · 10
 ```
 npm i jsdom
 node test/page.test.js
+node test/content.test.js
 ```
-Runs the script against a fake YouTube player (placement, menu, apply, fallback, ads, no duplicates, keyboard).
+Runs the scripts against a fake YouTube player and fake storage (placement, menu, this-video picks, remember/forget, default, fallback, ads, no duplicates, keyboard).
 
 ## Known limits
 

@@ -8,7 +8,11 @@
  * YouTube changes something, playback keeps working and only this button
  * stops working.
  *
- * Saved preference lives in extension storage; content.js passes it here.
+ * Which quality a video gets (first match wins):
+ *   1. a pick made in the menu for this video right now (not saved)
+ *   2. a quality the user chose to remember for this video
+ *   3. the default for all videos
+ * Saved values live in extension storage; content.js passes them here.
  */
 (() => {
   'use strict';
@@ -42,10 +46,14 @@
     q === 'hd2160' ? '2160p (4K)' : q === 'highres' ? '4320p (8K)' : HEIGHT[q] ? `${HEIGHT[q]}p` : '';
 
   // ---------- state ----------
-  let preference = DEFAULT_PREF;
+  let preference = DEFAULT_PREF; // default for all videos
   let prefKnown = false;
-  let lastApplied = '';   // "videoId|preference" already applied
+  let overrides = {};            // { videoId: quality } remembered on purpose
+  let overridesKnown = false;
+  let temp = null;               // { vid, q } pick for the current video only
+  let lastApplied = '';   // "videoId|quality" already applied
   let lastVideoId = '';
+  let forcedEarlier = false;
   let applyTimer = 0;
   let verifyTimer = 0;
   const hookedPlayers = new WeakSet();
@@ -95,6 +103,19 @@
     // Not available? Use the best one below it (or the lowest if none is below).
     return levels.find((q) => HEIGHT[q] <= want) || levels[levels.length - 1];
   }
+  const ready = () => prefKnown && overridesKnown;
+  function currentVid(p) {
+    // During ads YouTube may report the ad's id, so keep the last real video.
+    if (!p) return '';
+    return p.classList.contains('ad-showing') && lastVideoId ? lastVideoId : videoIdOf(p);
+  }
+  /** Quality this video should use, and where that choice comes from. */
+  function choiceFor(vid) {
+    const base = vid && VALID.has(overrides[vid])
+      ? { q: overrides[vid], from: 'remembered' }
+      : { q: preference, from: 'default' };
+    return temp && temp.vid === vid && temp.q !== base.q ? { q: temp.q, from: 'now' } : base;
+  }
   function forceQuality(p, q) {
     call(p, 'setPlaybackQualityRange', q, q);
     call(p, 'setPlaybackQuality', q);
@@ -110,7 +131,7 @@
       const p = getPlayer();
       const vid = p ? videoIdOf(p) : '';
       const levels = p ? availableLevels(p) : [];
-      const waiting = !prefKnown || !p || !vid || !levels.length || p.classList.contains('ad-showing');
+      const waiting = !ready() || !p || !vid || !levels.length || p.classList.contains('ad-showing');
       if (waiting) {
         // Wait for the player, the video's quality list, or the end of an ad.
         tries += 1;
@@ -118,7 +139,9 @@
         return;
       }
 
-      const key = `${vid}|${preference}`;
+      if (temp && temp.vid !== vid) temp = null; // a pick "for now" ends with its video
+      const want = choiceFor(vid).q;
+      const key = `${vid}|${want}`;
       if (!force && key === lastApplied) {
         updateUI();
         return;
@@ -126,12 +149,14 @@
       lastApplied = key;
       lastVideoId = vid;
 
-      if (preference === 'auto') {
-        // Only undo a forced quality when the user picks Auto; otherwise YouTube decides.
-        if (force) forceQuality(p, 'auto');
+      if (want === 'auto') {
+        // Undo a quality we forced earlier (it can carry over to the next video); otherwise YouTube decides.
+        if (force || forcedEarlier) forceQuality(p, 'auto');
+        forcedEarlier = false;
       } else {
-        const target = resolveTarget(preference, levels);
+        const target = resolveTarget(want, levels);
         forceQuality(p, target);
+        forcedEarlier = true;
         // YouTube sometimes changes quality again just after a video starts.
         verifyTimer = setTimeout(() => {
           const p2 = getPlayer();
@@ -177,14 +202,19 @@
     if (attrs) for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
     return node;
   }
-  function checkIcon() {
+  const ICONS = {
+    check: 'M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z',
+    pin: 'M16 9V4h1a1 1 0 0 0 0-2H7a1 1 0 0 0 0 2h1v5a3 3 0 0 1-3 3v2h5.97v7l1 1 1-1v-7H19v-2a3 3 0 0 1-3-3z',
+    star: 'M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z'
+  };
+  function icon(name, className) {
     const NS = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('viewBox', '0 0 24 24');
-    svg.setAttribute('class', 'yqx-check');
+    svg.setAttribute('class', className);
     svg.setAttribute('aria-hidden', 'true');
     const path = document.createElementNS(NS, 'path');
-    path.setAttribute('d', 'M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z');
+    path.setAttribute('d', ICONS[name]);
     path.setAttribute('fill', 'currentColor');
     svg.append(path);
     return svg;
@@ -235,11 +265,12 @@
     const menu = el('div', 'yqx-menu', { id: 'yqx-menu', role: 'menu', 'aria-label': 'Video quality' });
     const head = el('div', 'yqx-head', { 'aria-hidden': 'true' });
     const title = el('span', 'yqx-title');
-    title.textContent = 'Quality';
+    title.textContent = 'Quality for this video';
     const now = el('span', 'yqx-now');
     head.append(title, now);
     const list = el('div', 'yqx-list');
-    menu.append(head, list);
+    const foot = el('div', 'yqx-foot');
+    menu.append(head, list, foot); // only the list scrolls; title and save rows stay visible
 
     for (const o of OPTIONS) {
       const item = el('div', 'yqx-item', { role: 'menuitemradio', tabindex: '-1', 'aria-checked': 'false' });
@@ -247,17 +278,41 @@
       const label = el('span', 'yqx-label');
       label.textContent = o.label;
       const note = el('span', 'yqx-note');
-      item.append(checkIcon(), label, note);
+      item.append(icon('check', 'yqx-check'), label, note);
       item.addEventListener('click', () => choose(o.id, false));
-      item.addEventListener('pointermove', () => {
-        if (document.activeElement && document.activeElement.classList.contains('yqx-item') &&
-            document.activeElement !== item) item.focus({ preventScroll: true });
-      });
       list.append(item);
       if (o.id === 'highest') list.append(el('div', 'yqx-sep', { role: 'separator' }));
       ui.items.set(o.id, item);
     }
 
+    // Saving is always a deliberate extra step.
+    const footRow = (key, iconName, role, onClick) => {
+      const row = el('div', `yqx-item yqx-action yqx-${key}`, { role, tabindex: '-1' });
+      const label = el('span', 'yqx-label');
+      const note = el('span', 'yqx-note');
+      row.append(icon(iconName, 'yqx-icon'), label, note);
+      row.addEventListener('click', () => {
+        if (row.getAttribute('aria-disabled') !== 'true') onClick();
+      });
+      foot.append(row);
+      return row;
+    };
+    ui.rememberRow = footRow('remember', 'pin', 'menuitemcheckbox', toggleRemember);
+    ui.defaultRow = footRow('default', 'star', 'menuitem', makeDefault);
+
+    // Hovering an item moves keyboard focus with it (like native menus).
+    menu.addEventListener('pointermove', (e) => {
+      const item = e.target.closest('.yqx-item');
+      const active = document.activeElement;
+      if (item && active && active.classList.contains('yqx-item') && active !== item) {
+        item.focus({ preventScroll: true });
+      }
+    });
+
+    const fadeIfMore = () => list.classList.toggle('yqx-more',
+      list.scrollTop + list.clientHeight < list.scrollHeight - 2);
+    list.addEventListener('scroll', fadeIfMore, { passive: true });
+    ui.fadeIfMore = fadeIfMore;
     menu.addEventListener('keydown', onMenuKey);
     menu.addEventListener('keyup', (e) => e.stopPropagation());
     // Keep clicks/taps inside the menu from reaching the player (which would pause/play).
@@ -328,28 +383,51 @@
     }
   }
 
+  function setRow(row, label, note, disabled) {
+    row.querySelector('.yqx-label').textContent = label;
+    row.querySelector('.yqx-note').textContent = note;
+    row.setAttribute('aria-label', note ? `${label}, ${note}` : label);
+    if (disabled) row.setAttribute('aria-disabled', 'true');
+    else row.removeAttribute('aria-disabled');
+  }
+
   function updateUI() {
     if (!ui.btn) return;
-    ui.btn.classList.toggle('yqx-pending', !prefKnown);
-    if (!prefKnown) return;
+    ui.btn.classList.toggle('yqx-pending', !ready());
+    if (!ready()) return;
 
     const p = getPlayer();
-    const opt = optionById(preference);
+    const vid = currentVid(p);
+    const choice = choiceFor(vid);
+    const opt = optionById(choice.q);
     const levels = p ? availableLevels(p) : [];
     const known = levels.length > 0;
     const playing = p ? playingLabel(p) : '';
-    const target = resolveTarget(preference, levels);
+    const target = resolveTarget(choice.q, levels);
+    const source = { now: 'this video only', remembered: 'remembered for this video', default: 'default' }[choice.from];
 
     setPill(opt.short);
-    ui.tipText = `Quality: ${opt.label}${playing ? ` · Playing ${playing}` : ''}`;
+    ui.pill.dataset.from = choice.from;
+    ui.tipText = `Quality: ${opt.label} (${source})${playing ? ` · Playing ${playing}` : ''}`;
     if (ui.tip.classList.contains('yqx-show')) ui.tip.textContent = ui.tipText;
     ui.btn.setAttribute('aria-label',
-      `Video quality: ${opt.label}${playing ? `. Now playing ${playing}` : ''}`);
+      `Video quality: ${opt.label}, ${source}${playing ? `. Now playing ${playing}` : ''}`);
     ui.now.textContent = playing ? `Playing ${playing}` : '';
+
+    // Bottom rows: save on purpose.
+    const remembered = choice.from === 'remembered';
+    setRow(ui.rememberRow, remembered ? 'Remembered for this video' : 'Remember for this video',
+      remembered ? 'Forget' : opt.label, !vid);
+    ui.rememberRow.setAttribute('aria-checked', String(remembered));
+    ui.rememberRow.classList.toggle('yqx-on', remembered);
+    const isDefault = choice.q === preference;
+    setRow(ui.defaultRow, isDefault ? 'Your default for all videos' : 'Make default for all videos',
+      isDefault ? '' : opt.label, isDefault);
+    ui.defaultRow.classList.toggle('yqx-on', isDefault);
 
     for (const o of OPTIONS) {
       const item = ui.items.get(o.id);
-      const checked = o.id === preference;
+      const checked = o.id === choice.q;
       let note = '';
       let unavailable = false;
       if (o.id === 'highest') {
@@ -400,7 +478,7 @@
   }
 
   function openMenu(byKeyboard) {
-    if (ui.open || !getPlayer() || !prefKnown) return;
+    if (ui.open || !getPlayer() || !ready()) return;
     ensureUI();
     hideTip();
     ui.open = true;
@@ -410,7 +488,11 @@
     ui.btn.setAttribute('aria-expanded', 'true');
     clearInterval(ui.keepAlive);
     ui.keepAlive = setInterval(nudgeControls, 1500);
-    if (byKeyboard) focusItem(ui.items.get(preference));
+    const current = ui.items.get(choiceFor(currentVid(getPlayer())).q);
+    ui.list.scrollTop = 0;
+    reveal(current); // scroll only if the current pick is out of view
+    ui.fadeIfMore();
+    if (byKeyboard) focusItem(current);
   }
 
   function closeMenu(returnFocus) {
@@ -426,7 +508,11 @@
   function focusItem(item) {
     if (!item) return;
     item.focus({ preventScroll: true });
-    const list = ui.menu;
+    reveal(item);
+  }
+  function reveal(item) {
+    const list = ui.list;
+    if (!list.contains(item)) return; // bottom rows never scroll
     if (item.offsetTop < list.scrollTop) list.scrollTop = item.offsetTop - 8;
     else if (item.offsetTop + item.offsetHeight > list.scrollTop + list.clientHeight) {
       list.scrollTop = item.offsetTop + item.offsetHeight - list.clientHeight + 8;
@@ -434,7 +520,7 @@
   }
 
   function onMenuKey(e) {
-    const items = [...ui.items.values()];
+    const items = [...ui.menu.querySelectorAll('.yqx-item')];
     const i = items.indexOf(document.activeElement);
     let handled = true;
     switch (e.key) {
@@ -444,7 +530,8 @@
       case 'End': focusItem(items[items.length - 1]); break;
       case 'Enter':
       case ' ':
-        if (i >= 0) choose(items[i].dataset.q, true);
+        if (i >= 0 && items[i].dataset.q) choose(items[i].dataset.q, true);
+        else if (i >= 0) items[i].click(); // bottom rows keep the menu open
         break;
       case 'Escape':
       case 'Tab':
@@ -457,21 +544,49 @@
     e.stopPropagation(); // keep YouTube's shortcuts (K, F, arrows…) out while in the menu
   }
 
+  /** A pick in the list changes only this video and saves nothing. */
   function choose(id, byKeyboard) {
-    if (!VALID.has(id)) return;
-    const changed = id !== preference;
-    preference = id;
-    prefKnown = true;
+    const vid = currentVid(getPlayer());
+    if (!VALID.has(id) || !vid) return;
+    temp = { vid, q: id };
     closeMenu(byKeyboard);
     updateUI();
-    if (changed) postToExt({ type: 'set', value: id });
     scheduleApply(true); // apply to the current video right away
+  }
+
+  /** Bottom row 1: remember (or forget) this video's quality. */
+  function toggleRemember() {
+    const vid = currentVid(getPlayer());
+    if (!vid) return;
+    const choice = choiceFor(vid);
+    if (choice.from === 'remembered') {
+      delete overrides[vid];
+      temp = { vid, q: choice.q }; // forgetting doesn't change what's playing now
+      postToExt({ type: 'remember', videoId: vid, value: null });
+    } else {
+      overrides[vid] = choice.q;
+      temp = null;
+      postToExt({ type: 'remember', videoId: vid, value: choice.q });
+    }
+    updateUI();
+  }
+
+  /** Bottom row 2: make this video's quality the default for all videos. */
+  function makeDefault() {
+    const vid = currentVid(getPlayer());
+    const q = choiceFor(vid).q;
+    if (q === preference) return;
+    preference = q;
+    if (temp && temp.vid === vid) temp = null; // now it's simply the default
+    postToExt({ type: 'set', value: q });
+    lastApplied = `${vid}|${q}`; // already playing; no need to re-apply
+    updateUI();
   }
 
   // ---------- tooltip ----------
   function showTip() {
     const p = getPlayer();
-    if (ui.open || !p || !prefKnown) return;
+    if (ui.open || !p || !ready()) return;
     ui.tip.textContent = ui.tipText;
     const pr = p.getBoundingClientRect();
     const br = ui.btn.getBoundingClientRect();
@@ -496,21 +611,27 @@
   window.addEventListener('message', (event) => {
     const msg = event.data;
     if (event.source !== window || !msg || msg.source !== FROM_EXT) return;
-    if (msg.type !== 'pref' || !VALID.has(msg.value)) return;
-    const first = !prefKnown;
-    const changed = msg.value !== preference;
-    preference = msg.value;
-    prefKnown = true;
-    if (first || changed) {
-      updateUI();
-      scheduleApply(!first); // a change from the popup applies to the current video too
+    if (msg.type === 'pref' && VALID.has(msg.value)) {
+      const changed = !prefKnown || msg.value !== preference;
+      preference = msg.value;
+      prefKnown = true;
+      // A new default from the popup applies to the current video too (unless it has its own pick).
+      if (changed) scheduleApply(false);
+    } else if (msg.type === 'overrides' && msg.value && typeof msg.value === 'object') {
+      overrides = { ...msg.value };
+      overridesKnown = true;
+      scheduleApply(false);
+    } else {
+      return;
     }
+    updateUI();
   });
 
-  // If the bridge never answers (very unlikely), still work with the default.
+  // If the bridge never answers (very unlikely), still work with what we have.
   setTimeout(() => {
-    if (!prefKnown) {
+    if (!ready()) {
       prefKnown = true;
+      overridesKnown = true;
       updateUI();
       scheduleApply(false);
     }
@@ -573,6 +694,12 @@
 #movie_player .yqx-button[aria-expanded="true"] .yqx-pill{background:#fff;border-color:#fff;color:#0f0f0f}
 #movie_player .yqx-button:focus-visible .yqx-pill{outline:2px solid #fff;outline-offset:2px}
 #movie_player.ytp-big-mode .yqx-pill{font-size:15px;padding:4px 8px;border-radius:7px;border-width:2px}
+.yqx-pill{position:relative}
+.yqx-pill::after{content:"";position:absolute;top:-4px;right:-4px;width:7px;height:7px;border-radius:50%;
+  box-shadow:0 0 0 1.5px rgba(0,0,0,.55);opacity:0;transform:scale(.4);transition:opacity .18s ease,transform .24s ${EASE}}
+.yqx-pill[data-from="now"]::after{opacity:1;transform:none;background:#fff}
+.yqx-pill[data-from="remembered"]::after{opacity:1;transform:none;background:#3ea6ff}
+#movie_player .yqx-button[aria-expanded="true"] .yqx-pill::after{box-shadow:0 0 0 1.5px rgba(28,28,28,.9)}
 .yqx-pill.yqx-swap{animation:yqx-swap .24s ${EASE}}
 @keyframes yqx-swap{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
 
@@ -580,8 +707,8 @@
   border-radius:16px;background:rgba(0,0,0,.5);transition:opacity .25s cubic-bezier(0,0,.2,1)}
 #movie_player.ytp-autohide .yqx-button.yqx-floating{opacity:0;pointer-events:none}
 
-#movie_player .yqx-menu{position:absolute;z-index:72;box-sizing:border-box;min-width:240px;max-width:calc(100% - 24px);
-  overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.3) transparent;
+#movie_player .yqx-menu{position:absolute;z-index:72;box-sizing:border-box;min-width:280px;max-width:calc(100% - 24px);
+  display:flex;flex-direction:column;overflow:hidden;
   padding:6px 0;border-radius:12px;background:rgba(28,28,28,.92);color:#eee;font-size:13px;line-height:normal;
   text-shadow:0 0 2px rgba(0,0,0,.5);user-select:none;-webkit-user-select:none;
   opacity:0;visibility:hidden;transform:translateY(8px) scale(.97);transform-origin:bottom right;
@@ -590,6 +717,12 @@
   transition:opacity .16s ease,transform .24s ${EASE},visibility 0s}
 .yqx-head{display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:8px 16px 8px 16px;font-weight:500;color:#fff}
 .yqx-now{color:rgba(255,255,255,.6);font-weight:400;font-size:12px;white-space:nowrap}
+.yqx-list{position:relative;flex:1 1 auto;min-height:72px;overflow-y:auto;overscroll-behavior:contain;
+  scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.3) transparent}
+.yqx-list.yqx-more{-webkit-mask-image:linear-gradient(#000 calc(100% - 28px),transparent);mask-image:linear-gradient(#000 calc(100% - 28px),transparent)}
+.yqx-head,.yqx-foot{flex:none}
+.yqx-head{margin-bottom:5px;border-bottom:1px solid rgba(255,255,255,.14)}
+.yqx-foot{margin-top:5px;padding-top:5px;border-top:1px solid rgba(255,255,255,.14)}
 .yqx-sep{height:1px;margin:5px 0;background:rgba(255,255,255,.14)}
 .yqx-item{display:flex;align-items:center;gap:10px;height:36px;padding:0 16px 0 12px;cursor:pointer;outline:none;
   transition:background-color .1s ease}
@@ -602,7 +735,15 @@
 .yqx-note{font-size:12px;color:rgba(255,255,255,.55);white-space:nowrap}
 .yqx-unavailable .yqx-label{color:rgba(255,255,255,.38)}
 .yqx-unavailable .yqx-note{color:rgba(255,255,255,.38);font-style:italic}
-#movie_player.ytp-big-mode .yqx-menu{font-size:16px;min-width:300px}
+.yqx-icon{width:18px;height:18px;flex:none;color:rgba(255,255,255,.7);transition:color .15s ease,transform .24s ${EASE}}
+.yqx-remember.yqx-on .yqx-icon{color:#3ea6ff;transform:rotate(-20deg)}
+.yqx-remember.yqx-on .yqx-label{color:#fff;font-weight:500}
+.yqx-action[aria-disabled="true"]{cursor:default}
+.yqx-action[aria-disabled="true"]:hover{background:transparent}
+.yqx-action[aria-disabled="true"] .yqx-label{color:rgba(255,255,255,.5)}
+.yqx-default.yqx-on .yqx-icon{color:#fff}
+#movie_player.ytp-big-mode .yqx-icon{width:22px;height:22px}
+#movie_player.ytp-big-mode .yqx-menu{font-size:16px;min-width:340px}
 #movie_player.ytp-big-mode .yqx-item{height:44px}
 #movie_player.ytp-big-mode .yqx-now,#movie_player.ytp-big-mode .yqx-note{font-size:14px}
 
@@ -613,6 +754,6 @@
 #movie_player.ytp-big-mode .yqx-tip{font-size:15px}
 
 @media (prefers-reduced-motion: reduce){
-  .yqx-menu,.yqx-pill,.yqx-check,.yqx-tip,.yqx-item{transition:none!important;animation:none!important}
+  .yqx-menu,.yqx-pill,.yqx-pill::after,.yqx-check,.yqx-icon,.yqx-tip,.yqx-item{transition:none!important;animation:none!important}
 }`;
 })();

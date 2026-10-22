@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "YouTube Quality Control",
+  "name": "Resolute: Video Quality Control",
   "version": "1.0.0",
-  "description": "Choose video quality from a button inside the YouTube player. Your choice is applied to every video automatically.",
+  "description": "Pick video quality from a button inside the YouTube player. Set a default, or remember a quality for just one video.",
+  "minimum_chrome_version": "111",
   "permissions": ["storage"],
   "icons": {
     "16": "icons/icon16.png",
@@ -11,7 +12,7 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "YouTube Quality Control",
+    "default_title": "Resolute: Video Quality Control",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon16.png",

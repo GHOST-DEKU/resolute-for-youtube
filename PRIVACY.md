@@ -1,0 +1,43 @@
+# Privacy Policy — Resolute: Video Quality Control
+
+**Effective date:** 22 October 2026
+
+Resolute: Video Quality Control ("the extension") lets you choose the video quality of YouTube videos from a button inside the YouTube player. This policy explains exactly what the extension stores and what it does not do.
+
+## What the extension stores
+
+| What | When | Where it is stored |
+|---|---|---|
+| Your **default quality** (for example "1080p" or "Highest available") | When you pick a default in the popup or click **Make default for all videos** in the player menu | Your browser's extension storage (`chrome.storage.sync`). If you have turned on Chrome Sync, Chrome copies this setting to your other signed-in browsers. That copying is done by your browser and Google account, not by us. |
+| **Video IDs you choose to remember**, each with its quality (for example `dQw4w9WgXcQ → 480p`) | Only when you click **Remember for this video** | Your browser's local extension storage (`chrome.storage.local`), on this device only. At most the 1,000 most recent are kept. |
+
+The extension reads the ID of the video currently playing, and the list of qualities the YouTube player offers for it, so that it can apply your choice. It uses these only on your device, at that moment, and does not keep them unless you click **Remember for this video**.
+
+## What the extension does not do
+
+- It does **not** send any data to the developer or to any other server. The extension contains no code that makes network requests.
+- It does **not** use analytics, tracking, advertising, or cookies.
+- It does **not** use or store your YouTube account details, watch history, comments, video titles, or anything else from the page beyond what is described above.
+- It does **not** sell, share, or transfer your data to anyone.
+- It does **not** use your data for any purpose other than applying the video quality you chose.
+
+## Permissions
+
+- **storage:** to save the settings described above.
+- **Access to youtube.com and youtube-nocookie.com pages:** to add the quality button to the video player and apply your chosen quality. The extension does not run on any other website.
+
+## Your control over your data
+
+- **Forget one video:** open the quality menu on that video and click **Remembered for this video** (Forget).
+- **Forget all videos:** click the extension's toolbar icon, then **Forget all**.
+- **Remove everything:** uninstalling the extension deletes all data it stored.
+
+## Changes to this policy
+
+If the extension's data practices change, this policy will be updated and the effective date above will change. Any change will be made before a new version with different data practices is published.
+
+## Contact
+
+Questions or concerns: open an issue at <https://github.com/GHOST-DEKU/youtube-quality-control/issues>.
+
+*YouTube is a trademark of Google LLC. This extension is not made, endorsed, or sponsored by YouTube or Google.*

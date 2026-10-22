@@ -37,8 +37,13 @@ Object.assign(p, {
   getVideoData: () => ({ video_id: videoId }),
   getPlaybackQuality: () => playing,
   setPlaybackQualityRange: (a, b) => { calls.push(a); playing = a; },
-  setPlaybackQuality: () => {}
+  setPlaybackQuality: () => {},
+  pauseVideo: () => { pauses += 1; }
 });
+let pauses = 0;
+let videoPaused = true; // jsdom can't play media, so the test sets this
+const videoEl = p.querySelector('video');
+Object.defineProperty(videoEl, 'paused', { get: () => videoPaused });
 
 // Capture messages page.js sends to the extension (postMessage in jsdom has no event.source, so stub it).
 const sent = [];
@@ -265,6 +270,45 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   // Global default change applies to channels without their own default
   fromExt('hd720'); await wait(80);
   assert.strictEqual(calls.at(-1), 'hd720', 'new global default applied');
+
+  // ---------- open videos paused ----------
+  const startsPlaying = async (vid) => {
+    videoId = vid; videoPaused = false;
+    videoEl.dispatchEvent(new window.Event('playing'));
+    await wait(20);
+  };
+  let before3 = pauses;
+  await startsPlaying('ap0');
+  assert.strictEqual(pauses, before3, 'setting off: autoplay left alone');
+  toPage('autoplay', true);
+  await startsPlaying('ap1');
+  assert.strictEqual(pauses, before3 + 1, 'setting on: video that starts by itself is paused');
+  await startsPlaying('ap1');
+  assert.strictEqual(pauses, before3 + 1, 'pressing play afterwards is never undone');
+  p.querySelector('.ytp-chrome-bottom').dispatchEvent(new window.MouseEvent('pointerdown', { bubbles: true }));
+  await startsPlaying('ap2');
+  assert.strictEqual(pauses, before3 + 1, 'click in the player = you asked to play');
+  document.body.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'k', bubbles: true }));
+  await startsPlaying('ap3');
+  assert.strictEqual(pauses, before3 + 1, 'K key = you asked to play');
+  await wait(1050);
+  const search = document.createElement('input'); document.body.append(search);
+  search.dispatchEvent(new window.KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+  open(); // opening the quality menu isn't a play request either
+  menu.dispatchEvent(new window.MouseEvent('pointerdown', { bubbles: true }));
+  document.body.dispatchEvent(new window.MouseEvent('pointerdown', { bubbles: true }));
+  await startsPlaying('ap4');
+  assert.strictEqual(pauses, before3 + 2, 'typing a space in search or using the menu does not count as play');
+  p.classList.add('ad-showing');
+  await startsPlaying('ap5');
+  assert.strictEqual(pauses, before3 + 2, 'ads are not touched');
+  p.classList.remove('ad-showing');
+  await startsPlaying('ap5');
+  assert.strictEqual(pauses, before3 + 3, 'the real video after the ad opens paused');
+  toPage('autoplay', false);
+  await startsPlaying('ap6');
+  assert.strictEqual(pauses, before3 + 3, 'turning it off restores autoplay');
+  videoPaused = true;
 
   // No toolbar at all -> floating fallback
   document.querySelector('.ytp-chrome-bottom').remove();

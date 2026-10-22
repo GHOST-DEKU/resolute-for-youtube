@@ -14,6 +14,10 @@
  *   3. the default the user saved for this video's channel
  *   4. the default for all videos ("Auto" lets YouTube decide)
  * Saved values live in extension storage; content.js passes them here.
+ *
+ * Optional "open videos paused": the first time each video starts playing on its own,
+ * it is paused. A play you start yourself (click/tap in the player, K, Space,
+ * media key) is never undone.
  */
 (() => {
   'use strict';
@@ -54,6 +58,9 @@
   let channels = {};             // { UCchannelId: { q, name } } channel defaults
   let channelsKnown = false;
   let temp = null;               // { vid, q } pick for the current video only
+  let holdAutoplay = false;      // "open videos paused" setting
+  let heldVid = '';              // video whose first start was already checked
+  let lastPlayGesture = 0;       // time of the user's last play-like input
   const channelCache = new Map(); // videoId -> { id, name } once detected
   const renamed = new Set();      // "id|name" pairs whose stored name we already refreshed
   let flashTimer = 0;
@@ -255,6 +262,20 @@
     new MutationObserver(() => {
       if (ui.open && p.classList.contains('ytp-autohide')) closeMenu(false);
     }).observe(p, { attributes: true, attributeFilter: ['class'] });
+  }
+
+  // ---------- open videos paused ----------
+  const PLAY_KEYS = new Set([' ', 'k', 'K', 'MediaPlayPause', 'MediaPlay']);
+  function holdIfAutoplayed() {
+    if (!holdAutoplay) return;
+    const p = getPlayer();
+    const v = p && p.querySelector('video');
+    if (!v || v.paused || p.classList.contains('ad-showing')) return; // ads: wait for the real video
+    const vid = videoIdOf(p);
+    if (!vid || vid === heldVid) return;  // only the first start of each video
+    heldVid = vid;
+    if (Date.now() - lastPlayGesture < 1000) return; // you pressed play: leave it playing
+    call(p, 'pauseVideo');
   }
 
   // ---------- building the UI ----------
@@ -781,6 +802,9 @@
       overrides = { ...msg.value };
       overridesKnown = true;
       scheduleApply(false);
+    } else if (msg.type === 'autoplay' && typeof msg.value === 'boolean') {
+      holdAutoplay = msg.value;
+      return;
     } else if (msg.type === 'channels' && msg.value && typeof msg.value === 'object') {
       // Keep only well-formed entries; anything corrupted is ignored, never applied.
       channels = {};
@@ -828,9 +852,23 @@
   for (const type of ['loadedmetadata', 'playing']) {
     document.addEventListener(type, (e) => {
       const p = getPlayer();
-      if (p && e.target instanceof HTMLVideoElement && p.contains(e.target)) checkVideoChange();
+      if (p && e.target instanceof HTMLVideoElement && p.contains(e.target)) {
+        checkVideoChange();
+        if (e.type === 'playing') holdIfAutoplayed();
+      }
     }, true);
   }
+  // Remember when the user asks for playback, so their own play is never paused.
+  document.addEventListener('pointerdown', (e) => {
+    const p = getPlayer();
+    const ours = ui.menu && (ui.menu.contains(e.target) || ui.btn.contains(e.target)); // quality menu isn't "play"
+    if (p && p.contains(e.target) && !ours) lastPlayGesture = Date.now();
+  }, true);
+  document.addEventListener('keydown', (e) => {
+    const t = e.target;
+    const typing = t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)); // e.g. a space in search
+    if (PLAY_KEYS.has(e.key) && !typing) lastPlayGesture = Date.now();
+  }, true);
   document.addEventListener('pointerdown', (e) => {
     if (ui.open && !ui.menu.contains(e.target) && !ui.btn.contains(e.target)) closeMenu(false);
   }, true);

@@ -6,6 +6,7 @@
  *
  * Stored:
  *  - sync  "qualityPreference": the default for all videos
+ *  - sync  "stopAutoplay":      true = videos open paused (off unless the user turns it on)
  *  - local "videoOverrides":    { videoId: quality } for videos the user chose to remember
  *  - local "channelPrefs":      { UCchannelId: { q: quality, name } } channel defaults
  *    (name is only for showing the list; the id is the key, so renames don't matter)
@@ -15,6 +16,7 @@
 
   const api = globalThis.browser ?? globalThis.chrome;
   const KEY = 'qualityPreference';
+  const AUTOPLAY = 'stopAutoplay';
   const OVERRIDES = 'videoOverrides';
   const CHANNELS = 'channelPrefs';
   const MAX_CHANNELS = 2000; // shortcut: drops the oldest beyond this; raise if users hit it
@@ -37,6 +39,13 @@
       return VALID.has(stored[KEY]) ? stored[KEY] : DEFAULT_PREF;
     } catch {
       return DEFAULT_PREF; // e.g. extension was reloaded while the tab stayed open
+    }
+  }
+  async function readAutoplay() {
+    try {
+      return (await api.storage.sync.get(AUTOPLAY))[AUTOPLAY] === true;
+    } catch {
+      return false;
     }
   }
   async function readOverrides() {
@@ -71,6 +80,7 @@
     send({ type: 'pref', value: await readPreference() });
     send({ type: 'overrides', value: await readOverrides() });
     send({ type: 'channels', value: await readChannels() });
+    send({ type: 'autoplay', value: await readAutoplay() });
   }
 
   window.addEventListener('message', async (event) => {
@@ -108,6 +118,9 @@
     api.storage.onChanged.addListener((changes, area) => {
       if (area === 'sync' && changes[KEY] && VALID.has(changes[KEY].newValue)) {
         send({ type: 'pref', value: changes[KEY].newValue });
+      }
+      if (area === 'sync' && changes[AUTOPLAY]) {
+        send({ type: 'autoplay', value: changes[AUTOPLAY].newValue === true });
       }
       if (area === 'local' && changes[OVERRIDES]) {
         send({ type: 'overrides', value: changes[OVERRIDES].newValue || {} });

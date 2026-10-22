@@ -5,6 +5,7 @@
   const THEME = 'uiTheme';
   const OVERRIDES = 'videoOverrides';
   const CHANNELS = 'channelPrefs';
+  const AUTOPLAY = 'stopAutoplay';
   const DEFAULT_PREF = 'highest';
   const CHANNEL_ID = /^UC[\w-]{22}$/;
   // Same order as the in-player menu: two modes, then resolutions.
@@ -127,6 +128,20 @@
     }
   });
 
+  // ---------- open videos paused ----------
+  const autoplay = $('autoplay');
+  api.storage.sync.get(AUTOPLAY).then((r) => { autoplay.checked = r[AUTOPLAY] === true; }).catch(() => {});
+  autoplay.addEventListener('change', async () => {
+    const on = autoplay.checked;
+    try {
+      await api.storage.sync.set({ [AUTOPLAY]: on });
+      flash(on ? 'Videos will open paused' : 'Autoplay is back on');
+    } catch {
+      autoplay.checked = !on; // show the setting that is really saved
+      flash('Could not save. Please try again.');
+    }
+  });
+
   // ---------- remembered videos ----------
   const count = $('memory-count');
   const forgetAll = $('forget-all');
@@ -237,6 +252,7 @@
   // ---------- stay in sync with changes made in the player or another window ----------
   api.storage.onChanged.addListener((changes, area) => {
     if (area === 'sync' && changes[KEY]) select(changes[KEY].newValue);
+    if (area === 'sync' && changes[AUTOPLAY]) autoplay.checked = changes[AUTOPLAY].newValue === true;
     if (area === 'sync' && changes[THEME]) applyTheme(changes[THEME].newValue);
     if (area === 'local' && changes[OVERRIDES]) showMemory(changes[OVERRIDES].newValue);
     if (area === 'local' && changes[CHANNELS]) showChannels(changes[CHANNELS].newValue);

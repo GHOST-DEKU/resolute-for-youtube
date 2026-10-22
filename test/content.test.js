@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const store = { sync: { qualityPreference: 'hd1080' }, local: {} };
+const store = { sync: { qualityPreference: 'hd1080', stopAutoplay: true }, local: {} };
 const area = (name) => ({
   get: async (k) => ({ [k]: store[name][k] }),
   set: async (o) => { Object.assign(store[name], JSON.parse(JSON.stringify(o))); }
@@ -22,8 +22,9 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
 
 (async () => {
   await tick();
-  assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides', 'channels'], 'sends default, remembered videos and channel defaults');
+  assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides', 'channels', 'autoplay'], 'sends default, remembered videos, channel defaults and autoplay setting');
   assert.strictEqual(posted[0].value, 'hd1080');
+  assert.strictEqual(posted[3].value, true, 'autoplay setting passed on');
 
   await fromPage({ type: 'remember', videoId: 'dQw4w9WgXcQ', value: 'large' });
   assert.deepStrictEqual(store.local.videoOverrides, { dQw4w9WgXcQ: 'large' }, 'remembers a video');

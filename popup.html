@@ -102,6 +102,38 @@
         </span>
       </label>
     </section>
+    <section class="card card-saver" aria-labelledby="sv-title">
+      <div class="card-head">
+        <span class="badge badge-saver" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3c5.4 2.4 8.8 7 7.3 12.6-1.5 4.6-6.8 6-11.1 4.8l-3.6.6-.6-.9 2.7-3.3C3.6 12.8 4.9 6 12 3z"/></svg></span>
+        <div class="grow">
+          <h2 id="sv-title">Background saver</h2>
+          <p id="sv-desc">Lowest quality in tabs you aren&rsquo;t watching</p>
+        </div>
+        <span class="switch">
+          <input type="checkbox" role="switch" id="sv-on" aria-labelledby="sv-title" aria-describedby="sv-desc">
+          <span class="track" aria-hidden="true"></span>
+          <span class="thumb" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></span>
+        </span>
+      </div>
+      <p class="sv-note" id="sv-unsupported" hidden>Needs Chrome, Edge or Firefox 153+, so it can tell when you&rsquo;re watching in picture-in-picture.</p>
+      <div class="sv-odo" id="sv-odo">
+        <span class="sv-digits" id="sv-digits" aria-hidden="true"></span>
+        <span class="sv-unit" id="sv-unit"></span>
+      </div>
+      <div class="sv-week" id="sv-week" aria-hidden="true"></div>
+      <div class="sv-days" aria-hidden="true"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
+      <div class="sv-opts" id="sv-opts">
+        <fieldset class="sv-set">
+          <legend class="sv-lab">Start after</legend>
+          <div class="segmented seg3"><label class="choice"><input type="radio" name="sv-after" value="15" aria-label="15 s"><span class="face"><span class="tick"><svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></span>15 s</span></label><label class="choice"><input type="radio" name="sv-after" value="30" aria-label="30 s" checked><span class="face"><span class="tick"><svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></span>30 s</span></label><label class="choice"><input type="radio" name="sv-after" value="60" aria-label="1 min"><span class="face"><span class="tick"><svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></span>1 min</span></label></div>
+        </fieldset>
+        <fieldset class="sv-set">
+          <legend class="sv-lab">Drop to</legend>
+          <div class="segmented"><label class="choice"><input type="radio" name="sv-to" value="tiny" aria-label="Lowest" checked><span class="face"><span class="tick"><svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></span>Lowest</span></label><label class="choice"><input type="radio" name="sv-to" value="large" aria-label="480p"><span class="face"><span class="tick"><svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></span>480p</span></label></div>
+        </fieldset>
+        <p class="sv-fine">Never lowers a video you&rsquo;re watching in picture-in-picture. Coming back may buffer for a moment while quality climbs back. Savings are an estimate.</p>
+      </div>
+    </section>
 
     <section class="card card-row" aria-labelledby="m-title">
       <span class="badge badge-secondary" aria-hidden="true">

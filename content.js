@@ -9,6 +9,8 @@
  *  - sync  "holdOpened":        true = videos you open start paused (off unless turned on)
  *  - sync  "holdNext":          true = the next video in a queue/playlist starts paused (off unless turned on)
  *    (older versions stored one "stopAutoplay" switch; it counts as both until either is set)
+ *  - sync  "bgSaver":           { on, after: 15|30|60 seconds, to: "tiny"|"large" } background saver
+ *  - local "saverStats":        { "YYYY-MM-DD": estimated MB saved } for the last 21 days
  *  - local "videoOverrides":    { videoId: quality } for videos the user chose to remember
  *  - local "channelPrefs":      { UCchannelId: { q: quality, name } } channel defaults
  *    (name is only for showing the list; the id is the key, so renames don't matter)
@@ -21,6 +23,15 @@
   const HOLD_OPENED = 'holdOpened';
   const HOLD_NEXT = 'holdNext';
   const OLD_AUTOPLAY = 'stopAutoplay';
+  const SAVER = 'bgSaver';
+  const STATS = 'saverStats';
+  const KEEP_DAYS = 21;
+  const cleanSaver = (v) => ({
+    on: !!(v && v.on === true),
+    after: v && [15, 30, 60].includes(v.after) ? v.after : 30,
+    to: v && v.to === 'large' ? 'large' : 'tiny'
+  });
+  const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
   const isPair = (v) => v && typeof v === 'object' && typeof v.opened === 'boolean' && typeof v.next === 'boolean';
   const OVERRIDES = 'videoOverrides';
   const CHANNELS = 'channelPrefs';
@@ -91,6 +102,14 @@
     send({ type: 'overrides', value: await readOverrides() });
     send({ type: 'channels', value: await readChannels() });
     send({ type: 'autoplay', value: await readAutoplay() });
+    send({ type: 'saver', value: await readSaver() });
+  }
+  async function readSaver() {
+    try {
+      return cleanSaver((await api.storage.sync.get(SAVER))[SAVER]);
+    } catch {
+      return cleanSaver(null);
+    }
   }
 
   window.addEventListener('message', async (event) => {
@@ -102,6 +121,17 @@
         await sendAll();
       } else if (msg.type === 'autoplay' && isPair(msg.value)) {
         await api.storage.sync.set({ [HOLD_OPENED]: msg.value.opened, [HOLD_NEXT]: msg.value.next });
+      } else if (msg.type === 'saved' && typeof msg.mb === 'number' && msg.mb > 0 && msg.mb <= 100000) {
+        const stored = (await api.storage.local.get(STATS))[STATS];
+        const stats = {};
+        if (stored && typeof stored === 'object') {
+          for (const [k, v] of Object.entries(stored)) if (/^\d{4}-\d{2}-\d{2}$/.test(k) && typeof v === 'number' && v >= 0) stats[k] = v;
+        }
+        const day = today();
+        stats[day] = Math.round(((stats[day] || 0) + msg.mb) * 10) / 10;
+        const days = Object.keys(stats).sort();
+        for (const k of days.slice(0, Math.max(0, days.length - KEEP_DAYS))) delete stats[k];
+        await api.storage.local.set({ [STATS]: stats });
       } else if (msg.type === 'set' && VALID.has(msg.value)) {
         await api.storage.sync.set({ [KEY]: msg.value });
       } else if (msg.type === 'remember' && VIDEO_ID.test(msg.videoId)) {
@@ -133,6 +163,9 @@
       }
       if (area === 'sync' && (changes[HOLD_OPENED] || changes[HOLD_NEXT] || changes[OLD_AUTOPLAY])) {
         readAutoplay().then((value) => send({ type: 'autoplay', value }));
+      }
+      if (area === 'sync' && changes[SAVER]) {
+        send({ type: 'saver', value: cleanSaver(changes[SAVER].newValue) });
       }
       if (area === 'local' && changes[OVERRIDES]) {
         send({ type: 'overrides', value: changes[OVERRIDES].newValue || {} });

@@ -20,6 +20,12 @@
  *   - "Next in queue or playlist": a video that follows another one by itself starts paused.
  * "Next" means the previous video ended and you haven't clicked or typed since.
  * A play you start yourself (click/tap in the player, K, Space, media key) is never undone.
+ * When Resolute holds a video, the autoplay button says so ("Video waiting" + Play) until it plays,
+ * however you press play.
+ *
+ * Optional background saver: when the tab is hidden and the video keeps playing (not in
+ * picture-in-picture, not an ad), quality drops after a delay and comes back when you return.
+ * The tab's title and icon show it while it's on. Savings are an estimate.
  */
 (() => {
   'use strict';
@@ -66,6 +72,10 @@
   let heldVid = '';              // video whose first start was already checked
   let lastPlayGesture = 0;       // time of the user's last play-like input
   let lastInput = 0;             // time of the user's last click/tap/key anywhere (not on our own controls)
+  let saver = { on: false, after: 30, to: 'tiny' }; // background saver setting
+  let saverTimer = 0;
+  let saverActive = null;        // { q, fromQ, ms, t0 } while the saver has lowered quality
+  const PIP_KNOWN = 'pictureInPictureElement' in document; // without it the saver can't tell PiP apart, so it stays off
   let endedAt = 0;               // when a video last played to its end
   let endedVid = '';
   const channelCache = new Map(); // videoId -> { id, name } once detected
@@ -205,7 +215,7 @@
       refreshChannelName(ch);
 
       if (temp && temp.vid !== vid) temp = null; // a pick "for now" ends with its video
-      const want = choiceFor(vid).q;
+      const want = saverActive ? saverActive.q : choiceFor(vid).q;
       const key = `${vid}|${want}`;
       if (!force && key === lastApplied) {
         updateUI();
@@ -276,16 +286,88 @@
   function holdIfAutoplayed() {
     const p = getPlayer();
     const v = p && p.querySelector('video');
-    if (!v || v.paused || p.classList.contains('ad-showing')) return; // ads: wait for the real video
+    if (!v || v.paused || p.classList.contains('ad-showing')) return false; // ads: wait for the real video
     const vid = videoIdOf(p);
-    if (!vid || vid === heldVid) return;  // only the first start of each video
+    if (!vid || vid === heldVid) return false;  // only the first start of each video
     heldVid = vid; // tracked even when off, so switching on never pauses the video already playing
     const next = endedAt > 0 && endedVid !== vid && endedAt > lastInput; // followed on by itself
     endedAt = 0;
-    if (Date.now() - lastPlayGesture < 1000) return; // you pressed play: leave it playing
-    if (next ? holdNext : holdOpened) call(p, 'pauseVideo');
+    if (Date.now() - lastPlayGesture < 1000) return false; // you pressed play: leave it playing
+    if (!(next ? holdNext : holdOpened)) return false;
+    call(p, 'pauseVideo');
+    markHeld(vid);
+    return true;
   }
   const ownControl = (t) => !!(mast.btn && t && t.nodeType === 1 && (mast.btn.contains(t) || mast.menu.contains(t)));
+
+  // ---------- background saver: lower quality while you're on another tab ----------
+  // Rough YouTube bitrates (Mbit/s) per quality, only to estimate what was saved. shortcut: fixed table, not measured
+  const MBPS = { tiny: 0.1, small: 0.3, medium: 0.6, large: 1.1, hd720: 2.5, hd1080: 4.5, hd1440: 9, hd2160: 18, highres: 30 };
+  const inPip = () => !!document.pictureInPictureElement;
+  function armSaver() {
+    clearTimeout(saverTimer);
+    if (!IS_TOP || !saver.on || !PIP_KNOWN || document.visibilityState !== 'hidden') return;
+    saverTimer = setTimeout(startSaver, saver.after * 1000);
+  }
+  function startSaver() {
+    const p = getPlayer();
+    const v = p && p.querySelector('video');
+    if (saverActive || !saver.on || document.visibilityState !== 'hidden' || !p || !v || v.paused || inPip()) return;
+    if (p.classList.contains('ad-showing')) { saverTimer = setTimeout(startSaver, 5000); return; } // ads: try after
+    const levels = availableLevels(p);
+    const fromQ = call(p, 'getPlaybackQuality');
+    const target = resolveTarget(saver.to, levels);
+    if (!target || !HEIGHT[fromQ] || HEIGHT[fromQ] <= HEIGHT[target]) return; // already that low: nothing to save
+    saverActive = { q: saver.to, fromQ, ms: 0, t0: Date.now() };
+    forceQuality(p, target);
+    forcedEarlier = true;
+    lastApplied = `${videoIdOf(p)}|${saver.to}`;
+    tabMark(heightLabel(target));
+  }
+  function endSaver() {
+    clearTimeout(saverTimer);
+    if (!saverActive) return;
+    const a = saverActive;
+    saverActive = null;
+    if (a.t0) a.ms += Date.now() - a.t0;
+    tabMark('');
+    const mb = ((MBPS[a.fromQ] || 0) - (MBPS[resolveTarget(a.q, Object.keys(MBPS))] || 0)) * a.ms / 8000;
+    if (mb >= 0.5) postToExt({ type: 'saved', mb: Math.round(mb * 10) / 10 });
+    scheduleApply(true); // back to the quality you chose
+  }
+  // Count only time the video was actually playing.
+  function saverPlaying(isPlaying) {
+    if (!saverActive) return;
+    if (isPlaying && !saverActive.t0) saverActive.t0 = Date.now();
+    if (!isPlaying && saverActive.t0) { saverActive.ms += Date.now() - saverActive.t0; saverActive.t0 = 0; }
+  }
+  // The tab is all you can see while away: prefix its title ("144p · …") and swap its icon for Resolute's leaf.
+  const tab = { prefix: '', obs: null };
+  const LEAF_ICON = (() => {
+    const pts = Array.from({ length: 56 }, (_, i) => {
+      const t = (i / 56) * Math.PI * 2;
+      const r = 14.4 + 1.6 * Math.cos(7 * t);
+      return `${(16 + r * Math.cos(t)).toFixed(1)},${(16 + r * Math.sin(t)).toFixed(1)}`;
+    }).join(' ');
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><polygon points="${pts}" fill="#d8a32a"/>` +
+      '<path d="M16 8.5c4.6 2 7.5 6 6.2 10.8-1.3 3.9-5.8 5.1-9.5 4.1l-3 .5-.5-.8 2.3-2.8c-2.6-3.4-1.5-9.2 4.5-11.8z" fill="#3a2a00"/></svg>';
+    return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+  })();
+  function tabMark(label) {
+    if (tab.obs) { tab.obs.disconnect(); tab.obs = null; }
+    if (tab.prefix && document.title.startsWith(tab.prefix)) document.title = document.title.slice(tab.prefix.length);
+    tab.prefix = '';
+    for (const link of document.querySelectorAll('link[rel~="icon"]')) {
+      if (label && link.dataset.yqxHref === undefined) { link.dataset.yqxHref = link.getAttribute('href') || ''; link.setAttribute('href', LEAF_ICON); }
+      else if (!label && link.dataset.yqxHref !== undefined) { link.setAttribute('href', link.dataset.yqxHref); delete link.dataset.yqxHref; }
+    }
+    if (!label) return;
+    tab.prefix = `${label} · `;
+    const keep = () => { if (!document.title.startsWith(tab.prefix)) document.title = tab.prefix + document.title; };
+    keep();
+    const t = document.querySelector('title');
+    if (t) { tab.obs = new MutationObserver(keep); tab.obs.observe(t, { childList: true, characterData: true, subtree: true }); } // YouTube retitles on the next video
+  }
 
   // ---------- autoplay button next to YouTube's search box (top page only) ----------
   // Material 3 Expressive "unfolding split button". At rest it is one small shape beside the mic button:
@@ -295,7 +377,8 @@
   // Pointing at it unfolds a split button: [shape + words] switches both settings, [chevron] opens a menu
   // with a switch for each. It floats over empty space, so YouTube's layout never moves.
   const IS_TOP = window === window.top && location.hostname === 'www.youtube.com';
-  const mast = { btn: null, lead: null, trail: null, lbl: null, menu: null, rows: {}, live: null, hover: false, open: false, word: '' };
+  const mast = { btn: null, lead: null, go: null, trail: null, lbl: null, menu: null, rows: {}, live: null, hover: false, open: false, word: '',
+    held: false, heldFor: '', flash: false, timer: 0 };
   const summary = () => (holdOpened && holdNext ? 'Videos wait for you'
     : holdOpened ? 'Opened videos wait' : holdNext ? 'Next videos wait' : 'Autoplay on');
   const shortWord = () => (holdOpened && holdNext ? 'No autoplay' : holdOpened ? 'Opened wait' : holdNext ? 'Next wait' : 'Autoplay');
@@ -347,7 +430,7 @@
     const ms = el('span', 'yqx-ms', { 'aria-hidden': 'true' });
     const core = el('span', 'yqx-ms-core');
     core.append(glyph());
-    ms.append(ring('yqx-wave'), el('span', 'yqx-ms-shape'), core);
+    ms.append(ring('yqx-wave'), el('span', 'yqx-ms-shape'), core, el('span', 'yqx-held-dot'));
     const lbl = el('span', 'yqx-au-lbl', { 'aria-hidden': 'true' });
     lbl.append(el('span', 'yqx-in'), el('span', 'yqx-out'));
     lead.append(ms, lbl);
@@ -357,7 +440,13 @@
     const chev = svgEl('svg', { class: 'yqx-chev', viewBox: '0 0 12 12', 'aria-hidden': 'true' });
     chev.append(svgEl('path', { d: 'M2 4.2 6 8l4-3.8', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
     trail.append(chev);
-    row.append(lead, trail);
+    // Shown only while Resolute holds a video: [shape + "Video waiting"][▶ Play]
+    const go = el('button', 'yqx-au-go', { type: 'button', tabindex: '-1', 'aria-label': 'Play video' });
+    const tri = el('span', 'yqx-tri', { 'aria-hidden': 'true' });
+    const goText = el('span');
+    goText.textContent = 'Play';
+    go.append(tri, goText);
+    row.append(lead, go, trail);
     btn.append(row);
 
     // The menu: one row per setting. Each row's icon is the part of the button it controls.
@@ -402,6 +491,7 @@
 
     const narrow = () => btn.classList.contains('yqx-ap-end');
     lead.addEventListener('click', (e) => {
+      if (mast.held) { playHeld(); return; } // while a video waits, the shape and words mean "play it"
       if (narrow()) { // no room to unfold: the shape opens the menu
         if (mast.open) closeApMenu(e.detail === 0);
         else openApMenu(lead, e.detail === 0);
@@ -417,7 +507,8 @@
       if (mast.open) closeApMenu(e.detail === 0);
       else openApMenu(trail, e.detail === 0);
     });
-    for (const b of [lead, trail]) {
+    go.addEventListener('click', playHeld);
+    for (const b of [lead, go, trail]) {
       b.addEventListener('keydown', (e) => {
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); openApMenu(narrow() ? lead : trail, true); }
         if ([' ', 'Enter', 'ArrowDown', 'ArrowUp', 'k', 'K'].includes(e.key)) e.stopPropagation(); // keep YouTube's shortcuts out
@@ -433,7 +524,43 @@
       const r = e.target.closest('.yqx-apm-row');
       if (r && menu.contains(document.activeElement) && document.activeElement !== r) r.focus({ preventScroll: true });
     });
-    Object.assign(mast, { btn, lead, trail, lbl, menu, live });
+    Object.assign(mast, { btn, lead, go, trail, lbl, menu, live });
+  }
+  // ---------- "Video waiting": the button explains a held video until it plays ----------
+  function markHeld(vid) {
+    if (!mast.btn) return; // embeds have no top bar
+    clearTimeout(mast.timer);
+    Object.assign(mast, { held: true, heldFor: vid, flash: false });
+    mast.btn.classList.add('yqx-held');
+    mast.go.tabIndex = 0;
+    mast.live.textContent = 'Resolute paused this video. Press play to start it.';
+    updateMast();
+    unfold();
+    mast.timer = setTimeout(() => { mast.timer = 0; fold(); }, 5000); // then just the dot stays
+  }
+  function clearHeld() {
+    if (!mast.held) return;
+    clearTimeout(mast.timer);
+    mast.timer = 0;
+    mast.held = false;
+    mast.btn.classList.remove('yqx-held');
+    mast.go.tabIndex = -1;
+    updateMast();
+  }
+  /** The held video started (any way: our Play, the player, Space/K, a media key): say so once, then step aside. */
+  function releaseHeld() {
+    const p = getPlayer();
+    if (!mast.held) return;
+    if (!p || videoIdOf(p) !== mast.heldFor) { clearHeld(); return; } // a different video: nothing to say
+    clearHeld();
+    mast.flash = true;
+    updateMast();
+    unfold();
+    mast.timer = setTimeout(() => { mast.flash = false; mast.timer = 0; fold(); updateMast(); }, 1400);
+  }
+  function playHeld() {
+    lastPlayGesture = Date.now();
+    call(getPlayer(), 'playVideo');
   }
   function saveHold() {
     postToExt({ type: 'autoplay', value: { opened: holdOpened, next: holdNext } });
@@ -451,10 +578,10 @@
     if (!mast.btn || mast.btn.classList.contains('yqx-ap-end')) return;
     mast.btn.classList.add('yqx-open');
     mast.trail.tabIndex = 0;
-    mast.lead.style.width = `${40 + 8 - 3 + mast.lbl.scrollWidth + 16}px`;
+    mast.lead.style.width = `${40 + 8 - 3 + mast.lbl.firstChild.offsetWidth + 16}px`; // the new word only, not the one rolling out
   }
   function fold() {
-    if (!mast.btn || mast.hover || mast.open || mast.btn.contains(document.activeElement)) return;
+    if (!mast.btn || mast.hover || mast.open || mast.timer || mast.btn.contains(document.activeElement)) return;
     mast.btn.classList.remove('yqx-open');
     mast.lead.style.width = '';
     mast.trail.tabIndex = -1;
@@ -533,12 +660,13 @@
     b.querySelector('.yqx-ms-shape').style.clipPath = SHAPES[level];
     const narrow = b.classList.contains('yqx-ap-end');
     mast.lead.setAttribute('aria-pressed', String(level > 0));
-    mast.lead.setAttribute('aria-label', narrow ? `Autoplay: ${summary()}. Opens settings`
+    mast.lead.setAttribute('aria-label', mast.held ? 'Video waiting: Resolute paused it. Play'
+      : narrow ? `Autoplay: ${summary()}. Opens settings`
       : `Autoplay: ${summary()}. Click to ${level ? 'allow autoplay' : 'pause all videos'}`);
     mast.rows.opened.setAttribute('aria-checked', String(holdOpened));
     mast.rows.next.setAttribute('aria-checked', String(holdNext));
     mast.menu.dataset.opened = String(holdOpened);
-    rollWord(shortWord());
+    rollWord(mast.held ? 'Video waiting' : mast.flash ? 'Playing' : shortWord());
     // new word, new width (only if still unfolded by the time the frame comes)
     if (b.classList.contains('yqx-open')) requestAnimationFrame(() => { if (b.classList.contains('yqx-open')) unfold(); });
   }
@@ -1100,6 +1228,15 @@
       ensureMast();
       updateMast();
       return;
+    } else if (msg.type === 'saver' && msg.value && typeof msg.value.on === 'boolean') {
+      const v = msg.value;
+      saver = {
+        on: v.on,
+        after: typeof v.after === 'number' && v.after > 0 && v.after <= 600 ? v.after : 30,
+        to: v.to === 'large' ? 'large' : 'tiny'
+      };
+      if (!saver.on) endSaver(); else armSaver();
+      return;
     } else if (msg.type === 'channels' && msg.value && typeof msg.value === 'object') {
       // Keep only well-formed entries; anything corrupted is ignored, never applied.
       channels = {};
@@ -1137,7 +1274,7 @@
     }, 150);
   }
 
-  document.addEventListener('yt-navigate-start', () => closeMenu(false));
+  document.addEventListener('yt-navigate-start', () => { closeMenu(false); clearHeld(); });
   for (const type of ['yt-navigate-finish', 'yt-player-updated', 'yt-page-data-updated']) {
     document.addEventListener(type, () => {
       ensureUI();
@@ -1150,10 +1287,16 @@
       const p = getPlayer();
       if (p && e.target instanceof HTMLVideoElement && p.contains(e.target)) {
         checkVideoChange();
-        if (e.type === 'playing') holdIfAutoplayed();
+        if (e.type === 'playing') {
+          saverPlaying(true);
+          if (!holdIfAutoplayed() && mast.held) releaseHeld(); // a later start = someone pressed play
+        }
       }
     }, true);
   }
+  document.addEventListener('pause', (e) => { if (e.target instanceof HTMLVideoElement) saverPlaying(false); }, true);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') armSaver(); else endSaver(); });
+  document.addEventListener('enterpictureinpicture', () => endSaver(), true); // never lower a video you're watching in PiP
   // A video that plays to its end: the next one to start without any input from you counts as "next".
   document.addEventListener('ended', (e) => {
     const p = getPlayer();
@@ -1382,8 +1525,20 @@
 .yqx-au .yqx-au-trail[aria-expanded="true"]{width:40px;border-radius:20px;background:var(--yqx-pc);color:var(--yqx-opc)}
 .yqx-chev{width:12px;height:12px;flex:none;transition:transform .55s var(--yqx-sp)}
 .yqx-au-trail[aria-expanded="true"] .yqx-chev{transform:rotate(180deg)}
+/* "Video waiting": a red Play segment while Resolute holds a video, and a dot once folded */
+.yqx-au-go{width:0;opacity:0;overflow:hidden;gap:6px;justify-content:center;border-radius:6px 20px 20px 6px;
+  background:var(--yqx-p)!important;color:var(--yqx-op)!important;
+  transition:width .55s var(--yqx-sp),opacity .2s var(--yqx-ease),border-radius .55s var(--yqx-sp),transform .3s var(--yqx-sp)}
+.yqx-au.yqx-held.yqx-open .yqx-au-go{width:84px;opacity:1;transition-delay:.08s,.12s,0s,0s}
+.yqx-au.yqx-held .yqx-au-trail{display:none}
+.yqx-au-go:active{border-radius:20px;transform:scale(.96)}
+.yqx-tri{width:9px;height:10px;flex:none;background:currentColor;clip-path:polygon(0 0,100% 50%,0 100%)}
+.yqx-held-dot{position:absolute;top:1px;right:1px;width:10px;height:10px;border-radius:50%;background:#ff0033;box-shadow:0 0 0 2px #fff;
+  transform:scale(0);transition:transform .5s var(--yqx-sp)}
+[dark] .yqx-held-dot{box-shadow:0 0 0 2px #0f0f0f}
+.yqx-au.yqx-held:not(.yqx-open) .yqx-held-dot{transform:none}
 /* rolling label */
-.yqx-au-lbl{display:grid;opacity:0;transform:translateX(-8px);transition:opacity .2s var(--yqx-ease),transform .55s var(--yqx-sp)}
+.yqx-au-lbl{display:grid;justify-items:start;opacity:0;transform:translateX(-8px);transition:opacity .2s var(--yqx-ease),transform .55s var(--yqx-sp)}
 .yqx-au.yqx-open .yqx-au-lbl{opacity:1;transform:none;transition-delay:.08s}
 .yqx-au-lbl span{grid-area:1/1;transition:opacity .2s var(--yqx-ease),transform .45s var(--yqx-sp)}
 .yqx-au-lbl .yqx-out{opacity:0;transform:translateY(-8px)}

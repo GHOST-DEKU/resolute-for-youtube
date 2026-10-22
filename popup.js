@@ -153,6 +153,94 @@
     });
   }
 
+  // ---------- background saver: setting + this week's estimate (Sunday to Saturday) ----------
+  const SAVER = 'bgSaver';
+  const STATS = 'saverStats';
+  const svOn = $('sv-on');
+  const svOpts = $('sv-opts');
+  const svSupported = 'pictureInPictureElement' in document; // same browser as the YouTube tab
+  const cleanSaver = (v) => ({
+    on: !!(v && v.on === true),
+    after: v && [15, 30, 60].includes(v.after) ? v.after : 30,
+    to: v && v.to === 'large' ? 'large' : 'tiny'
+  });
+  let saverSetting = cleanSaver(null);
+  function showSaver(v) {
+    saverSetting = cleanSaver(v);
+    svOn.checked = svSupported && saverSetting.on;
+    svOpts.classList.toggle('off', !svOn.checked);
+    const a = document.querySelector(`input[name="sv-after"][value="${saverSetting.after}"]`);
+    const t = document.querySelector(`input[name="sv-to"][value="${saverSetting.to}"]`);
+    if (a) a.checked = true;
+    if (t) t.checked = true;
+  }
+  if (!svSupported) {
+    svOn.disabled = true;
+    $('sv-unsupported').hidden = false;
+  }
+  async function saveSaver(message) {
+    const next = {
+      on: svOn.checked,
+      after: Number((document.querySelector('input[name="sv-after"]:checked') || {}).value) || 30,
+      to: (document.querySelector('input[name="sv-to"]:checked') || {}).value === 'large' ? 'large' : 'tiny'
+    };
+    try {
+      await api.storage.sync.set({ [SAVER]: next });
+      saverSetting = next;
+      svOpts.classList.toggle('off', !next.on);
+      flash(message(next));
+    } catch {
+      showSaver(saverSetting); // show what is really saved
+      flash('Could not save. Please try again.');
+    }
+  }
+  svOn.addEventListener('change', () => saveSaver((n) => (n.on ? 'Background saver on' : 'Background saver off')));
+  for (const r of document.querySelectorAll('input[name="sv-after"]')) {
+    r.addEventListener('change', () => saveSaver((n) => `Saver starts after ${n.after === 60 ? '1 minute' : `${n.after} seconds`}`));
+  }
+  for (const r of document.querySelectorAll('input[name="sv-to"]')) {
+    r.addEventListener('change', () => saveSaver((n) => `Saver drops to ${n.to === 'large' ? '480p' : 'the lowest quality'}`));
+  }
+  api.storage.sync.get(SAVER).then((r) => showSaver(r[SAVER])).catch(() => showSaver(null));
+
+  const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  function showStats(map) {
+    const stats = map && typeof map === 'object' ? map : {};
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - start.getDay()); // weeks run Sunday to Saturday
+    const todayKey = dayKey(new Date());
+    const week = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const k = dayKey(d);
+      return { mb: typeof stats[k] === 'number' && stats[k] > 0 ? stats[k] : 0, today: k === todayKey };
+    });
+    const total = week.reduce((a, b) => a + b.mb, 0);
+    const big = total >= 1000;
+    const text = big ? (total / 1000).toFixed(1) : String(Math.round(total));
+    // Rolling odometer: each digit is a column of 0-9 that slides to its value.
+    const digits = $('sv-digits');
+    digits.replaceChildren(...[...text].map((c) => {
+      if (!/\d/.test(c)) { const sep = document.createElement('span'); sep.className = 'sv-sep'; sep.textContent = c; return sep; }
+      const col = document.createElement('span');
+      col.className = 'sv-dg';
+      col.dataset.v = c;
+      for (let i = 0; i < 10; i++) { const n = document.createElement('span'); n.textContent = i; col.append(n); }
+      return col;
+    }));
+    $('sv-unit').textContent = `${big ? 'GB' : 'MB'} saved this week · estimate`;
+    $('sv-odo').setAttribute('aria-label', `About ${text} ${big ? 'GB' : 'MB'} saved this week (estimate)`);
+    const bars = $('sv-week');
+    bars.replaceChildren(...week.map((d) => { const b = document.createElement('i'); if (d.today) b.className = 'today'; return b; }));
+    const max = Math.max(...week.map((d) => d.mb), 1);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      for (const col of digits.querySelectorAll('.sv-dg')) col.style.transform = `translateY(-${Number(col.dataset.v) * 30}px)`;
+      [...bars.children].forEach((b, i) => { b.style.height = `${Math.max(3, Math.round((week[i].mb / max) * 44))}px`; });
+    }));
+  }
+  api.storage.local.get(STATS).then((r) => showStats(r[STATS])).catch(() => showStats({}));
+
   // ---------- remembered videos ----------
   const count = $('memory-count');
   const forgetAll = $('forget-all');
@@ -264,6 +352,8 @@
   api.storage.onChanged.addListener((changes, area) => {
     if (area === 'sync' && changes[KEY]) select(changes[KEY].newValue);
     if (area === 'sync' && (changes[HOLD.opened] || changes[HOLD.next] || changes[OLD_AUTOPLAY])) readHold();
+    if (area === 'sync' && changes[SAVER]) showSaver(changes[SAVER].newValue);
+    if (area === 'local' && changes[STATS]) showStats(changes[STATS].newValue);
     if (area === 'sync' && changes[THEME]) applyTheme(changes[THEME].newValue);
     if (area === 'local' && changes[OVERRIDES]) showMemory(changes[OVERRIDES].newValue);
     if (area === 'local' && changes[CHANNELS]) showChannels(changes[CHANNELS].newValue);

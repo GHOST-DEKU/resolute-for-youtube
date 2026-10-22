@@ -39,9 +39,11 @@ Object.assign(p, {
   getPlaybackQuality: () => playing,
   setPlaybackQualityRange: (a, b) => { calls.push(a); playing = a; },
   setPlaybackQuality: () => {},
-  pauseVideo: () => { pauses += 1; }
+  pauseVideo: () => { pauses += 1; videoPaused = true; },
+  playVideo: () => { plays += 1; }
 });
 let pauses = 0;
+let plays = 0;
 let videoPaused = true; // jsdom can't play media, so the test sets this
 const videoEl = p.querySelector('video');
 Object.defineProperty(videoEl, 'paused', { get: () => videoPaused });
@@ -54,6 +56,12 @@ const toPage = (type, value) => window.dispatchEvent(new window.MessageEvent('me
 }));
 const fromExt = (value) => toPage('pref', value);
 
+let vis = 'visible';
+let pipEl = null;
+Object.defineProperty(document, 'visibilityState', { get: () => vis, configurable: true });
+Object.defineProperty(document, 'pictureInPictureElement', { get: () => pipEl, configurable: true });
+const icon = document.createElement('link'); icon.rel = 'icon'; icon.href = 'https://www.youtube.com/favicon.ico'; document.head.append(icon);
+const titleEl = document.createElement('title'); titleEl.textContent = 'Lo-fi beats - YouTube'; document.head.append(titleEl);
 window.eval(fs.readFileSync(path.join(__dirname, '..', 'page.js'), 'utf8'));
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 let overridesBackup = {};
@@ -352,8 +360,38 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   assert.match(lead.getAttribute('aria-label'), /Videos wait for you/);
   await startsPlaying('ap7');
   assert.strictEqual(pauses, before3 + 6, 'works immediately');
+  // 1A: the button says the video is waiting, until it plays (any way)
+  assert.ok(ap.classList.contains('yqx-held'), 'held video: button shows it');
+  assert.strictEqual(lead.querySelector('.yqx-in').textContent, 'Video waiting');
+  assert.ok(ap.classList.contains('yqx-open'), 'unfolds on its own');
+  assert.strictEqual(ap.querySelector('.yqx-au-go').tabIndex, 0, 'Play segment reachable');
+  const playsBefore = plays;
+  ap.querySelector('.yqx-au-go').click();
+  assert.strictEqual(plays, playsBefore + 1, 'Play segment plays the video');
   lead.dispatchEvent(new window.MouseEvent('click', { bubbles: true, detail: 1 }));
-  assert.deepStrictEqual(sent.at(-1).value, { opened: false, next: false }, 'second click allows autoplay again');
+  assert.strictEqual(plays, playsBefore + 2, 'while waiting, the shape plays too (no settings change)');
+  assert.deepStrictEqual(sent.at(-1).value, { opened: true, next: true }, 'settings untouched while waiting');
+  // the user presses Space / the player's button instead: the video just starts playing
+  videoPaused = false; videoEl.dispatchEvent(new window.Event('playing')); await wait(20);
+  assert.ok(!ap.classList.contains('yqx-held'), 'any play releases the button');
+  assert.strictEqual(lead.querySelector('.yqx-in').textContent, 'Playing', 'says Playing once');
+  assert.strictEqual(pauses, before3 + 6, 'a play you start is never undone');
+  await wait(1500);
+  assert.strictEqual(lead.querySelector('.yqx-in').textContent, 'No autoplay', 'then back to the setting');
+  videoPaused = true; videoEl.dispatchEvent(new window.Event('pause'));
+  videoPaused = false; videoEl.dispatchEvent(new window.Event('playing')); await wait(20);
+  assert.ok(!ap.classList.contains('yqx-held') && lead.querySelector('.yqx-in').textContent === 'No autoplay', 'your own pause/play stays quiet');
+  // held, then you open a different video yourself: nothing to explain
+  document.body.dispatchEvent(new window.MouseEvent('pointerdown', { bubbles: true })); await wait(1050);
+  await startsPlaying('ap8');
+  assert.ok(ap.classList.contains('yqx-held'));
+  document.body.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'k', bubbles: true }));
+  await startsPlaying('ap9');
+  assert.ok(!ap.classList.contains('yqx-held') && lead.querySelector('.yqx-in').textContent !== 'Playing', 'a different video clears it silently');
+  ap.dispatchEvent(new window.PointerEvent('pointerleave', { pointerType: 'mouse' }));
+  await wait(1500);
+  lead.dispatchEvent(new window.MouseEvent('click', { bubbles: true, detail: 1 }));
+  assert.deepStrictEqual(sent.at(-1).value, { opened: false, next: false }, 'not waiting: click allows autoplay again');
   // chevron: menu with a switch per setting
   trail.dispatchEvent(new window.MouseEvent('click', { bubbles: true, detail: 1 }));
   assert.ok(apm.classList.contains('yqx-show'), 'chevron opens the menu');
@@ -383,6 +421,62 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   assert.strictEqual(apm.querySelector('.yqx-apm-row-opened').getAttribute('aria-checked'), 'false');
   ap.remove(); await wait(400);
   assert.strictEqual(document.querySelectorAll('#yqx-autoplay').length, 1, 'comes back once if YouTube re-renders the bar');
+
+  // ---------- background saver (5A) ----------
+  videoPaused = false; playing = 'hd1080'; levels = ['hd1080', 'hd720', 'large', 'medium', 'small', 'tiny', 'auto'];
+  fromExt('highest'); await wait(50);
+  videoId = 'bg1'; document.dispatchEvent(new window.Event('yt-navigate-finish')); await wait(80);
+  const hide = (h) => { vis = h ? 'hidden' : 'visible'; document.dispatchEvent(new window.Event('visibilitychange')); };
+  const savedMsgs = () => sent.filter((m) => m.type === 'saved');
+  hide(true); await wait(150);
+  assert.strictEqual(playing, 'hd1080', 'saver off by default: nothing changes');
+  hide(false);
+  toPage('saver', { on: true, after: 0.1, to: 'tiny' });
+  hide(true); await wait(60);
+  assert.strictEqual(playing, 'hd1080', 'waits for the delay');
+  await wait(120);
+  assert.strictEqual(playing, 'tiny', 'hidden + playing: drops to the lowest');
+  assert.ok(document.title.startsWith('144p · '), 'tab title shows it');
+  assert.ok(icon.href.startsWith('data:image/svg+xml'), 'tab icon shows it');
+  titleEl.textContent = 'Next video - YouTube'; await wait(20);
+  assert.ok(document.title.startsWith('144p · '), 'title prefix survives YouTube renaming the tab');
+  videoId = 'bg2'; document.dispatchEvent(new window.Event('yt-navigate-finish')); await wait(80);
+  assert.strictEqual(playing, 'tiny', 'next playlist video while away stays low');
+  const before5 = savedMsgs().length;
+  await wait(200);
+  hide(false); await wait(80);
+  assert.strictEqual(playing, 'hd1080', 'back on the tab: quality restored');
+  assert.strictEqual(document.title, 'Next video - YouTube', 'title restored');
+  assert.strictEqual(icon.href, 'https://www.youtube.com/favicon.ico', 'icon restored');
+  assert.strictEqual(savedMsgs().length, before5, 'tiny time saved under 0.5 MB is not reported');
+  hide(true); await wait(1300);
+  videoPaused = true; videoEl.dispatchEvent(new window.Event('pause')); await wait(500); // paused time isn't counted
+  videoPaused = false; hide(false); await wait(50);
+  const m = savedMsgs().at(-1);
+  assert.ok(m && m.mb >= 0.5 && m.mb < 1, `estimate counts playing time only (${m && m.mb} MB)`);
+  // PiP: never lowered, and lowering stops if you enter PiP
+  pipEl = videoEl; hide(true); await wait(200);
+  assert.strictEqual(playing, 'hd1080', 'in picture-in-picture: never lowered');
+  assert.ok(!document.title.startsWith('144p'), 'and the tab says nothing');
+  hide(false); pipEl = null;
+  hide(true); await wait(200);
+  assert.strictEqual(playing, 'tiny');
+  document.dispatchEvent(new window.Event('enterpictureinpicture')); await wait(80);
+  assert.strictEqual(playing, 'hd1080', 'entering PiP restores at once');
+  hide(false);
+  // 480p option, paused video, setting off
+  toPage('saver', { on: true, after: 0.1, to: 'large' });
+  hide(true); await wait(200);
+  assert.strictEqual(playing, 'large', '"Drop to 480p" uses 480p');
+  hide(false); await wait(50);
+  videoPaused = true; hide(true); await wait(200);
+  assert.strictEqual(playing, 'hd1080', 'a paused video uses no data: left alone');
+  hide(false); videoPaused = false;
+  toPage('saver', { on: false, after: 0.1, to: 'tiny' });
+  hide(true); await wait(200);
+  assert.strictEqual(playing, 'hd1080', 'switched off: left alone');
+  hide(false);
+  videoPaused = true;
 
   // No toolbar at all -> floating fallback
   document.querySelector('.ytp-chrome-bottom').remove();

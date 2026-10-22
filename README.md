@@ -13,13 +13,14 @@
 <p align="center">
   <b>YouTube often picks a lower quality than you want, and starts videos before you're ready.</b><br>
   Resolute puts a quality button right in the player, remembers what you like per video and per channel,<br>
-  and, if you want, makes every video wait for <i>you</i> to press play.
+  and, if you want, makes every video wait for <i>you</i> to press play, and saves data in tabs you aren't watching.
 </p>
 
 <p align="center">
   <a href="#install">Install</a> ·
   <a href="#quality">Quality button</a> ·
   <a href="#autoplay">No autoplay</a> ·
+  <a href="#saver">Background saver</a> ·
   <a href="#popup">Popup</a> ·
   <a href="#faq">FAQ</a> ·
   <a href="PRIVACY.md">Privacy</a>
@@ -36,6 +37,7 @@
 | 👤 **Per-channel defaults** | 4K for one creator, 720p for another. Recognised by channel ID, so renames don't break it. |
 | ⭐ **One global default** | For everything else. |
 | ⏸️ **No more autoplay** *(optional)* | Two separate switches: videos you open, and the next video in a queue or playlist, can each start paused until you press play. |
+| 🍃 **Background saver** *(optional)* | Playing music in a tab you're not looking at? Quality drops to save data and comes back when you return. Never touches picture-in-picture. |
 | 🔒 **Private by design** | No servers, no analytics, no network requests. Settings stay in your browser. |
 
 ---
@@ -113,6 +115,17 @@ Point at it and it **unfolds into a split button** (it floats over empty space, 
   <sub>The colourful tiles are placeholder thumbnails, there to show the blur. Everything else is the extension's real code.</sub>
 </p>
 
+### When Resolute holds a video, the button tells you
+
+<p align="center">
+  <img src="docs/autoplay-held.png" alt="The autoplay button saying Video waiting with a Play segment, then a red dot, then Playing" width="100%"><br>
+  <sub>Rendered from the extension's own code on a stand-in for YouTube's top bar.</sub>
+</p>
+
+1. The button unfolds on its own: **"Video waiting"** and a red **▶ Play**. The cause and the fix sit in one place.
+2. After 5 seconds it folds back, leaving a **red dot** until the video plays.
+3. Play it **any way you like**: the button's Play, the player's ▶, a click on the video, **Space**, **K** or a media key. The button says **"Playing"** once and steps aside. If you pause it yourself later, the button stays quiet, because Resolute didn't pause it.
+
 Keyboard: Tab to the button (it unfolds), Enter toggles both, ↓ opens the menu, Space switches, Esc closes. In narrow windows YouTube hides the search box, so the button moves next to the right-hand icons and a tap opens the menu. The popup has the same two switches; all of them stay in sync.
 
 ---|---|
@@ -122,6 +135,28 @@ Keyboard: Tab to the button (it unfolds), Enter toggles both, ↓ opens the menu
 | The browser blocked autoplay and you pressed play | **Plays** (your press counts) |
 | An ad plays first | The ad is left alone; the real video after it opens **paused** |
 | You type a space in the search box, or use the quality menu | Doesn't count as "play" |
+
+---
+
+<a id="saver"></a>
+## 🍃 Background saver
+
+Off by default. Switch it on in the toolbar popup.
+
+When a video keeps playing in a tab you aren't looking at (music, a podcast, a long stream), Resolute drops it to the **lowest quality** (or **480p**, your choice) after **15 s, 30 s or 1 min**, and puts your quality back the moment you return. Coming back may buffer for a moment while quality climbs back.
+
+| Situation | What happens |
+|---|---|
+| Tab hidden, video playing | After the delay: lowest quality (or 480p) |
+| While it's saving | The **tab** shows it: the title starts with **"144p ·"** and the tab icon becomes Resolute's gold leaf. The tab is the only part of YouTube you can see while you're away. |
+| You come back | Your quality returns, the tab goes back to normal, and the popup adds what was saved to **this week** |
+| The next video in a playlist starts while you're away | It stays low too |
+| Video in **picture-in-picture** | **Never lowered**, and nothing is shown or counted. Entering PiP while saving restores your quality at once. |
+| Video paused, or an ad playing | Left alone (a paused video uses no data) |
+
+The popup card shows roughly how much data it saved **this week (Sunday to Saturday)**, as a rolling number and one bar per day (today in red). It's an **estimate**: YouTube doesn't report data use, so Resolute multiplies typical bitrates by the minutes the video actually played while lowered.
+
+**Needs:** Chrome, Edge, or **Firefox 153+**. These browsers tell an extension when a video is in picture-in-picture; on older Firefox versions the saver stays off (the switch is greyed out with a note), so it can never lower a video you're watching.
 
 ---
 
@@ -135,6 +170,7 @@ Keyboard: Tab to the button (it unfolds), Enter toggles both, ↓ opens the menu
 
 - Set the **global default** quality.
 - Switch **Videos I open** and **Next in queue or playlist** to start paused.
+- Switch the **Background saver** on or off, choose when it starts and how low it goes, and see this week's estimate.
 - See every **channel default**: change its quality, remove it (×), or **Remove all**.
 - Clear remembered videos with **Forget all**.
 - Pick the popup theme: **System / Light / Dark**.
@@ -170,7 +206,7 @@ It won't update by itself. A downloaded ZIP or `.crx` can't be installed by just
 <details>
 <summary><b>Does it send my data anywhere?</b></summary>
 
-No. There's no code that makes network requests. Your global default and the two autoplay settings are kept in your browser's synced extension storage; remembered videos and channel defaults stay on this device only. Full details in the [privacy policy](PRIVACY.md).
+No. There's no code that makes network requests. Your global default, the two autoplay settings and the saver setting are kept in your browser's synced extension storage; remembered videos, channel defaults and the saver's daily estimates stay on this device only. Full details in the [privacy policy](PRIVACY.md).
 </details>
 
 <details>
@@ -201,6 +237,10 @@ No. Shorts and m.youtube.com use a different player. The autoplay settings also 
 
 ## ⚠️ Known limits
 
+- The background saver's "MB/GB saved" is an estimate from typical YouTube bitrates, not a measurement.
+- While the saver is on, the tab title starts with "144p ·". If you bookmark or share the page during that time, the title would include it.
+- Firefox's own picture-in-picture button is expected to count as picture-in-picture from Firefox 153 (it's the same signal the browser reports), but test it on your Firefox before relying on it.
+
 - The autoplay settings work by pausing a video right as it starts, so on a slow device you may hear a split second of sound first. YouTube offers no clean "don't autoplay" switch an extension can use.
 - "Next in queue or playlist" means the previous video played to its end and you didn't click or type before the next one started. If you click something in that moment, the next video counts as one you opened.
 - Material 3 Expressive spring motion uses CSS `linear()` easing (Chrome 113+, Firefox 112+). On Chrome 111–112 the button works the same, just without animation.
@@ -217,9 +257,9 @@ No. Shorts and m.youtube.com use a different player. The autoplay settings also 
 
 | File | Job |
 |------|-----|
-| `page.js` | Runs in YouTube's page (the "MAIN" world) so it can use the player's own methods. Adds the quality button + menu, applies the quality on every new video, waits for ads. Adds the autoplay button beside the search box and, per your two autoplay settings, pauses a video the first time it starts by itself (telling "opened" apart from "next in queue"). |
-| `content.js` | Bridge to extension storage: the global default and the two autoplay settings (all synced), remembered videos (this device, newest 1,000) and channel defaults (this device, newest 2,000). Validates every message and drops corrupted entries. |
-| `popup.*` | The toolbar popup: global default, the two autoplay switches, channel defaults, remembered videos, theme, and a fix for switched-off YouTube access. |
+| `page.js` | Runs in YouTube's page (the "MAIN" world) so it can use the player's own methods. Adds the quality button + menu, applies the quality on every new video, waits for ads. Adds the autoplay button beside the search box and, per your two autoplay settings, pauses a video the first time it starts by itself (telling "opened" apart from "next in queue"). Shows "Video waiting" on that button while a video is held, and runs the background saver (tab hidden, not in picture-in-picture), including the tab title and icon. |
+| `content.js` | Bridge to extension storage: the global default, the two autoplay settings and the saver setting (all synced), the saver's daily estimates (this device, last 21 days), remembered videos (this device, newest 1,000) and channel defaults (this device, newest 2,000). Validates every message and drops corrupted entries. |
+| `popup.*` | The toolbar popup: global default, the two autoplay switches, the background saver and its weekly estimate, channel defaults, remembered videos, theme, and a fix for switched-off YouTube access. |
 
 The two scripts talk through `window.postMessage`. No build step, no bundler, no libraries.
 </details>
@@ -244,7 +284,7 @@ npm i jsdom
 node test/page.test.js
 node test/content.test.js
 ```
-Runs the scripts against a fake YouTube player and fake storage: placement, menu, this-video picks, remember/forget, channel defaults (switching channels, missing or stale channel IDs, renamed channels, corrupted data), global default, fallback, ads, no duplicates, keyboard, and both autoplay settings (opened vs. next-in-queue detection, each setting on its own, your play never undone, ads skipped, search-box typing and menu clicks not counted as play, the switch never pausing the video already playing, the button unfolding, toggling both, its menu, keyboard and following the popup).
+Runs the scripts against a fake YouTube player and fake storage: placement, menu, this-video picks, remember/forget, channel defaults (switching channels, missing or stale channel IDs, renamed channels, corrupted data), global default, fallback, ads, no duplicates, keyboard, and both autoplay settings (opened vs. next-in-queue detection, each setting on its own, your play never undone, ads skipped, search-box typing and menu clicks not counted as play, the switch never pausing the video already playing, the button unfolding, toggling both, its menu, keyboard and following the popup; "Video waiting" with every play method, your own pause staying quiet, a different video clearing it), and the background saver (off by default, the delay, lowest or 480p, the tab title and icon, the next playlist video staying low, picture-in-picture never lowered or counted, paused time not counted, daily estimates kept for 21 days).
 </details>
 
 <details>

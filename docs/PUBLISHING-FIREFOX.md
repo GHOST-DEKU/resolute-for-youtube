@@ -146,6 +146,9 @@ npx web-ext run --source-dir dist\firefox-check --start-url https://www.youtube.
 | 21 | Videos I open | Chevron → switch on "Videos I open" (popup updates too). Open a video: it starts paused. Press play: it plays and stays playing |
 | 22 | Next in queue | Switch only "Next in queue or playlist" on. Let a video end in a playlist: the next one starts paused. Click another video yourself: it plays |
 | 23 | Both / off, ads | Click the shape: both on ("No autoplay"); a video with an ad: the ad plays, then the video starts paused. Click again: everything autoplays as normal |
+| 24 | Video waiting | With "Videos I open" on, open a video: the button shows "Video waiting" + Play, then folds to a red dot. Start it with Space (not the button): it says "Playing" once. Pause and play again yourself: the button stays quiet |
+| 25 | Background saver | Popup → Background saver on, 15 s, Lowest. Play a video, switch to another tab for 20 s: the YouTube tab title starts with "144p ·" and shows the gold leaf icon. Come back: quality, title and icon return; the popup's number goes up |
+| 26 | Saver and PiP | Put a video in Firefox's picture-in-picture, switch tabs for 20 s: quality stays the same and the tab title doesn't change. **If it drops, stop and report it** |
 
 If any mandatory test fails, **don't submit**. Send me what happened and I'll fix it.
 
@@ -251,7 +254,7 @@ When a reviewer writes to you:
 - [ ] Mozilla account created; **2FA on**; agreement and policies read
 - [ ] `py scripts\build.py firefox` succeeds
 - [ ] `npx web-ext lint --source-dir dist\firefox-check` → 0 errors (and 0 warnings)
-- [ ] All 23 mandatory tests pass in **real Firefox**
+- [ ] All 26 mandatory tests pass in **real Firefox**
 - [ ] Upload: **On this site**, **Firefox** only, source code: **No**
 - [ ] Name, summary, description, category, support site/email and license filled from `store/LISTING-FIREFOX.md`
 - [ ] Notes to Reviewer pasted

@@ -22,7 +22,8 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
 
 (async () => {
   await tick();
-  assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides', 'channels', 'autoplay'], 'sends default, remembered videos, channel defaults and autoplay setting');
+  assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides', 'channels', 'autoplay', 'saver'], 'sends default, remembered videos, channel defaults, autoplay and saver settings');
+  assert.strictEqual(JSON.stringify(posted[4].value), '{"on":false,"after":30,"to":"tiny"}', 'saver off by default');
   assert.strictEqual(posted[0].value, 'hd1080');
   assert.strictEqual(JSON.stringify(posted[3].value), '{"opened":true,"next":true}', 'old single switch counts as both');
 
@@ -72,6 +73,18 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
   assert.deepStrictEqual(store.local.channelPrefs, {
     [CH]: { q: 'hd720', name: '' }, ['UC' + 'd'.repeat(22)]: { q: 'large', name: 'Delta' }
   }, 'corrupted entries dropped, valid ones kept');
+
+  // Background saver: daily estimates
+  const day = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
+  store.local.saverStats = { '2000-01-01': 5, junk: 'x' };
+  for (let i = 0; i < 25; i++) store.local.saverStats[`2001-01-${String(i + 1).padStart(2, '0')}`] = 1;
+  await fromPage({ type: 'saved', mb: 12.34 });
+  await fromPage({ type: 'saved', mb: 0.5 });
+  await fromPage({ type: 'saved', mb: -3 });
+  await fromPage({ type: 'saved', mb: 'lots' });
+  assert.strictEqual(store.local.saverStats[day], 12.8, 'adds up today, rejects bad values');
+  assert.ok(!('junk' in store.local.saverStats) && !('2000-01-01' in store.local.saverStats), 'drops junk and oldest days');
+  assert.strictEqual(Object.keys(store.local.saverStats).length, 21, 'keeps the last 21 days');
 
   console.log('All checks passed');
 })().catch((e) => { console.error(e); process.exit(1); });

@@ -90,6 +90,8 @@
     try {
       if (msg.type === 'hello') {
         await sendAll();
+      } else if (msg.type === 'autoplay' && typeof msg.value === 'boolean') {
+        await api.storage.sync.set({ [AUTOPLAY]: msg.value });
       } else if (msg.type === 'set' && VALID.has(msg.value)) {
         await api.storage.sync.set({ [KEY]: msg.value });
       } else if (msg.type === 'remember' && VIDEO_ID.test(msg.videoId)) {

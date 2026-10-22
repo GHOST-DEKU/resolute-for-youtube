@@ -59,6 +59,7 @@
   let channelsKnown = false;
   let temp = null;               // { vid, q } pick for the current video only
   let holdAutoplay = false;      // "open videos paused" setting
+  let autoplayKnown = false;
   let heldVid = '';              // video whose first start was already checked
   let lastPlayGesture = 0;       // time of the user's last play-like input
   const channelCache = new Map(); // videoId -> { id, name } once detected
@@ -276,6 +277,76 @@
     heldVid = vid;
     if (Date.now() - lastPlayGesture < 1000) return; // you pressed play: leave it playing
     call(p, 'pauseVideo');
+  }
+
+  // ---------- the same switch next to YouTube's search box (top page only) ----------
+  const IS_TOP = window === window.top && location.hostname === 'www.youtube.com';
+  const mast = { btn: null, tip: null, tipTimer: 0, note: '' };
+  function buildMast() {
+    const btn = el('button', 'yqx-ap', { id: 'yqx-autoplay', type: 'button', 'aria-pressed': 'false' });
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    for (const x of ['7', '13.5']) { // two pause bars (animated separately)
+      const r = document.createElementNS(NS, 'rect');
+      Object.entries({ x, y: '5', width: '3.5', height: '14', rx: '1.2', fill: 'currentColor' }).forEach(([k, v]) => r.setAttribute(k, v));
+      svg.append(r);
+    }
+    btn.append(svg);
+    btn.addEventListener('click', () => {
+      holdAutoplay = !holdAutoplay;
+      postToExt({ type: 'autoplay', value: holdAutoplay });
+      btn.classList.remove('yqx-ap-bump');
+      void btn.offsetWidth; // restart the animation
+      btn.classList.add('yqx-ap-bump');
+      updateMast();
+      showMastTip(holdAutoplay ? 'Videos will open paused' : 'Autoplay is back on', 1600);
+    });
+    btn.addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'Enter') e.stopPropagation(); });
+    btn.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') showMastTip(); });
+    btn.addEventListener('pointerleave', () => hideMastTip());
+    btn.addEventListener('focus', () => { if (btn.matches(':focus-visible')) showMastTip(); });
+    btn.addEventListener('blur', () => hideMastTip());
+    mast.btn = btn;
+    mast.tip = el('div', 'yqx-ap-tip', { 'aria-hidden': 'true' });
+  }
+  function updateMast() {
+    if (!mast.btn) return;
+    const on = holdAutoplay;
+    mast.btn.setAttribute('aria-pressed', String(on));
+    mast.btn.setAttribute('aria-label', 'Open videos paused');
+    mast.note = on ? 'Videos open paused · click to allow autoplay' : 'Autoplay on · click to open videos paused';
+    if (mast.tip.classList.contains('yqx-show') && !mast.tipTimer) mast.tip.textContent = mast.note;
+  }
+  function showMastTip(text, ms) {
+    clearTimeout(mast.tipTimer);
+    mast.tipTimer = 0;
+    mast.tip.textContent = text || mast.note;
+    const r = mast.btn.getBoundingClientRect();
+    mast.tip.style.top = `${r.bottom + 8}px`;
+    mast.tip.style.left = `${r.left + r.width / 2}px`;
+    mast.tip.classList.add('yqx-show');
+    if (ms) mast.tipTimer = setTimeout(() => { mast.tipTimer = 0; hideMastTip(true); }, ms);
+  }
+  function hideMastTip(force) {
+    if (mast.tipTimer && !force) return; // let the click feedback finish
+    if (mast.tip) mast.tip.classList.remove('yqx-show');
+  }
+  function ensureMast() {
+    if (!IS_TOP || !autoplayKnown) return;
+    const center = document.querySelector('ytd-masthead #center');
+    if (!center) return;
+    injectStyle();
+    if (!mast.btn) buildMast();
+    const voice = center.querySelector(':scope > #voice-search-button');
+    if (mast.btn.parentElement !== center) {
+      if (voice) voice.after(mast.btn);
+      else center.append(mast.btn);
+    }
+    if (mast.tip.parentElement !== document.body && document.body) document.body.append(mast.tip);
+    document.querySelectorAll('.yqx-ap').forEach((b) => { if (b !== mast.btn) b.remove(); });
+    updateMast();
   }
 
   // ---------- building the UI ----------
@@ -804,6 +875,9 @@
       scheduleApply(false);
     } else if (msg.type === 'autoplay' && typeof msg.value === 'boolean') {
       holdAutoplay = msg.value;
+      autoplayKnown = true;
+      ensureMast();
+      updateMast();
       return;
     } else if (msg.type === 'channels' && msg.value && typeof msg.value === 'object') {
       // Keep only well-formed entries; anything corrupted is ignored, never applied.
@@ -838,6 +912,7 @@
     setTimeout(() => {
       ensureQueued = false;
       ensureUI();
+      ensureMast();
     }, 150);
   }
 
@@ -866,6 +941,7 @@
   }, true);
   document.addEventListener('keydown', (e) => {
     const t = e.target;
+    if (mast.btn && mast.btn.contains(t)) return; // Space on our switch toggles it, it isn't "play"
     const typing = t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)); // e.g. a space in search
     if (PLAY_KEYS.has(e.key) && !typing) lastPlayGesture = Date.now();
   }, true);
@@ -1037,7 +1113,35 @@
 #movie_player .yqx-tip.yqx-show{opacity:1;transform:none}
 #movie_player.ytp-big-mode .yqx-tip{font-size:15px}
 
+/* ---------- "open videos paused" switch beside the search box (matches YouTube's mic button) ---------- */
+#yqx-autoplay{position:relative;flex:none;box-sizing:border-box;width:40px;height:40px;margin:0 0 0 8px;padding:0;border:0;
+  display:grid;place-items:center;border-radius:20px;cursor:pointer;
+  background:rgba(0,0,0,.05);color:#0f0f0f;-webkit-tap-highlight-color:transparent;
+  transition:background-color .2s cubic-bezier(.34,.8,.34,1),color .2s cubic-bezier(.34,.8,.34,1),
+    border-radius .35s cubic-bezier(.42,1.67,.21,.9),transform .35s cubic-bezier(.42,1.67,.21,.9)}
+#yqx-autoplay svg{width:24px;height:24px;overflow:visible}
+#yqx-autoplay rect{transform-box:fill-box;transform-origin:center}
+#yqx-autoplay:hover{background:rgba(0,0,0,.1)}
+#yqx-autoplay:active{transform:scale(.9)}
+#yqx-autoplay:focus-visible{outline:2px solid #065fd4;outline-offset:2px}
+#yqx-autoplay[aria-pressed="true"]{background:#4a4fa6;color:#fff;border-radius:12px}
+#yqx-autoplay[aria-pressed="true"]:hover{background:#5a5fb6}
+html[dark] #yqx-autoplay{background:rgba(255,255,255,.1);color:#f1f1f1}
+html[dark] #yqx-autoplay:hover{background:rgba(255,255,255,.2)}
+html[dark] #yqx-autoplay:focus-visible{outline-color:#3ea6ff}
+html[dark] #yqx-autoplay[aria-pressed="true"]{background:#bfc2ff;color:#1a1f73}
+html[dark] #yqx-autoplay[aria-pressed="true"]:hover{background:#d0d2ff}
+/* on toggle: the two bars squash and spring back one after the other */
+#yqx-autoplay.yqx-ap-bump rect{animation:yqx-bar .45s cubic-bezier(.38,1.21,.22,1)}
+#yqx-autoplay.yqx-ap-bump rect+rect{animation-delay:.05s}
+@keyframes yqx-bar{30%{transform:scaleY(.55)}}
+.yqx-ap-tip{position:fixed;z-index:2300;transform:translate(-50%,-4px);padding:8px;border-radius:4px;
+  background:rgba(97,97,97,.92);color:#fff;font:400 12px/1.3 "Roboto",Arial,sans-serif;white-space:nowrap;pointer-events:none;
+  opacity:0;transition:opacity .15s cubic-bezier(.34,.8,.34,1),transform .3s cubic-bezier(.38,1.21,.22,1)}
+.yqx-ap-tip.yqx-show{opacity:1;transform:translate(-50%,0)}
+
 @media (prefers-reduced-motion: reduce){
+  #yqx-autoplay,#yqx-autoplay rect,.yqx-ap-tip{transition:none!important;animation:none!important}
   .yqx-menu,.yqx-pill,.yqx-pill::after,.yqx-check,.yqx-iconbox,.yqx-tip,.yqx-item,.yqx-now{transition:none!important;animation:none!important}
 }`;
 })();

@@ -33,6 +33,10 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
   await fromPage({ type: 'remember', videoId: 'bad id!', value: 'large' });
   await fromPage({ type: 'remember', videoId: 'abcdefghijk', value: 'nonsense' });
   assert.deepStrictEqual(store.local.videoOverrides, {}, 'rejects bad input');
+  await fromPage({ type: 'autoplay', value: false });
+  assert.strictEqual(store.sync.stopAutoplay, false, 'saves autoplay switch from the page');
+  await fromPage({ type: 'autoplay', value: 'yes' });
+  assert.strictEqual(store.sync.stopAutoplay, false, 'rejects non-boolean');
   await fromPage({ type: 'set', value: 'hd720' });
   assert.strictEqual(store.sync.qualityPreference, 'hd720', 'saves default');
 

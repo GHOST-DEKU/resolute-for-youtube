@@ -6,12 +6,13 @@ const path = require('path');
 const { JSDOM } = require('jsdom');
 
 const dom = new JSDOM(`<!doctype html><html><head></head><body>
+  <ytd-masthead><div id="center"><yt-searchbox></yt-searchbox><div id="voice-search-button"></div></div></ytd-masthead>
   <div id="movie_player" class="html5-video-player">
     <video></video>
     <div class="ytp-chrome-bottom"><div class="ytp-chrome-controls">
       <div class="ytp-right-controls"><button class="ytp-subtitles-button"></button><button class="ytp-settings-button"></button></div>
     </div></div>
-  </div></body></html>`, { runScripts: 'outside-only', pretendToBeVisual: true });
+  </div></body></html>`, { runScripts: 'outside-only', pretendToBeVisual: true, url: 'https://www.youtube.com/watch?v=vid1' });
 const { window } = dom;
 const { document } = window;
 
@@ -308,6 +309,21 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   toPage('autoplay', false);
   await startsPlaying('ap6');
   assert.strictEqual(pauses, before3 + 3, 'turning it off restores autoplay');
+
+  // Same switch beside the search box
+  const ap = document.getElementById('yqx-autoplay');
+  assert.ok(ap, 'switch added to the top bar');
+  assert.strictEqual(ap.previousElementSibling.id, 'voice-search-button', 'sits right after the mic button');
+  assert.strictEqual(ap.getAttribute('aria-pressed'), 'false');
+  ap.click();
+  assert.deepStrictEqual(sent.at(-1), { source: 'yqx-page', type: 'autoplay', value: true }, 'saves the setting');
+  assert.strictEqual(ap.getAttribute('aria-pressed'), 'true');
+  await startsPlaying('ap7');
+  assert.strictEqual(pauses, before3 + 4, 'switch works immediately');
+  toPage('autoplay', false); // changed in the popup
+  assert.strictEqual(ap.getAttribute('aria-pressed'), 'false', 'follows the popup');
+  ap.remove(); await wait(400);
+  assert.strictEqual(document.querySelectorAll('#yqx-autoplay').length, 1, 'comes back once if YouTube re-renders the bar');
   videoPaused = true;
 
   // No toolbar at all -> floating fallback

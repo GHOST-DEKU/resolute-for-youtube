@@ -33,7 +33,7 @@ The popup and the in-player menu use a design **inspired by Material 3 Expressiv
 - **Surfaces:** translucent and frosted. In the player, the video shows through the menu.
 - **Theme:** the popup has a **System / Light / Dark** switch. The in-player menu is always dark, like YouTube's own player controls.
 
-**Open videos paused** (toolbar popup switch, off by default): a video never starts by itself. It opens paused and plays only when you press play (click or tap in the player, **K**, **Space** or a media key). This also covers the next video YouTube autoplays at the end of one. Ads are left alone; the real video after them opens paused.
+**Open videos paused** (off by default; switch it in the toolbar popup or with the ⏸ button right next to YouTube's search box, both stay in sync): a video never starts by itself. It opens paused and plays only when you press play (click or tap in the player, **K**, **Space** or a media key). This also covers the next video YouTube autoplays at the end of one. Ads are left alone; the real video after them opens paused.
 
 **Toolbar popup:** set the global default; switch **Open videos paused** on or off; under **Channel defaults** see every saved channel, change its quality, remove it (×) or **Remove all**; clear remembered videos with **Forget all**.
 

@@ -8,8 +8,8 @@ Resolute: Video Quality Control ("the extension") lets you choose the video qual
 
 | What | When | Where it is stored |
 |---|---|---|
-| Your **default quality** (for example "1080p" or "Highest available") | When you pick a default in the popup or click **Make default for all videos** in the player menu | Your browser's extension storage (`chrome.storage.sync`). If you have turned on Chrome Sync, Chrome copies this setting to your other signed-in browsers. That copying is done by your browser and Google account, not by us. |
-| **Video IDs you choose to remember**, each with its quality (for example `dQw4w9WgXcQ → 480p`) | Only when you click **Remember for this video** | Your browser's local extension storage (`chrome.storage.local`), on this device only. At most the 1,000 most recent are kept. |
+| Your **default quality** (for example "1080p" or "Highest available") | When you pick a default in the popup or click **Make default for all videos** in the player menu | Your browser's extension storage (`storage.sync`). If you have turned on Chrome Sync or Firefox Sync, your browser copies this setting to your other signed-in browsers. That copying is done by your browser and your Google or Mozilla account, not by the extension or its developer. |
+| **Video IDs you choose to remember**, each with its quality (for example `dQw4w9WgXcQ → 480p`) | Only when you click **Remember for this video** | Your browser's local extension storage (`storage.local`), on this device only. It is never synced. At most the 1,000 most recent are kept. |
 
 The extension reads the ID of the video currently playing, and the list of qualities the YouTube player offers for it, so that it can apply your choice. It uses these only on your device, at that moment, and does not keep them unless you click **Remember for this video**.
 
@@ -24,7 +24,7 @@ The extension reads the ID of the video currently playing, and the list of quali
 ## Permissions
 
 - **storage:** to save the settings described above.
-- **Access to youtube.com and youtube-nocookie.com pages:** to add the quality button to the video player and apply your chosen quality. The extension does not run on any other website.
+- **Access to youtube.com and youtube-nocookie.com pages:** to add the quality button to the video player and apply your chosen quality. The extension does not run on any other website. You can turn this access off in your browser's extension settings; the button then won't appear, and the extension's popup offers to turn it back on.
 
 ## Your control over your data
 

@@ -1,5 +1,7 @@
 # Publishing Resolute on the Chrome Web Store
 
+*Publishing on Firefox instead? See [PUBLISHING-FIREFOX.md](PUBLISHING-FIREFOX.md).*
+
 A step-by-step guide for a first-time publisher. Steps marked **👤 You** need your Google account and can only be done by you. Everything else is already prepared in this repo.
 
 Facts that change over time (fees, sizes, rules) are linked to Google's official pages. They were checked on **22 October 2026**; if a page says something different when you read it, follow the page.
@@ -12,7 +14,7 @@ Facts that change over time (fees, sizes, rules) are linked to Google's official
 |---|---|
 | Manifest V3 | ✅ `manifest_version: 3` |
 | Required fields | ✅ name (31/75 chars), version `1.0.0`, description (116/132 chars), icons 16/32/48/128 |
-| Permissions | ✅ Only `storage`. Content scripts only on `youtube.com` and `youtube-nocookie.com`. No `<all_urls>`, no `tabs`, no background worker. |
+| Permissions | ✅ Only `storage`, plus site access (`host_permissions` + content scripts) for `youtube.com` and `youtube-nocookie.com` only. No `<all_urls>`, no `tabs`, no background worker. |
 | Remote code | ✅ None. No `eval`, no external scripts, no network requests. |
 | Chrome compatibility | ✅ `minimum_chrome_version: 111` (needed for running code in YouTube's page). Firefox-only manifest key is removed in the Chrome ZIP. |
 | JavaScript errors | ✅ No errors when the packaged ZIP runs in real Chromium (test below). |
@@ -57,7 +59,7 @@ Sources: [Images](https://developer.chrome.com/docs/webstore/images) · [Manifes
 The ZIP is built by a script so it's the same every time.
 
 ```bash
-python3 scripts/build-chrome.py
+python3 scripts/build.py chrome
 ```
 
 It creates `dist/resolute-chrome-v1.0.0.zip` and **refuses to build** if something is wrong. It checks:
@@ -227,7 +229,7 @@ A rejected update never affects the live version. ([review process](https://deve
 ### Shipping an update ([update guide](https://developer.chrome.com/docs/webstore/update))
 1. Change the code. Run `node test/page.test.js` and `node test/content.test.js` (needs `npm i jsdom` once).
 2. **Raise the version** in `manifest.json`. Each upload must be higher than the last: `1.0.0` → `1.0.1` for fixes, `1.1.0` for new features.
-3. `python3 scripts/build-chrome.py`
+3. `python3 scripts/build.py chrome`
 4. Dashboard → your item → **Package** → **Upload new package** → **Submit for review**.
 5. If the update collects new data or needs new permissions, update `PRIVACY.md` and the Privacy tab **first**. New permissions show users a prompt.
 
@@ -243,7 +245,7 @@ A rejected update never affects the live version. ([review process](https://deve
 ## 9. Final pre-submission checklist
 
 - [ ] 2-Step Verification on; fee paid; publisher name set; contact email **verified**; trader status chosen
-- [ ] `python3 scripts/build-chrome.py` succeeds
+- [ ] `python3 scripts/build.py chrome` succeeds
 - [ ] Unzipped release loads in Chrome with **no Errors** button
 - [ ] All 16 mandatory tests pass on **real YouTube**
 - [ ] Repo is **public**; privacy policy link opens in a signed-out window

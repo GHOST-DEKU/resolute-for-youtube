@@ -2,7 +2,7 @@
 
 A Chrome / Firefox extension that adds a **quality button inside the YouTube player** (next to the ⚙ settings button).
 
-📦 Publishing to the Chrome Web Store: see [docs/PUBLISHING.md](docs/PUBLISHING.md) · 🔒 [Privacy policy](PRIVACY.md)
+📦 Publishing: [Chrome Web Store](docs/PUBLISHING.md) · [Firefox Add-ons](docs/PUBLISHING-FIREFOX.md) · 🔒 [Privacy policy](PRIVACY.md)
 
 Options: Auto · Highest available · 144p · 240p · 360p · 480p · 720p · 1080p · 1440p · 2160p (4K)
 
@@ -54,10 +54,11 @@ node test/content.test.js
 ```
 Runs the scripts against a fake YouTube player and fake storage (placement, menu, this-video picks, remember/forget, default, fallback, ads, no duplicates, keyboard).
 
-## Build for the Chrome Web Store
+## Build the store packages
 
 ```
-python3 scripts/build-chrome.py   # -> dist/resolute-chrome-v<version>.zip
+python3 scripts/build.py chrome    # -> dist/resolute-chrome-v<version>.zip
+python3 scripts/build.py firefox   # -> dist/resolute-firefox-v<version>.zip
 ```
 
 ## Known limits

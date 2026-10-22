@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Build the Chrome Web Store upload ZIP and check it.
+"""Build the store upload ZIP for Chrome or Firefox, and check it.
 
-Usage:  python3 scripts/build-chrome.py
-Output: dist/resolute-chrome-v<version>.zip  (manifest.json at the ZIP root)
+Usage:  python3 scripts/build.py chrome    -> dist/resolute-chrome-v<version>.zip
+        python3 scripts/build.py firefox   -> dist/resolute-firefox-v<version>.zip
+manifest.json is always at the ZIP root.
 """
 import json
 import re
@@ -25,8 +26,15 @@ def png_size(path):
 
 
 def main():
+    target = sys.argv[1] if len(sys.argv) > 1 else ''
+    if target not in ('chrome', 'firefox'):
+        sys.exit('Usage: python3 scripts/build.py chrome|firefox')
     manifest = json.loads((ROOT / 'manifest.json').read_text())
-    manifest.pop('browser_specific_settings', None)  # Firefox-only; Chrome warns about it
+    # Each browser warns about the other's key, so each package keeps only its own.
+    if target == 'chrome':
+        manifest.pop('browser_specific_settings', None)
+    else:
+        manifest.pop('minimum_chrome_version', None)
 
     # Checks the store would otherwise reject
     problems = []
@@ -53,13 +61,19 @@ def main():
             problems.append(f'{f} is not {size}x{size}')
     for f in ('content.js', 'page.js', 'popup.js'):
         text = (ROOT / f).read_text()
-        if re.search(r'\beval\(|new Function\(|https?://(?!www\.w3\.org)', text):
+        if re.search(r'\beval\(|new Function\(|https?://(?!www\.w3\.org/|www\.youtube(-nocookie)?\.com/\*)', text):
             problems.append(f'{f} may contain remote code or network URLs; check it')
+    if target == 'firefox':
+        gecko = manifest.get('browser_specific_settings', {}).get('gecko', {})
+        if not gecko.get('id'):
+            problems.append('Firefox needs browser_specific_settings.gecko.id (keep it the same forever)')
+        if 'data_collection_permissions' not in gecko:
+            problems.append('Firefox needs gecko.data_collection_permissions for new extensions')
     if problems:
         print('NOT BUILT:\n  - ' + '\n  - '.join(problems))
         sys.exit(1)
 
-    out = ROOT / 'dist' / f"resolute-chrome-v{manifest['version']}.zip"
+    out = ROOT / 'dist' / f"resolute-{target}-v{manifest['version']}.zip"
     out.parent.mkdir(exist_ok=True)
     with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
         z.writestr('manifest.json', json.dumps(manifest, indent=2) + '\n')
@@ -69,7 +83,10 @@ def main():
     with zipfile.ZipFile(out) as z:  # re-open and verify what was written
         assert z.testzip() is None, 'ZIP is corrupt'
         names = z.namelist()
-        assert names[0] == 'manifest.json' and 'browser_specific_settings' not in z.read('manifest.json').decode()
+        built = json.loads(z.read('manifest.json'))
+        assert names[0] == 'manifest.json'
+        assert ('browser_specific_settings' in built) == (target == 'firefox')
+        assert ('minimum_chrome_version' in built) == (target == 'chrome')
         print(f'Built {out.relative_to(ROOT)} ({out.stat().st_size // 1024} KB)')
         for n in names:
             print('  ', n)

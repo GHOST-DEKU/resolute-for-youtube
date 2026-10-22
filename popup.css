@@ -5,6 +5,7 @@
   --row-hover: rgba(0, 0, 0, 0.05);
   --row-selected: rgba(0, 0, 0, 0.08);
   --accent: #065fd4;
+  --on-accent: #ffffff;
   --border: rgba(0, 0, 0, 0.1);
   color-scheme: light;
 }
@@ -16,6 +17,7 @@
     --row-hover: rgba(255, 255, 255, 0.08);
     --row-selected: rgba(255, 255, 255, 0.12);
     --accent: #3ea6ff;
+    --on-accent: #0f0f0f;
     --border: rgba(255, 255, 255, 0.12);
     color-scheme: dark;
   }
@@ -30,6 +32,18 @@ body {
   color: var(--text);
   font: 13px/1.4 Roboto, "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
 }
+.notice {
+  margin: 0 0 10px; padding: 10px; border-radius: 8px;
+  background: rgba(217, 48, 37, 0.1); border: 1px solid rgba(217, 48, 37, 0.35);
+  font-size: 12px;
+}
+.notice[hidden] { display: none; }
+.notice p { margin: 0 0 8px; }
+.notice button {
+  border: 0; border-radius: 6px; padding: 6px 10px; cursor: pointer;
+  background: var(--accent); color: var(--on-accent); font: inherit; font-weight: 500;
+}
+.notice button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 header { padding: 0 6px 10px; border-bottom: 1px solid var(--border); margin-bottom: 6px; }
 h1 { margin: 0 0 2px; font-size: 15px; font-weight: 600; }
 header p, .hint { margin: 0; color: var(--muted); font-size: 12px; }

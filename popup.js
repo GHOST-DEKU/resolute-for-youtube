@@ -88,6 +88,17 @@
     }
   });
 
+  // Users can switch off site access (Firefox treats it as optional); offer a one-click fix.
+  const YOUTUBE = { origins: ['https://www.youtube.com/*', 'https://www.youtube-nocookie.com/*'] };
+  const access = document.getElementById('access');
+  const checkAccess = () => api.permissions.contains(YOUTUBE)
+    .then((ok) => { access.hidden = ok; })
+    .catch(() => { access.hidden = true; }); // can't tell: don't show a false alarm
+  document.getElementById('grant').addEventListener('click', () => {
+    api.permissions.request(YOUTUBE).then(checkAccess).catch(checkAccess); // must run in this click
+  });
+  checkAccess();
+
   // Stay in sync if things change in the player while the popup is open.
   api.storage.onChanged.addListener((changes, area) => {
     if (area === 'sync' && changes[KEY]) select(changes[KEY].newValue);

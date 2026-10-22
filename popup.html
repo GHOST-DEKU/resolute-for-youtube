@@ -7,6 +7,10 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
+  <div class="notice" id="access" role="alert" hidden>
+    <p>The quality button can't appear because this extension isn't allowed to run on YouTube.</p>
+    <button type="button" id="grant">Allow on YouTube</button>
+  </div>
   <header>
     <h1 id="title">Default quality</h1>
     <p>Used for every YouTube video, unless you remembered a different one for that video.</p>

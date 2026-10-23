@@ -305,8 +305,27 @@
   const MBPS = { tiny: 0.1, small: 0.3, medium: 0.6, large: 1.1, hd720: 2.5, hd1080: 4.5, hd1440: 9, hd2160: 18, highres: 30 };
   const inPip = () => !!document.pictureInPictureElement;
   let tabActive = true;           // the browser says this is the selected tab of its window
-  // Away = hidden, or another tab is selected (Vivaldi keeps background tabs "visible", so both are needed).
-  const away = () => document.visibilityState === 'hidden' || !tabActive;
+  let drawn = true;              // the page is still being painted (checked only when another tab is selected)
+  // Away = hidden, or another tab is selected AND this page stopped being drawn. Vivaldi keeps background
+  // tabs "visible" but stops drawing them; a tab split or tiled next to the selected one keeps being drawn.
+  const away = () => document.visibilityState === 'hidden' || (!tabActive && !drawn);
+  let probeId = 0;
+  function checkDrawn() {
+    const id = ++probeId;
+    let frames = -1;
+    setTimeout(() => { // let the switch settle, then count frames for 1 s
+      if (id !== probeId) return;
+      frames = 0;
+      const tick = () => { if (id === probeId && frames >= 0) { frames++; requestAnimationFrame(tick); } };
+      requestAnimationFrame(tick);
+      setTimeout(() => {
+        if (id !== probeId) return;
+        drawn = frames >= 5; // Vivaldi measured: 20-60 fps on screen, 0-1 in a background tab
+        frames = -1;
+        awayChanged();
+      }, 1000);
+    }, 500);
+  }
   let saverFromQ = '';           // quality when you left the tab (hidden tabs may stop reporting it)
   // Why the saver didn't lower a video: the popup's "Last time" line shows it, so you never have to guess.
   const saverSkip = (reason) => postToExt({ type: 'saverSkip', reason });
@@ -1259,6 +1278,8 @@
       return;
     } else if (msg.type === 'tabActive' && typeof msg.value === 'boolean') {
       tabActive = msg.value;
+      drawn = true;
+      if (tabActive) probeId++; else checkDrawn();
       awayChanged();
       return;
     } else if (msg.type === 'saver' && msg.value && typeof msg.value.on === 'boolean') {

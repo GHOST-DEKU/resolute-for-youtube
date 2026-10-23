@@ -153,7 +153,7 @@ When a video keeps playing in a tab you aren't looking at (music, a podcast, a l
 | While it's saving | The **tab** shows it: the title starts with **"144p ·"** and the tab icon becomes Resolute's gold leaf. The tab is the only part of YouTube you can see while you're away. |
 | You come back | Your quality returns, the tab goes back to normal, and the popup adds what was saved to **this week** |
 | The next video in a playlist starts while you're away | It stays low too |
-| Video **tiled or split side by side** with the tab you're using | **Never lowered**: it's on your screen (Chrome split view; Vivaldi tab tiling if Vivaldi shares it, see Known limits) |
+| Video **tiled or split side by side** with the tab you're using | **Never lowered**: it's still being drawn on your screen (Chrome split view, Vivaldi tab tiling) |
 | Video in **picture-in-picture** | **Never lowered**, and nothing is shown or counted. Entering PiP while saving restores your quality at once. |
 | Video paused, or an ad playing | Left alone (a paused video uses no data) |
 
@@ -250,7 +250,7 @@ No. Shorts and m.youtube.com use a different player. The autoplay settings also 
 ## ⚠️ Known limits
 
 - The background saver's "MB/GB saved" is an estimate from typical YouTube bitrates, not a measurement.
-- **Vivaldi** never tells a page it's in the background, so the saver also asks the browser which tab is selected in each window. Tabs **tiled or split side by side** with the selected tab count as on screen and are never lowered: Chrome's split view (Chrome 155+) and Vivaldi's tab tiling, *if* Vivaldi shares its tiling info with extensions (not yet confirmed on a real Vivaldi).
+- **Vivaldi** never tells a page it's in the background, so the saver also asks the browser which tab is selected in each window. When another tab is selected, the page also checks whether it's still being **drawn** (Vivaldi stops drawing tabs you can't see). So a tab **split or tiled** next to the one you're using keeps its quality. Starting takes about 1.5 s longer there, which doesn't matter next to the 15 s+ delay.
 - While the saver is on, the tab title starts with "144p ·". If you bookmark or share the page during that time, the title would include it.
 - Firefox's own picture-in-picture button is expected to count as picture-in-picture from Firefox 153 (it's the same signal the browser reports), but test it on your Firefox before relying on it.
 - The autoplay settings work by pausing a video right as it starts, so on a slow device you may hear a split second of sound first. YouTube offers no clean "don't autoplay" switch an extension can use.
@@ -270,7 +270,7 @@ No. Shorts and m.youtube.com use a different player. The autoplay settings also 
 | File | Job |
 |:---|:---|
 | `page.js` | Runs in YouTube's page (the "MAIN" world) so it can use the player's own methods. Adds the quality button + menu, applies the quality on every new video, waits for ads. Adds the autoplay button beside the search box and, per your two autoplay settings, pauses a video the first time it starts by itself (telling "opened" apart from "next in queue"). Shows "Video waiting" on that button while a video is held, and runs the background saver (tab hidden, not in picture-in-picture), including the tab title and icon. |
-| `background.js` | Tells each YouTube tab whether it's the selected tab of its window (Vivaldi keeps background tabs "visible" to pages), and shows the "Background saver: 144p" notification while a tab is lowered, cleared when you return. |
+| `background.js` | Tells each YouTube tab whether it's the selected tab of its window (Vivaldi keeps background tabs "visible" to pages; the page then checks it's no longer drawn), and shows the "Background saver: 144p" notification while a tab is lowered, cleared when you return. |
 | `content.js` | Bridge to extension storage: the global default, the two autoplay settings and the saver setting (all synced), the saver's daily estimates (this device, last 21 days), remembered videos (this device, newest 1,000) and channel defaults (this device, newest 2,000). Validates every message and drops corrupted entries. |
 | `popup.*` | The toolbar popup: global default, the two autoplay switches, the background saver and its weekly estimate, channel defaults, remembered videos, theme, and a fix for switched-off YouTube access. |
 

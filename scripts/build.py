@@ -33,10 +33,10 @@ def main():
     # Each browser warns about the other's key, so each package keeps only its own.
     if target == 'chrome':
         manifest.pop('browser_specific_settings', None)
-        manifest['background'].pop('scripts', None)
     else:
         manifest.pop('minimum_chrome_version', None)
-        manifest['background'].pop('service_worker', None)
+        # Firefox runs background code as a script, not a service worker (Chrome warns about "scripts" in MV3).
+        manifest['background'] = {'scripts': [manifest['background']['service_worker']]}
 
     # Checks the store would otherwise reject
     problems = []

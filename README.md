@@ -202,7 +202,7 @@ It won't update by itself. A downloaded ZIP or `.crx` can't be installed by just
 - **Once it's listed** on Mozilla Add-ons: one click, automatic updates. Not available yet.
 - **For testing now:**
   1. Open `about:debugging#/runtime/this-firefox`.
-  2. Click **Load Temporary Add-on** and pick `manifest.json`. It's removed when Firefox closes.
+  2. Build it with `python3 scripts/build.py firefox`, click **Load Temporary Add-on** and pick `dist/resolute-firefox-v1.1.0.zip` (the repo's own `manifest.json` is set up for Chrome). It's removed when Firefox closes.
   3. If the button doesn't appear, open `about:addons` → Resolute → **Permissions** and allow YouTube.
 
 ### Edge, Brave and other Chromium browsers

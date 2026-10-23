@@ -160,7 +160,9 @@ When a video keeps playing in a tab you aren't looking at (music, a podcast, a l
 **How do I know it worked?** You can't see it on the video, because your quality is back the moment you return. Three places tell you:
 - **The moment it starts:** a notification, *"Background saver: 144p"*. It disappears by itself when you go back to the tab; clicking it takes you there.
 - **While you're away:** the YouTube tab's title starts with **"144p ·"** (hover over the tab to see the full title).
-- **After you're back:** the popup card's **"Last time"** line, for example *"Last time: 1080p → 144p for 2 min 10 s · about 16 MB · 3 min ago"*. If it didn't lower the video, the line says why (you came back before the delay, the video was paused, it was in picture-in-picture, or it was already that low).
+- **After you're back:** the popup card's **"Last time"** line, for example *"Last time: 1080p → 144p for 2 min 10 s · about 16 MB · 3 min ago"*. If it didn't lower the video, the line says why (you came back before the delay, the video was paused, it was muted so the browser paused it, it was in picture-in-picture, or it was already that low).
+
+> **Muted videos:** Chromium browsers (Chrome, Edge, Vivaldi) pause a *muted* video in a background tab by themselves, so there's nothing to save. Vivaldi's **Tab Muting** setting can mute background tabs for you; set it to **Play All Audio** if you want videos to keep playing in other tabs.
 
 The popup card also shows roughly how much data it saved **this week (Sunday to Saturday)**, as a rolling number and one bar per day (today in red). It's an **estimate**: YouTube doesn't report data use, so Resolute multiplies typical bitrates by the minutes the video actually played while lowered.
 

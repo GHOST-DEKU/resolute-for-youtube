@@ -102,6 +102,9 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
   assert.strictEqual(store.local.saverLast.secs, 3, 'rejects bad quality names');
   await fromPage({ type: 'saverSkip', reason: 'paused' });
   assert.strictEqual(store.local.saverLast.skipped, 'paused', 'remembers why it did not lower');
+  await fromPage({ type: 'saverSkip', reason: 'muted' });
+  assert.strictEqual(store.local.saverLast.skipped, 'muted', 'muted is a known reason');
+  await fromPage({ type: 'saverSkip', reason: 'paused' });
   await fromPage({ type: 'saverSkip', reason: '<script>' });
   assert.strictEqual(store.local.saverLast.skipped, 'paused', 'rejects unknown reasons');
 

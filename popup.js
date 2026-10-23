@@ -251,6 +251,7 @@
   const WHY = {
     'back-early': () => `you came back before ${saverSetting.after === 60 ? '1\u00A0min' : `${saverSetting.after}\u00A0s`}`,
     paused: () => 'the video was paused (a paused video uses no data)',
+    muted: () => 'the video was muted, so your browser paused it in the background (no data used)',
     pip: () => 'the video was in picture-in-picture',
     'already-low': () => `it was already at ${saverSetting.to === 'large' ? '480p' : 'the lowest quality'} or lower`,
     'no-video': () => 'no video was playing in that tab',

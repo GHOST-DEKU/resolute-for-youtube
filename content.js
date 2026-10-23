@@ -129,7 +129,7 @@
         await sendAll();
       } else if (msg.type === 'autoplay' && isPair(msg.value)) {
         await api.storage.sync.set({ [HOLD_OPENED]: msg.value.opened, [HOLD_NEXT]: msg.value.next });
-      } else if (msg.type === 'saverSkip' && ['back-early', 'paused', 'pip', 'already-low', 'no-video', 'no-quality'].includes(msg.reason)) {
+      } else if (msg.type === 'saverSkip' && ['back-early', 'paused', 'muted', 'pip', 'already-low', 'no-video', 'no-quality'].includes(msg.reason)) {
         await api.storage.local.set({ [LAST]: { at: Date.now(), skipped: msg.reason } });
       } else if (msg.type === 'saverOn' && typeof msg.label === 'string' && typeof msg.title === 'string') {
         await api.runtime.sendMessage({ type: 'saverOn', label: msg.label.slice(0, 20), title: msg.title.slice(0, 100) });

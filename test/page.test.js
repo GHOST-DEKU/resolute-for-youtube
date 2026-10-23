@@ -489,6 +489,8 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   videoPaused = true; hide(true); await wait(200);
   assert.strictEqual(playing, 'hd1080', 'a paused video uses no data: left alone');
   assert.strictEqual(skips().at(-1), 'paused', 'says it was paused');
+  hide(false); await wait(20); videoEl.muted = true; hide(true); await wait(200);
+  assert.strictEqual(skips().at(-1), 'muted', 'muted + paused: says the browser paused it'); videoEl.muted = false;
   hide(false); videoPaused = false;
   // Vivaldi: the page stays "visible", but the browser says another tab is selected
   toPage('saver', { on: true, after: 0.1, to: 'tiny' }); await wait(20);

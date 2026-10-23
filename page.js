@@ -342,7 +342,7 @@
     const v = p && p.querySelector('video');
     if (saverActive || !saver.on || !away()) return;
     if (!p || !v) { saverSkip('no-video'); return; }
-    if (v.paused) { saverSkip('paused'); return; }
+    if (v.paused) { saverSkip(v.muted ? 'muted' : 'paused'); return; } // browsers pause muted videos in background tabs
     if (inPip()) { saverSkip('pip'); return; }
     if (p.classList.contains('ad-showing')) { saverTimer = setTimeout(startSaver, 5000); return; } // ads: try after
     const levels = availableLevels(p);

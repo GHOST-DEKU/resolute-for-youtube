@@ -92,6 +92,10 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
   assert.strictEqual(store.local.saverLast.secs, 3, 'a short run still counts as "last time"');
   await fromPage({ type: 'saved', mb: 1, from: '<b>x</b>', to: 'tiny', secs: 5 });
   assert.strictEqual(store.local.saverLast.secs, 3, 'rejects bad quality names');
+  await fromPage({ type: 'saverSkip', reason: 'paused' });
+  assert.strictEqual(store.local.saverLast.skipped, 'paused', 'remembers why it did not lower');
+  await fromPage({ type: 'saverSkip', reason: '<script>' });
+  assert.strictEqual(store.local.saverLast.skipped, 'paused', 'rejects unknown reasons');
 
   console.log('All checks passed');
 })().catch((e) => { console.error(e); process.exit(1); });

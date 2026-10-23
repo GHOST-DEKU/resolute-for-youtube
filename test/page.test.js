@@ -467,6 +467,18 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   document.dispatchEvent(new window.Event('enterpictureinpicture')); await wait(80);
   assert.strictEqual(playing, 'hd1080', 'entering PiP restores at once');
   hide(false);
+  const skips = () => sent.filter((x) => x.type === 'saverSkip').map((x) => x.reason);
+  // hidden tab stops reporting a quality (Chromium may stop decoding the picture): still lowered
+  playing = 'unknown'; hide(true); playing = 'unknown'; await wait(200);
+  assert.strictEqual(playing, 'tiny', 'quality unknown while hidden: uses the one you left at');
+  hide(false); await wait(50); playing = 'hd1080';
+  // came back before the delay
+  toPage('saver', { on: true, after: 0.3, to: 'tiny' });
+  hide(true); await wait(80); hide(false); await wait(20);
+  assert.strictEqual(skips().at(-1), 'back-early', 'says you came back too early');
+  toPage('saver', { on: true, after: 0.1, to: 'tiny' });
+  pipEl = videoEl; hide(true); await wait(200); hide(false); pipEl = null;
+  assert.strictEqual(skips().at(-1), 'pip', 'says it was in picture-in-picture');
   // 480p option, paused video, setting off
   toPage('saver', { on: true, after: 0.1, to: 'large' });
   hide(true); await wait(200);
@@ -474,6 +486,7 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   hide(false); await wait(50);
   videoPaused = true; hide(true); await wait(200);
   assert.strictEqual(playing, 'hd1080', 'a paused video uses no data: left alone');
+  assert.strictEqual(skips().at(-1), 'paused', 'says it was paused');
   hide(false); videoPaused = false;
   toPage('saver', { on: false, after: 0.1, to: 'tiny' });
   hide(true); await wait(200);

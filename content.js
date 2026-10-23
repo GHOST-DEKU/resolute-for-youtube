@@ -11,7 +11,7 @@
  *    (older versions stored one "stopAutoplay" switch; it counts as both until either is set)
  *  - sync  "bgSaver":           { on, after: 15|30|60 seconds, to: "tiny"|"large" } background saver
  *  - local "saverStats":        { "YYYY-MM-DD": estimated MB saved } for the last 21 days
- *  - local "saverLast":         { at, from, to, secs, mb } the most recent run, shown in the popup
+ *  - local "saverLast":         { at, from, to, secs, mb } the most recent run, or { at, skipped: reason }
  *  - local "videoOverrides":    { videoId: quality } for videos the user chose to remember
  *  - local "channelPrefs":      { UCchannelId: { q: quality, name } } channel defaults
  *    (name is only for showing the list; the id is the key, so renames don't matter)
@@ -124,6 +124,8 @@
         await sendAll();
       } else if (msg.type === 'autoplay' && isPair(msg.value)) {
         await api.storage.sync.set({ [HOLD_OPENED]: msg.value.opened, [HOLD_NEXT]: msg.value.next });
+      } else if (msg.type === 'saverSkip' && ['back-early', 'paused', 'pip', 'already-low', 'no-video', 'no-quality'].includes(msg.reason)) {
+        await api.storage.local.set({ [LAST]: { at: Date.now(), skipped: msg.reason } });
       } else if (msg.type === 'saved' && typeof msg.mb === 'number' && msg.mb >= 0 && msg.mb <= 100000) {
         if (QUALITY_ID.test(msg.from) && QUALITY_ID.test(msg.to) && Number.isInteger(msg.secs) && msg.secs > 0 && msg.secs <= 86400 * 7) {
           await api.storage.local.set({ [LAST]: { at: Date.now(), from: msg.from, to: msg.to, secs: msg.secs, mb: msg.mb } });

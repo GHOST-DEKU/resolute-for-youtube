@@ -304,20 +304,32 @@
   // Rough YouTube bitrates (Mbit/s) per quality, only to estimate what was saved. shortcut: fixed table, not measured
   const MBPS = { tiny: 0.1, small: 0.3, medium: 0.6, large: 1.1, hd720: 2.5, hd1080: 4.5, hd1440: 9, hd2160: 18, highres: 30 };
   const inPip = () => !!document.pictureInPictureElement;
+  let saverFromQ = '';           // quality when you left the tab (hidden tabs may stop reporting it)
+  // Why the saver didn't lower a video: the popup's "Last time" line shows it, so you never have to guess.
+  const saverSkip = (reason) => postToExt({ type: 'saverSkip', reason });
   function armSaver() {
     clearTimeout(saverTimer);
+    saverTimer = 0;
     if (!IS_TOP || !saver.on || !PIP_KNOWN || document.visibilityState !== 'hidden') return;
+    saverFromQ = call(getPlayer() || {}, 'getPlaybackQuality') || '';
     saverTimer = setTimeout(startSaver, saver.after * 1000);
   }
   function startSaver() {
+    saverTimer = 0;
     const p = getPlayer();
     const v = p && p.querySelector('video');
-    if (saverActive || !saver.on || document.visibilityState !== 'hidden' || !p || !v || v.paused || inPip()) return;
+    if (saverActive || !saver.on || document.visibilityState !== 'hidden') return;
+    if (!p || !v) { saverSkip('no-video'); return; }
+    if (v.paused) { saverSkip('paused'); return; }
+    if (inPip()) { saverSkip('pip'); return; }
     if (p.classList.contains('ad-showing')) { saverTimer = setTimeout(startSaver, 5000); return; } // ads: try after
     const levels = availableLevels(p);
-    const fromQ = call(p, 'getPlaybackQuality');
-    const target = resolveTarget(saver.to, levels);
-    if (!target || !HEIGHT[fromQ] || HEIGHT[fromQ] <= HEIGHT[target]) return; // already that low: nothing to save
+    const now = call(p, 'getPlaybackQuality');
+    // Chromium may stop decoding a hidden tab's picture, and YouTube then reports no quality: use the one you left at.
+    const fromQ = HEIGHT[now] ? now : HEIGHT[saverFromQ] ? saverFromQ : (levels[0] || '');
+    const target = resolveTarget(saver.to, levels.length ? levels : Object.keys(HEIGHT));
+    if (!target || !HEIGHT[fromQ]) { saverSkip('no-quality'); return; }
+    if (HEIGHT[fromQ] <= HEIGHT[target]) { saverSkip('already-low'); return; } // nothing to save
     saverActive = { q: saver.to, fromQ, target, ms: 0, t0: Date.now() };
     forceQuality(p, target);
     forcedEarlier = true;
@@ -1306,7 +1318,11 @@
     }, true);
   }
   document.addEventListener('pause', (e) => { if (e.target instanceof HTMLVideoElement) saverPlaying(false); }, true);
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') armSaver(); else endSaver(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') { armSaver(); return; }
+    if (saverTimer && saver.on && !saverActive) saverSkip('back-early'); // you returned before the delay
+    endSaver();
+  });
   document.addEventListener('enterpictureinpicture', () => endSaver(), true); // never lower a video you're watching in PiP
   // A video that plays to its end: the next one to start without any input from you counts as "next".
   document.addEventListener('ended', (e) => {

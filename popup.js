@@ -248,8 +248,23 @@
   const span = (s) => (s < 60 ? `${s}${NB}s` : s < 3600 ? `${Math.floor(s / 60)}${NB}min${s % 60 ? ` ${s % 60}${NB}s` : ''}` : `${Math.floor(s / 3600)}${NB}h ${Math.round((s % 3600) / 60)}${NB}min`);
   const ago = (ms) => { const m = Math.round((Date.now() - ms) / 60000);
     return m < 1 ? 'just now' : m < 60 ? `${m}${NB}min ago` : m < 1440 ? `${Math.round(m / 60)}${NB}h ago` : new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }); };
+  const WHY = {
+    'back-early': () => `you came back before ${saverSetting.after === 60 ? '1\u00A0min' : `${saverSetting.after}\u00A0s`}`,
+    paused: () => 'the video was paused (a paused video uses no data)',
+    pip: () => 'the video was in picture-in-picture',
+    'already-low': () => `it was already at ${saverSetting.to === 'large' ? '480p' : 'the lowest quality'} or lower`,
+    'no-video': () => 'no video was playing in that tab',
+    'no-quality': () => 'YouTube didn\u2019t report the video\u2019s quality'
+  };
   function showLast(v) {
     const el = $('sv-last');
+    if (v && WHY[v.skipped]) {
+      el.replaceChildren('Last time (' + ago(v.at) + '): ');
+      const b = document.createElement('b');
+      b.textContent = 'didn\u2019t lower it';
+      el.append(b, ', because ' + WHY[v.skipped]() + '.');
+      return;
+    }
     if (!v || !QLABEL[v.from] || !QLABEL[v.to] || !(v.secs > 0)) { el.textContent = 'Hasn\u2019t lowered a video yet.'; return; }
     el.replaceChildren('Last time: ');
     const b = document.createElement('b');

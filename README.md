@@ -249,6 +249,7 @@ No. Shorts and m.youtube.com use a different player. The autoplay settings also 
 ## ⚠️ Known limits
 
 - The background saver's "MB/GB saved" is an estimate from typical YouTube bitrates, not a measurement.
+- **Vivaldi** never tells a page it's in the background, so the saver also asks the browser which tab is selected in each window. With Vivaldi's **tab tiling**, a tiled YouTube tab you aren't clicking in counts as "away" and gets lowered after the delay.
 - While the saver is on, the tab title starts with "144p ·". If you bookmark or share the page during that time, the title would include it.
 - Firefox's own picture-in-picture button is expected to count as picture-in-picture from Firefox 153 (it's the same signal the browser reports), but test it on your Firefox before relying on it.
 - The autoplay settings work by pausing a video right as it starts, so on a slow device you may hear a split second of sound first. YouTube offers no clean "don't autoplay" switch an extension can use.
@@ -268,7 +269,7 @@ No. Shorts and m.youtube.com use a different player. The autoplay settings also 
 | File | Job |
 |:---|:---|
 | `page.js` | Runs in YouTube's page (the "MAIN" world) so it can use the player's own methods. Adds the quality button + menu, applies the quality on every new video, waits for ads. Adds the autoplay button beside the search box and, per your two autoplay settings, pauses a video the first time it starts by itself (telling "opened" apart from "next in queue"). Shows "Video waiting" on that button while a video is held, and runs the background saver (tab hidden, not in picture-in-picture), including the tab title and icon. |
-| `background.js` | Shows the "Background saver: 144p" notification while a tab is lowered and clears it when you return. Nothing else. |
+| `background.js` | Tells each YouTube tab whether it's the selected tab of its window (Vivaldi keeps background tabs "visible" to pages), and shows the "Background saver: 144p" notification while a tab is lowered, cleared when you return. |
 | `content.js` | Bridge to extension storage: the global default, the two autoplay settings and the saver setting (all synced), the saver's daily estimates (this device, last 21 days), remembered videos (this device, newest 1,000) and channel defaults (this device, newest 2,000). Validates every message and drops corrupted entries. |
 | `popup.*` | The toolbar popup: global default, the two autoplay switches, the background saver and its weekly estimate, channel defaults, remembered videos, theme, and a fix for switched-off YouTube access. |
 

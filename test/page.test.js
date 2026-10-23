@@ -490,6 +490,14 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   assert.strictEqual(playing, 'hd1080', 'a paused video uses no data: left alone');
   assert.strictEqual(skips().at(-1), 'paused', 'says it was paused');
   hide(false); videoPaused = false;
+  // Vivaldi: the page stays "visible", but the browser says another tab is selected
+  toPage('saver', { on: true, after: 0.1, to: 'tiny' }); await wait(20);
+  toPage('tabActive', false); await wait(200);
+  assert.strictEqual(playing, 'tiny', 'another tab selected (page still "visible"): lowered');
+  hide(true); await wait(200); hide(false); await wait(20);
+  assert.strictEqual(playing, 'tiny', 'a "visible" blip alone is not coming back while another tab is selected');
+  toPage('tabActive', true); await wait(80);
+  assert.strictEqual(playing, 'hd1080', 'tab selected again: restored');
   toPage('saver', { on: false, after: 0.1, to: 'tiny' });
   hide(true); await wait(200);
   assert.strictEqual(playing, 'hd1080', 'switched off: left alone');

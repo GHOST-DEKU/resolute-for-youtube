@@ -16,16 +16,23 @@ const window = {
   addEventListener: (t, fn) => listeners.push(fn)
 };
 const runtimeSent = [];
-const chrome = { runtime: { sendMessage: async (m) => { runtimeSent.push(m); } }, storage: { sync: area('sync'), local: area('local'), onChanged: { addListener() {} } } };
+let bgListener = null;
+const chrome = { runtime: { id: 'me', onMessage: { addListener: (fn) => { bgListener = fn; } }, sendMessage: async (m) => { runtimeSent.push(m); return m.type === 'amActive' ? false : undefined; } }, storage: { sync: area('sync'), local: area('local'), onChanged: { addListener() {} } } };
 vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'content.js'), 'utf8'), { window, chrome, globalThis: { chrome } });
 const fromPage = (data) => Promise.all(listeners.map((fn) => fn({ source: window, data: { source: 'yqx-page', ...data } })));
 const tick = () => new Promise((r) => setTimeout(r, 10));
 
 (async () => {
   await tick();
-  assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides', 'channels', 'autoplay', 'saver'], 'sends default, remembered videos, channel defaults, autoplay and saver settings');
+  assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides', 'channels', 'autoplay', 'saver', 'tabActive'], 'sends default, remembered videos, channel defaults, autoplay and saver settings');
   assert.strictEqual(JSON.stringify(posted[4].value), '{"on":false,"after":30,"to":"tiny"}', 'saver off by default');
   assert.strictEqual(posted[0].value, 'hd1080');
+  assert.strictEqual(posted[5].value, false, 'tells the page whether its tab is selected');
+  bgListener({ type: 'tabActive', on: true }, { id: 'me' });
+  bgListener({ type: 'tabActive', on: true }, { id: 'someone-else' });
+  bgListener({ type: 'tabActive', on: 'yes' }, { id: 'me' });
+  assert.strictEqual(posted.filter((m) => m.type === 'tabActive').length, 2, 'forwards only valid messages from its own background');
+  runtimeSent.length = 0;
   assert.strictEqual(JSON.stringify(posted[3].value), '{"opened":true,"next":true}', 'old single switch counts as both');
 
   await fromPage({ type: 'remember', videoId: 'dQw4w9WgXcQ', value: 'large' });

@@ -106,6 +106,11 @@
     send({ type: 'channels', value: await readChannels() });
     send({ type: 'autoplay', value: await readAutoplay() });
     send({ type: 'saver', value: await readSaver() });
+    // Is this the selected tab of its window? (Vivaldi never marks background tabs "hidden", so ask the browser.)
+    try {
+      const active = await api.runtime.sendMessage({ type: 'amActive' });
+      if (typeof active === 'boolean') send({ type: 'tabActive', value: active });
+    } catch { /* no background script: the page relies on "hidden" alone */ }
   }
   async function readSaver() {
     try {
@@ -186,6 +191,12 @@
       if (area === 'local' && changes[CHANNELS]) {
         send({ type: 'channels', value: cleanChannels(changes[CHANNELS].newValue) });
       }
+    });
+  } catch { /* ignore */ }
+
+  try {
+    api.runtime.onMessage.addListener((msg, sender) => {
+      if (sender.id === api.runtime.id && msg && msg.type === 'tabActive' && typeof msg.on === 'boolean') send({ type: 'tabActive', value: msg.on });
     });
   } catch { /* ignore */ }
 

@@ -1,7 +1,5 @@
 // Self-check: runs page.js against a fake YouTube player in jsdom.
 // Run: npm i jsdom && node test/page.test.js
-const ranges = [];
-let stuckLow = false;
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
@@ -39,8 +37,7 @@ Object.assign(p, {
   getAvailableQualityLevels: () => levels,
   getVideoData: () => ({ video_id: videoId }),
   getPlaybackQuality: () => playing,
-  // a range (min < max) is YouTube climbing on its own: it reaches the max shortly after, without a forced switch
-  setPlaybackQualityRange: (a, b) => { calls.push(a); if (b && b !== a) { ranges.push([a, b]); if (!stuckLow) setTimeout(() => { playing = b; }, 30); } else playing = a; },
+  setPlaybackQualityRange: (a, b) => { calls.push(a); playing = a; },
   setPlaybackQuality: () => {},
   pauseVideo: () => { pauses += 1; videoPaused = true; },
   playVideo: () => { plays += 1; }
@@ -450,14 +447,8 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   assert.strictEqual(playing, 'tiny', 'next playlist video while away stays low');
   const before5 = savedMsgs().length;
   await wait(200);
-  const callsAtReturn = calls.length;
-  hide(false); await wait(10);
-  assert.deepStrictEqual(ranges.at(-1), ['tiny', 'hd1080'], 'back on the tab: YouTube climbs from 144p capped at your quality');
-  assert.ok(!calls.slice(callsAtReturn).includes('hd1080'), 'no forced switch on return (it would throw away the buffer)');
-  await wait(70);
+  hide(false); await wait(80);
   assert.strictEqual(playing, 'hd1080', 'back on the tab: quality restored');
-  await wait(1100);
-  assert.ok(calls.slice(callsAtReturn).includes('hd1080'), 'locked at your quality once it got there');
   assert.strictEqual(document.title, 'Next video - YouTube', 'title restored');
   assert.strictEqual(sent.filter((x) => x.type === 'saverOff').length, 1, 'notification cleared on return');
   assert.ok(icon.isConnected && icons().length === 1 && icons()[0] === icon && icon.href === 'https://www.youtube.com/favicon.ico', "YouTube's own icon put back, untouched");
@@ -468,14 +459,6 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   const m = savedMsgs().at(-1);
   assert.ok(m && m.mb >= 0.5 && m.mb < 1, `estimate counts playing time only (${m && m.mb} MB)`);
   assert.ok(m.from === 'hd1080' && m.to === 'tiny' && m.secs === 1, 'reports what really happened, for the popup');
-  // climbing never gets there: forced after 12 s
-  hide(true); await wait(200); stuckLow = true;
-  const c2 = calls.length; hide(false); await wait(11000);
-  assert.strictEqual(playing, 'tiny', 'still climbing: not forced yet');
-  await wait(2200);
-  assert.strictEqual(playing, 'hd1080', 'never climbed: forced after 12 s');
-  assert.ok(calls.slice(c2).includes('hd1080'));
-  stuckLow = false;
   // PiP: never lowered, and lowering stops if you enter PiP
   pipEl = videoEl; hide(true); await wait(200);
   assert.strictEqual(playing, 'hd1080', 'in picture-in-picture: never lowered');

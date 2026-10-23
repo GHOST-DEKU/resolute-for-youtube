@@ -86,7 +86,6 @@
   let forcedEarlier = false;
   let applyTimer = 0;
   let verifyTimer = 0;
-  let climbTimer = 0; // coming back from the background saver through Auto
   const hookedPlayers = new WeakSet();
   const ui = {
     btn: null, pill: null, menu: null, list: null, now: null, tip: null,
@@ -224,7 +223,6 @@
       }
       lastApplied = key;
       lastVideoId = vid;
-      clearInterval(climbTimer); // a real apply ends a climb back from the saver
 
       if (want === 'auto') {
         // Undo a quality we forced earlier (it can carry over to the next video); otherwise YouTube decides.
@@ -354,7 +352,6 @@
     const target = resolveTarget(saver.to, levels.length ? levels : Object.keys(HEIGHT));
     if (!target || !HEIGHT[fromQ]) { saverSkip('no-quality'); return; }
     if (HEIGHT[fromQ] <= HEIGHT[target]) { saverSkip('already-low'); return; } // nothing to save
-    clearInterval(climbTimer);
     saverActive = { q: saver.to, fromQ, target, ms: 0, t0: Date.now() };
     forceQuality(p, target);
     forcedEarlier = true;
@@ -374,33 +371,7 @@
     const mb = Math.max(0, ((MBPS[a.fromQ] || 0) - (MBPS[a.target] || 0)) * a.ms / 8000);
     // Every run is reported (the popup's "Last time" line is your proof it happened); only real savings are added up.
     if (a.ms >= 1000) postToExt({ type: 'saved', mb: Math.round(mb * 10) / 10, from: a.fromQ, to: a.target, secs: Math.round(a.ms / 1000) });
-    climbBack();
-  }
-  // Coming back: a forced switch makes YouTube reload (a pause), but its own Auto mode changes quality
-  // while playing. So hand over to Auto, let it climb as far as it can, then lock your quality:
-  // no reload if Auto got there, one reload only if it stalled lower or went higher than your choice.
-  const CLIMB_STALL_MS = 4000; // Auto hasn't risen for this long = as far as it gets
-  const CLIMB_MAX_MS = 20000;  // shortcut: hard stop for a connection that keeps creeping up
-  function climbBack() {
-    clearInterval(climbTimer);
-    const p = getPlayer();
-    const vid = p ? videoIdOf(p) : '';
-    const want = vid ? choiceFor(vid).q : 'auto';
-    const target = want === 'auto' ? '' : resolveTarget(want, availableLevels(p));
-    if (!target) { scheduleApply(true); return; }
-    forceQuality(p, 'auto');
-    lastApplied = `${vid}|${want}`; // so YouTube's own events don't force it mid-climb
-    const t0 = Date.now();
-    let best = 0;
-    let rose = t0;
-    climbTimer = setInterval(() => {
-      const p2 = getPlayer();
-      if (!p2 || videoIdOf(p2) !== vid || saverActive) { clearInterval(climbTimer); return; }
-      const h = HEIGHT[call(p2, 'getPlaybackQuality')] || 0;
-      if (h > best) { best = h; rose = Date.now(); }
-      const now = Date.now();
-      if (h >= HEIGHT[target] || now - rose >= CLIMB_STALL_MS || now - t0 >= CLIMB_MAX_MS) scheduleApply(true); // lock
-    }, 1000);
+    scheduleApply(true); // back to the quality you chose
   }
   // Count only time the video was actually playing.
   function saverPlaying(isPlaying) {

@@ -145,7 +145,7 @@ Keyboard: Tab to the button (it unfolds), Enter toggles both, ↓ opens the menu
 
 Off by default. Switch it on in the toolbar popup.
 
-When a video keeps playing in a tab you aren't looking at (music, a podcast, a long stream), Resolute drops it to the **lowest quality** (or **480p**, your choice) after **15 s, 30 s or 1 min**, and brings your quality back when you return. Dropping costs a short pause, because YouTube reloads whenever an extension forces a quality. Coming back avoids that: Resolute hands the player to YouTube's own **Auto**, which sharpens while it keeps playing, waits until Auto stops rising (or reaches your quality), then locks your quality. If Auto stalled lower or went higher than your choice, that lock costs one short pause.
+When a video keeps playing in a tab you aren't looking at (music, a podcast, a long stream), Resolute drops it to the **lowest quality** (or **480p**, your choice) after **15 s, 30 s or 1 min**, and puts your quality back the moment you return. Expect a short pause each time: YouTube reloads the video whenever an extension changes its quality, both when it drops and when you come back. (Tested: YouTube ignores a min/max range, so there's no smoother way to switch.)
 
 | Situation | What happens |
 |:---|:---|

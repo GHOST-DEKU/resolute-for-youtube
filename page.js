@@ -318,7 +318,7 @@
     const fromQ = call(p, 'getPlaybackQuality');
     const target = resolveTarget(saver.to, levels);
     if (!target || !HEIGHT[fromQ] || HEIGHT[fromQ] <= HEIGHT[target]) return; // already that low: nothing to save
-    saverActive = { q: saver.to, fromQ, ms: 0, t0: Date.now() };
+    saverActive = { q: saver.to, fromQ, target, ms: 0, t0: Date.now() };
     forceQuality(p, target);
     forcedEarlier = true;
     lastApplied = `${videoIdOf(p)}|${saver.to}`;
@@ -331,8 +331,9 @@
     saverActive = null;
     if (a.t0) a.ms += Date.now() - a.t0;
     tabMark('');
-    const mb = ((MBPS[a.fromQ] || 0) - (MBPS[resolveTarget(a.q, Object.keys(MBPS))] || 0)) * a.ms / 8000;
-    if (mb >= 0.5) postToExt({ type: 'saved', mb: Math.round(mb * 10) / 10 });
+    const mb = Math.max(0, ((MBPS[a.fromQ] || 0) - (MBPS[a.target] || 0)) * a.ms / 8000);
+    // Every run is reported (the popup's "Last time" line is your proof it happened); only real savings are added up.
+    if (a.ms >= 1000) postToExt({ type: 'saved', mb: Math.round(mb * 10) / 10, from: a.fromQ, to: a.target, secs: Math.round(a.ms / 1000) });
     scheduleApply(true); // back to the quality you chose
   }
   // Count only time the video was actually playing.

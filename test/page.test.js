@@ -450,12 +450,13 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   assert.strictEqual(playing, 'hd1080', 'back on the tab: quality restored');
   assert.strictEqual(document.title, 'Next video - YouTube', 'title restored');
   assert.ok(icon.isConnected && icons().length === 1 && icons()[0] === icon && icon.href === 'https://www.youtube.com/favicon.ico', "YouTube's own icon put back, untouched");
-  assert.strictEqual(savedMsgs().length, before5, 'tiny time saved under 0.5 MB is not reported');
+  assert.strictEqual(savedMsgs().length, before5, 'a run under 1 second is too short to report');
   hide(true); await wait(1300);
   videoPaused = true; videoEl.dispatchEvent(new window.Event('pause')); await wait(500); // paused time isn't counted
   videoPaused = false; hide(false); await wait(50);
   const m = savedMsgs().at(-1);
   assert.ok(m && m.mb >= 0.5 && m.mb < 1, `estimate counts playing time only (${m && m.mb} MB)`);
+  assert.ok(m.from === 'hd1080' && m.to === 'tiny' && m.secs === 1, 'reports what really happened, for the popup');
   // PiP: never lowered, and lowering stops if you enter PiP
   pipEl = videoEl; hide(true); await wait(200);
   assert.strictEqual(playing, 'hd1080', 'in picture-in-picture: never lowered');

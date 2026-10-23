@@ -85,6 +85,13 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
   assert.strictEqual(store.local.saverStats[day], 12.8, 'adds up today, rejects bad values');
   assert.ok(!('junk' in store.local.saverStats) && !('2000-01-01' in store.local.saverStats), 'drops junk and oldest days');
   assert.strictEqual(Object.keys(store.local.saverStats).length, 21, 'keeps the last 21 days');
+  await fromPage({ type: 'saved', mb: 16.2, from: 'hd1080', to: 'tiny', secs: 130 });
+  assert.strictEqual(store.local.saverLast.from + '>' + store.local.saverLast.to + ':' + store.local.saverLast.secs, 'hd1080>tiny:130', 'remembers the last run');
+  const statsBefore = JSON.stringify(store.local.saverStats);
+  await fromPage({ type: 'saved', mb: 0, from: 'hd720', to: 'tiny', secs: 3 });
+  assert.strictEqual(store.local.saverLast.secs, 3, 'a short run still counts as "last time"');
+  await fromPage({ type: 'saved', mb: 1, from: '<b>x</b>', to: 'tiny', secs: 5 });
+  assert.strictEqual(store.local.saverLast.secs, 3, 'rejects bad quality names');
 
   console.log('All checks passed');
 })().catch((e) => { console.error(e); process.exit(1); });

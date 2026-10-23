@@ -241,6 +241,23 @@
   }
   api.storage.local.get(STATS).then((r) => showStats(r[STATS])).catch(() => showStats({}));
 
+  // "Last time": proof of what the saver actually did, since quality is already back when you return.
+  const QLABEL = { tiny: '144p', small: '240p', medium: '360p', large: '480p', hd720: '720p', hd1080: '1080p', hd1440: '1440p', hd2160: '4K', highres: '8K' };
+  const LAST = 'saverLast';
+  const NB = '\u00A0'; // keeps a number and its unit on one line
+  const span = (s) => (s < 60 ? `${s}${NB}s` : s < 3600 ? `${Math.floor(s / 60)}${NB}min${s % 60 ? ` ${s % 60}${NB}s` : ''}` : `${Math.floor(s / 3600)}${NB}h ${Math.round((s % 3600) / 60)}${NB}min`);
+  const ago = (ms) => { const m = Math.round((Date.now() - ms) / 60000);
+    return m < 1 ? 'just now' : m < 60 ? `${m}${NB}min ago` : m < 1440 ? `${Math.round(m / 60)}${NB}h ago` : new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }); };
+  function showLast(v) {
+    const el = $('sv-last');
+    if (!v || !QLABEL[v.from] || !QLABEL[v.to] || !(v.secs > 0)) { el.textContent = 'Hasn\u2019t lowered a video yet.'; return; }
+    el.replaceChildren('Last time: ');
+    const b = document.createElement('b');
+    b.textContent = `${QLABEL[v.from]} \u2192 ${QLABEL[v.to]}`;
+    el.append(b, ` for ${span(v.secs)}${v.mb >= 1 ? ` \u00B7 about ${Math.round(v.mb)}${NB}MB` : ''} \u00B7 ${ago(v.at)}`);
+  }
+  api.storage.local.get(LAST).then((r) => showLast(r[LAST])).catch(() => showLast(null));
+
   // ---------- remembered videos ----------
   const count = $('memory-count');
   const forgetAll = $('forget-all');
@@ -354,6 +371,7 @@
     if (area === 'sync' && (changes[HOLD.opened] || changes[HOLD.next] || changes[OLD_AUTOPLAY])) readHold();
     if (area === 'sync' && changes[SAVER]) showSaver(changes[SAVER].newValue);
     if (area === 'local' && changes[STATS]) showStats(changes[STATS].newValue);
+    if (area === 'local' && changes[LAST]) showLast(changes[LAST].newValue);
     if (area === 'sync' && changes[THEME]) applyTheme(changes[THEME].newValue);
     if (area === 'local' && changes[OVERRIDES]) showMemory(changes[OVERRIDES].newValue);
     if (area === 'local' && changes[CHANNELS]) showChannels(changes[CHANNELS].newValue);

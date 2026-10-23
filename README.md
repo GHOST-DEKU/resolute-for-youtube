@@ -156,7 +156,11 @@ When a video keeps playing in a tab you aren't looking at (music, a podcast, a l
 | Video in **picture-in-picture** | **Never lowered**, and nothing is shown or counted. Entering PiP while saving restores your quality at once. |
 | Video paused, or an ad playing | Left alone (a paused video uses no data) |
 
-The popup card shows roughly how much data it saved **this week (Sunday to Saturday)**, as a rolling number and one bar per day (today in red). It's an **estimate**: YouTube doesn't report data use, so Resolute multiplies typical bitrates by the minutes the video actually played while lowered.
+**How do I know it worked?** You can't see it on the video, because your quality is back the moment you return. Two places tell you:
+- **While you're away:** the YouTube tab's title starts with **"144p ·"** (hover over the tab to see the full title).
+- **After you're back:** the popup card's **"Last time"** line, for example *"Last time: 1080p → 144p for 2 min 10 s · about 16 MB · 3 min ago"*.
+
+The popup card also shows roughly how much data it saved **this week (Sunday to Saturday)**, as a rolling number and one bar per day (today in red). It's an **estimate**: YouTube doesn't report data use, so Resolute multiplies typical bitrates by the minutes the video actually played while lowered.
 
 **Needs:** Chrome, Edge, or **Firefox 153+**. These browsers tell an extension when a video is in picture-in-picture; on older Firefox versions the saver stays off (the switch is greyed out with a note), so it can never lower a video you're watching.
 

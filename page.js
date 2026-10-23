@@ -342,7 +342,7 @@
     if (!isPlaying && saverActive.t0) { saverActive.ms += Date.now() - saverActive.t0; saverActive.t0 = 0; }
   }
   // The tab is all you can see while away: prefix its title ("144p · …") and swap its icon for Resolute's leaf.
-  const tab = { prefix: '', obs: null };
+  const tab = { prefix: '', obs: null, icon: null, saved: [] };
   const LEAF_ICON = (() => {
     const pts = Array.from({ length: 56 }, (_, i) => {
       const t = (i / 56) * Math.PI * 2;
@@ -357,9 +357,19 @@
     if (tab.obs) { tab.obs.disconnect(); tab.obs = null; }
     if (tab.prefix && document.title.startsWith(tab.prefix)) document.title = document.title.slice(tab.prefix.length);
     tab.prefix = '';
-    for (const link of document.querySelectorAll('link[rel~="icon"]')) {
-      if (label && link.dataset.yqxHref === undefined) { link.dataset.yqxHref = link.getAttribute('href') || ''; link.setAttribute('href', LEAF_ICON); }
-      else if (!label && link.dataset.yqxHref !== undefined) { link.setAttribute('href', link.dataset.yqxHref); delete link.dataset.yqxHref; }
+    // Browsers (Chromium/Vivaldi especially) don't always repaint the tab when an icon's href changes in place,
+    // but always pick up a new icon element. So: take YouTube's icons out, add ours, and put theirs back after.
+    if (label && !tab.icon) {
+      tab.saved = [...document.querySelectorAll('link[rel~="icon"]')].map((l) => [l, l.parentNode, l.nextSibling]);
+      tab.saved.forEach(([l]) => l.remove());
+      tab.icon = Object.assign(document.createElement('link'), { rel: 'icon', type: 'image/svg+xml', href: LEAF_ICON });
+      tab.icon.id = 'yqx-saver-icon';
+      (document.head || document.documentElement).append(tab.icon);
+    } else if (!label && tab.icon) {
+      tab.icon.remove();
+      tab.icon = null;
+      for (const [l, parent, next] of tab.saved) parent.insertBefore(l, next && next.parentNode === parent ? next : null);
+      tab.saved = [];
     }
     if (!label) return;
     tab.prefix = `${label} · `;

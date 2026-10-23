@@ -437,7 +437,9 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   await wait(120);
   assert.strictEqual(playing, 'tiny', 'hidden + playing: drops to the lowest');
   assert.ok(document.title.startsWith('144p · '), 'tab title shows it');
-  assert.ok(icon.href.startsWith('data:image/svg+xml'), 'tab icon shows it');
+  const icons = () => [...document.querySelectorAll('link[rel~="icon"]')];
+  assert.ok(icons().length === 1 && icons()[0].href.startsWith('data:image/svg+xml') && icons()[0].type === 'image/svg+xml', 'tab icon: only the leaf icon while saving');
+  assert.ok(!icon.isConnected, "YouTube's own icon is taken out (not edited in place)");
   titleEl.textContent = 'Next video - YouTube'; await wait(20);
   assert.ok(document.title.startsWith('144p · '), 'title prefix survives YouTube renaming the tab');
   videoId = 'bg2'; document.dispatchEvent(new window.Event('yt-navigate-finish')); await wait(80);
@@ -447,7 +449,7 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   hide(false); await wait(80);
   assert.strictEqual(playing, 'hd1080', 'back on the tab: quality restored');
   assert.strictEqual(document.title, 'Next video - YouTube', 'title restored');
-  assert.strictEqual(icon.href, 'https://www.youtube.com/favicon.ico', 'icon restored');
+  assert.ok(icon.isConnected && icons().length === 1 && icons()[0] === icon && icon.href === 'https://www.youtube.com/favicon.ico', "YouTube's own icon put back, untouched");
   assert.strictEqual(savedMsgs().length, before5, 'tiny time saved under 0.5 MB is not reported');
   hide(true); await wait(1300);
   videoPaused = true; videoEl.dispatchEvent(new window.Event('pause')); await wait(500); // paused time isn't counted

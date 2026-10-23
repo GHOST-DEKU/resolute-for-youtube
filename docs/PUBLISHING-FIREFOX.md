@@ -33,7 +33,7 @@ Listed and self-distributed versions go through the same signing, with the same 
 | Add-on ID | ✅ Changed to the permanent ID `resolute-video-quality@ghost-deku`. **Never change it after the first upload.** AMO uses it to know new versions belong to your add-on. |
 | Data collection declaration | ✅ Added `data_collection_permissions: { required: ["none"] }`. It is required for every new Firefox extension since 3 Nov 2025. ([built-in data consent](https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/)) |
 | Minimum Firefox version | ✅ 140 on desktop, which that declaration needs. Android is set to 142 only to satisfy the validator; you won't list it for Android. |
-| Permissions | ✅ Only `storage` + access to `youtube.com` / `youtube-nocookie.com`. Nothing broader. |
+| Permissions | ✅ Only `storage`, `notifications` (the saver's "it's running" notice) + access to `youtube.com` / `youtube-nocookie.com`. Nothing broader. |
 | Site access can be switched off | ✅ **Fixed.** Firefox treats site access as optional, so users can switch it off and the button would then silently vanish. The popup now detects this and shows an **Allow on YouTube** button. ([host_permissions on MDN](https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/manifest.json/host_permissions)) |
 | Chrome-only key | ✅ `minimum_chrome_version` is left out of the Firefox ZIP (and the Firefox key is left out of the Chrome ZIP). |
 | Remote code, minified code, third-party libraries | ✅ None, so **no source code upload is needed**. |
@@ -217,7 +217,7 @@ Guide: [Submitting an add-on](https://extensionworkshop.com/documentation/publis
 |---|---|---|
 | Invalid manifest | Upload or validator shows an **error** | Run `web-ext lint` on the unzipped package; make sure you uploaded the script's ZIP (manifest at the root), not a ZIP of the whole folder |
 | Missing data-collection declaration | Validator warning `MISSING_DATA_COLLECTION_PERMISSIONS` | Already fixed; keep the key in `manifest.json` |
-| Excessive permissions | Reviewer asks why a permission is needed | Only `storage` + two YouTube sites are used; explain using the Notes to Reviewer |
+| Excessive permissions | Reviewer asks why a permission is needed | Only `storage`, `notifications` + two YouTube sites are used; explain using the Notes to Reviewer |
 | Unreadable or obfuscated code | Reviewer asks for source | Not applicable now. If you ever add a bundler or minifier, upload the original source plus exact build steps |
 | Inaccurate privacy disclosure | Reviewer finds data leaving the device | Not the case now. Keep the `none` declaration only while that stays true |
 | Broken functionality | Reviewer can't see the button | Usually a YouTube layout change or site access turned off. Re-run section 4, fix, upload a new version |

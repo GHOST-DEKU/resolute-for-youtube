@@ -126,6 +126,10 @@
         await api.storage.sync.set({ [HOLD_OPENED]: msg.value.opened, [HOLD_NEXT]: msg.value.next });
       } else if (msg.type === 'saverSkip' && ['back-early', 'paused', 'pip', 'already-low', 'no-video', 'no-quality'].includes(msg.reason)) {
         await api.storage.local.set({ [LAST]: { at: Date.now(), skipped: msg.reason } });
+      } else if (msg.type === 'saverOn' && typeof msg.label === 'string' && typeof msg.title === 'string') {
+        await api.runtime.sendMessage({ type: 'saverOn', label: msg.label.slice(0, 20), title: msg.title.slice(0, 100) });
+      } else if (msg.type === 'saverOff') {
+        await api.runtime.sendMessage({ type: 'saverOff' });
       } else if (msg.type === 'saved' && typeof msg.mb === 'number' && msg.mb >= 0 && msg.mb <= 100000) {
         if (QUALITY_ID.test(msg.from) && QUALITY_ID.test(msg.to) && Number.isInteger(msg.secs) && msg.secs > 0 && msg.secs <= 86400 * 7) {
           await api.storage.local.set({ [LAST]: { at: Date.now(), from: msg.from, to: msg.to, secs: msg.secs, mb: msg.mb } });

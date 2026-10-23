@@ -15,7 +15,8 @@ const window = {
   postMessage: (m) => posted.push(m),
   addEventListener: (t, fn) => listeners.push(fn)
 };
-const chrome = { storage: { sync: area('sync'), local: area('local'), onChanged: { addListener() {} } } };
+const runtimeSent = [];
+const chrome = { runtime: { sendMessage: async (m) => { runtimeSent.push(m); } }, storage: { sync: area('sync'), local: area('local'), onChanged: { addListener() {} } } };
 vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'content.js'), 'utf8'), { window, chrome, globalThis: { chrome } });
 const fromPage = (data) => Promise.all(listeners.map((fn) => fn({ source: window, data: { source: 'yqx-page', ...data } })));
 const tick = () => new Promise((r) => setTimeout(r, 10));
@@ -96,6 +97,12 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
   assert.strictEqual(store.local.saverLast.skipped, 'paused', 'remembers why it did not lower');
   await fromPage({ type: 'saverSkip', reason: '<script>' });
   assert.strictEqual(store.local.saverLast.skipped, 'paused', 'rejects unknown reasons');
+
+  await fromPage({ type: 'saverOn', label: '144p', title: 'x'.repeat(300) });
+  await fromPage({ type: 'saverOff' });
+  await fromPage({ type: 'saverOn', label: 144, title: 'x' });
+  assert.deepStrictEqual(runtimeSent.map((m) => m.type), ['saverOn', 'saverOff'], 'passes the notification on, rejects bad input');
+  assert.strictEqual(runtimeSent[0].title.length, 100, 'video title capped');
 
   console.log('All checks passed');
 })().catch((e) => { console.error(e); process.exit(1); });

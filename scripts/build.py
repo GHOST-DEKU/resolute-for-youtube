@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 # Only what the extension needs at runtime. Tests, docs, scripts and git files stay out.
-FILES = ['manifest.json', 'content.js', 'page.js', 'popup.html', 'popup.css', 'popup.js',
+FILES = ['manifest.json', 'background.js', 'content.js', 'page.js', 'popup.html', 'popup.css', 'popup.js',
          'icons/icon16.png', 'icons/icon32.png', 'icons/icon48.png', 'icons/icon128.png']
 
 
@@ -33,8 +33,10 @@ def main():
     # Each browser warns about the other's key, so each package keeps only its own.
     if target == 'chrome':
         manifest.pop('browser_specific_settings', None)
+        manifest['background'].pop('scripts', None)
     else:
         manifest.pop('minimum_chrome_version', None)
+        manifest['background'].pop('service_worker', None)
 
     # Checks the store would otherwise reject
     problems = []
@@ -48,6 +50,7 @@ def main():
         problems.append('version must be 1-4 dot-separated numbers')
     referenced = set(manifest['icons'].values()) | set(manifest['action']['default_icon'].values())
     referenced |= {manifest['action']['default_popup']}
+    referenced |= set(manifest['background'].get('scripts', [])) | {manifest['background'].get('service_worker')} - {None}
     for cs in manifest['content_scripts']:
         referenced |= set(cs['js'])
     for f in sorted(referenced):
@@ -59,7 +62,7 @@ def main():
     for size, f in manifest['icons'].items():
         if (ROOT / f).is_file() and png_size(ROOT / f) != (int(size), int(size)):
             problems.append(f'{f} is not {size}x{size}')
-    for f in ('content.js', 'page.js', 'popup.js'):
+    for f in ('background.js', 'content.js', 'page.js', 'popup.js'):
         text = (ROOT / f).read_text()
         if re.search(r'\beval\(|new Function\(|https?://(?!www\.w3\.org/|www\.youtube(-nocookie)?\.com/)', text):
             problems.append(f'{f} may contain remote code or network URLs; check it')

@@ -34,6 +34,7 @@ The extension reads the ID of the video currently playing, the ID and name of it
 ## Permissions
 
 - **storage:** to save the settings described above.
+- **notifications:** to tell you when the background saver has lowered a video (it shows the video's title and the quality, on your own screen only). Nothing is sent anywhere.
 - **Access to youtube.com and youtube-nocookie.com pages:** to add the quality button to the video player and apply your chosen quality. The extension does not run on any other website. You can turn this access off in your browser's extension settings; the button then won't appear, and the extension's popup offers to turn it back on.
 
 ## Your control over your data

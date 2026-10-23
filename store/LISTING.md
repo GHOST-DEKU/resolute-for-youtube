@@ -93,6 +93,11 @@ Lets users choose the playback quality of YouTube videos from a button in the Yo
 Saves the user's chosen default video quality, the qualities of videos and channels the user explicitly chose to save (channel ID and name, video ID), so they are applied the next time a video plays. Data stays in the browser's extension storage and is never sent anywhere.
 ```
 
+**Permission justification — notifications**
+```
+Shows one local notification when the optional background saver lowers the quality of a YouTube tab the user isn't watching, so the user knows it is running. It is cleared when the user returns to the tab. Nothing is sent anywhere.
+```
+
 **Host permission justification** (content scripts on youtube.com and youtube-nocookie.com)
 ```
 The extension adds its quality button to the YouTube video player and applies the chosen quality using the player on the page. It runs only on youtube.com and youtube-nocookie.com (YouTube's embedded player) and on no other website.

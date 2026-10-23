@@ -437,6 +437,7 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   await wait(120);
   assert.strictEqual(playing, 'tiny', 'hidden + playing: drops to the lowest');
   assert.ok(document.title.startsWith('144p · '), 'tab title shows it');
+  assert.strictEqual(sent.filter((x) => x.type === 'saverOn' && x.label === '144p').length, 1, 'asks for the "it is running" notification once');
   const icons = () => [...document.querySelectorAll('link[rel~="icon"]')];
   assert.ok(icons().length === 1 && icons()[0].href.startsWith('data:image/svg+xml') && icons()[0].type === 'image/svg+xml', 'tab icon: only the leaf icon while saving');
   assert.ok(!icon.isConnected, "YouTube's own icon is taken out (not edited in place)");
@@ -449,6 +450,7 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   hide(false); await wait(80);
   assert.strictEqual(playing, 'hd1080', 'back on the tab: quality restored');
   assert.strictEqual(document.title, 'Next video - YouTube', 'title restored');
+  assert.strictEqual(sent.filter((x) => x.type === 'saverOff').length, 1, 'notification cleared on return');
   assert.ok(icon.isConnected && icons().length === 1 && icons()[0] === icon && icon.href === 'https://www.youtube.com/favicon.ico', "YouTube's own icon put back, untouched");
   assert.strictEqual(savedMsgs().length, before5, 'a run under 1 second is too short to report');
   hide(true); await wait(1300);

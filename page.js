@@ -335,12 +335,15 @@
     forcedEarlier = true;
     lastApplied = `${videoIdOf(p)}|${saver.to}`;
     tabMark(heightLabel(target));
+    const data = call(p, 'getVideoData');
+    postToExt({ type: 'saverOn', label: heightLabel(target), title: (data && data.title) || '' }); // the "it's running" notification
   }
   function endSaver() {
     clearTimeout(saverTimer);
     if (!saverActive) return;
     const a = saverActive;
     saverActive = null;
+    postToExt({ type: 'saverOff' });
     if (a.t0) a.ms += Date.now() - a.t0;
     tabMark('');
     const mb = Math.max(0, ((MBPS[a.fromQ] || 0) - (MBPS[a.target] || 0)) * a.ms / 8000);

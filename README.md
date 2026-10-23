@@ -156,7 +156,8 @@ When a video keeps playing in a tab you aren't looking at (music, a podcast, a l
 | Video in **picture-in-picture** | **Never lowered**, and nothing is shown or counted. Entering PiP while saving restores your quality at once. |
 | Video paused, or an ad playing | Left alone (a paused video uses no data) |
 
-**How do I know it worked?** You can't see it on the video, because your quality is back the moment you return. Two places tell you:
+**How do I know it worked?** You can't see it on the video, because your quality is back the moment you return. Three places tell you:
+- **The moment it starts:** a notification, *"Background saver: 144p"*. It disappears by itself when you go back to the tab; clicking it takes you there.
 - **While you're away:** the YouTube tab's title starts with **"144p ·"** (hover over the tab to see the full title).
 - **After you're back:** the popup card's **"Last time"** line, for example *"Last time: 1080p → 144p for 2 min 10 s · about 16 MB · 3 min ago"*. If it didn't lower the video, the line says why (you came back before the delay, the video was paused, it was in picture-in-picture, or it was already that low).
 
@@ -267,6 +268,7 @@ No. Shorts and m.youtube.com use a different player. The autoplay settings also 
 | File | Job |
 |:---|:---|
 | `page.js` | Runs in YouTube's page (the "MAIN" world) so it can use the player's own methods. Adds the quality button + menu, applies the quality on every new video, waits for ads. Adds the autoplay button beside the search box and, per your two autoplay settings, pauses a video the first time it starts by itself (telling "opened" apart from "next in queue"). Shows "Video waiting" on that button while a video is held, and runs the background saver (tab hidden, not in picture-in-picture), including the tab title and icon. |
+| `background.js` | Shows the "Background saver: 144p" notification while a tab is lowered and clears it when you return. Nothing else. |
 | `content.js` | Bridge to extension storage: the global default, the two autoplay settings and the saver setting (all synced), the saver's daily estimates (this device, last 21 days), remembered videos (this device, newest 1,000) and channel defaults (this device, newest 2,000). Validates every message and drops corrupted entries. |
 | `popup.*` | The toolbar popup: global default, the two autoplay switches, the background saver and its weekly estimate, channel defaults, remembered videos, theme, and a fix for switched-off YouTube access. |
 

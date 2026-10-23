@@ -234,7 +234,7 @@ When a reviewer writes to you:
 
 ## 8. Updates
 
-1. Change the code. Run `node test\page.test.js` and `node test\content.test.js` (needs `npm i jsdom` once).
+1. Change the code. Run `node test\page.test.js` `node test\content.test.js` and `node test\background.test.js` (needs `npm i jsdom` once).
 2. **Raise `version` in `manifest.json`**. Every upload must be higher than the last: `1.0.0` → `1.0.1` for fixes, `1.1.0` for features.
 3. **Keep the same `gecko.id` forever.** A new ID makes AMO treat it as a different add-on.
 4. Rebuild and lint (section 3), then test in Firefox (section 4).

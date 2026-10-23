@@ -1,5 +1,7 @@
 // Self-check: runs page.js against a fake YouTube player in jsdom.
 // Run: npm i jsdom && node test/page.test.js
+let abrSteps = null; // how YouTube's Auto climbs in a test
+let abrGen = 0;
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
@@ -37,7 +39,12 @@ Object.assign(p, {
   getAvailableQualityLevels: () => levels,
   getVideoData: () => ({ video_id: videoId }),
   getPlaybackQuality: () => playing,
-  setPlaybackQualityRange: (a, b) => { calls.push(a); playing = a; },
+  // Auto: when abrSteps is set, YouTube climbs through those qualities while playing (no forced switch)
+  setPlaybackQualityRange: (a, b) => {
+    calls.push(a); const gen = ++abrGen;
+    if (a === 'auto' && abrSteps) abrSteps.forEach((q, i) => setTimeout(() => { if (gen === abrGen) playing = q; }, 30 + i * 300));
+    else playing = a;
+  },
   setPlaybackQuality: () => {},
   pauseVideo: () => { pauses += 1; videoPaused = true; },
   playVideo: () => { plays += 1; }
@@ -423,6 +430,7 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   assert.strictEqual(document.querySelectorAll('#yqx-autoplay').length, 1, 'comes back once if YouTube re-renders the bar');
 
   // ---------- background saver (5A) ----------
+  abrSteps = ['hd1080']; // Auto gets straight back to 1080p unless a test says otherwise
   videoPaused = false; playing = 'hd1080'; levels = ['hd1080', 'hd720', 'large', 'medium', 'small', 'tiny', 'auto'];
   fromExt('highest'); await wait(50);
   videoId = 'bg1'; document.dispatchEvent(new window.Event('yt-navigate-finish')); await wait(80);
@@ -447,8 +455,13 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   assert.strictEqual(playing, 'tiny', 'next playlist video while away stays low');
   const before5 = savedMsgs().length;
   await wait(200);
-  hide(false); await wait(80);
+  const c0 = calls.length;
+  hide(false); await wait(10);
+  assert.deepStrictEqual(calls.slice(c0), ['auto'], 'back on the tab: hands over to Auto (no forced switch, no reload)');
+  await wait(70);
   assert.strictEqual(playing, 'hd1080', 'back on the tab: quality restored');
+  await wait(1100);
+  assert.deepStrictEqual(calls.slice(c0), ['auto', 'hd1080'], 'Auto got there: locked at your quality');
   assert.strictEqual(document.title, 'Next video - YouTube', 'title restored');
   assert.strictEqual(sent.filter((x) => x.type === 'saverOff').length, 1, 'notification cleared on return');
   assert.ok(icon.isConnected && icons().length === 1 && icons()[0] === icon && icon.href === 'https://www.youtube.com/favicon.ico', "YouTube's own icon put back, untouched");
@@ -459,6 +472,20 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   const m = savedMsgs().at(-1);
   assert.ok(m && m.mb >= 0.5 && m.mb < 1, `estimate counts playing time only (${m && m.mb} MB)`);
   assert.ok(m.from === 'hd1080' && m.to === 'tiny' && m.secs === 1, 'reports what really happened, for the popup');
+  // Auto stalls lower: waits until it stops rising, then forces your quality
+  abrSteps = ['large', 'hd720'];
+  hide(true); await wait(200);
+  const c1 = calls.length; hide(false); await wait(3500);
+  assert.strictEqual(playing, 'hd720', 'Auto climbs as far as it can first');
+  assert.ok(!calls.slice(c1).includes('hd1080'), 'not forced while still climbing or just stalled');
+  await wait(2600);
+  assert.strictEqual(playing, 'hd1080', 'stopped rising: forced to your quality');
+  // Auto goes above your choice: brought back down at once
+  fromExt('hd720'); await wait(100); abrSteps = ['hd1080'];
+  hide(true); await wait(200);
+  hide(false); await wait(1300);
+  assert.strictEqual(playing, 'hd720', 'Auto went higher than your choice: locked back to it');
+  fromExt('highest'); await wait(100); abrSteps = ['hd1080'];
   // PiP: never lowered, and lowering stops if you enter PiP
   pipEl = videoEl; hide(true); await wait(200);
   assert.strictEqual(playing, 'hd1080', 'in picture-in-picture: never lowered');

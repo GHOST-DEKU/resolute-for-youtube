@@ -500,6 +500,12 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   assert.strictEqual(playing, 'hd1080', 'still checking: nothing yet');
   await wait(1500);
   assert.strictEqual(playing, 'tiny', 'another tab selected and no longer drawn (page still "visible"): lowered');
+  const offs = sent.filter((x) => x.type === 'saverOff').length;
+  toPage('tabActive', false); await wait(50); // you move between other tabs
+  assert.strictEqual(playing, 'tiny', 'switching between other tabs is not coming back');
+  await wait(1700);
+  assert.strictEqual(playing, 'tiny', 'still low after the re-check');
+  assert.strictEqual(sent.filter((x) => x.type === 'saverOff').length, offs, 'notification not cleared');
   hide(true); await wait(200); hide(false); await wait(20);
   assert.strictEqual(playing, 'tiny', 'a "visible" blip alone is not coming back while another tab is selected');
   toPage('tabActive', true); await wait(80);

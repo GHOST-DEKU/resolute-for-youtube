@@ -1278,8 +1278,9 @@
       return;
     } else if (msg.type === 'tabActive' && typeof msg.value === 'boolean') {
       tabActive = msg.value;
-      drawn = true;
-      if (tabActive) probeId++; else checkDrawn();
+      // Selected: on screen. Not selected: keep the last answer until the re-check, so switching
+      // between other tabs never looks like coming back (that restored quality and cleared the notification).
+      if (tabActive) { probeId++; drawn = true; } else checkDrawn();
       awayChanged();
       return;
     } else if (msg.type === 'saver' && msg.value && typeof msg.value.on === 'boolean') {

@@ -37,6 +37,7 @@
 | 👤 **Per-channel defaults** | 4K for one creator, 720p for another. Recognised by channel ID, so renames don't break it. |
 | ⭐ **One global default** | For everything else. |
 | ⏸️ **No more autoplay** *(optional)* | Two separate switches: videos you open, and the next video in a queue or playlist, can each start paused until you press play. |
+| 💬 **Hide live chat** *(optional)* | The chat beside a live stream (or a stream replay) closes when it opens, using YouTube's own close button. **Show chat** brings it back, and it stays open for that video. |
 | 🍃 **Background saver** *(optional)* | Playing music in a tab you're not looking at? Quality drops to save data and comes back when you return. Never touches picture-in-picture. |
 | 🔒 **Private by design** | No servers, no analytics, no network requests. Settings stay in your browser. |
 

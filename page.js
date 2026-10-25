@@ -26,6 +26,9 @@
  * Optional background saver: when the tab is hidden and the video keeps playing (not in
  * picture-in-picture, not an ad), quality drops after a delay and comes back when you return.
  * The tab's title and icon show it while it's on. Savings are an estimate.
+ *
+ * Optional live chat hiding: when a stream (or a stream replay) opens, its chat panel is closed with
+ * YouTube's own close button, once per video. YouTube's "Show chat" brings it back and it stays open.
  */
 (() => {
   'use strict';
@@ -1292,6 +1295,10 @@
       };
       if (!saver.on) endSaver(); else armSaver();
       return;
+    } else if (msg.type === 'chat' && typeof msg.value === 'boolean') {
+      hideChat = msg.value;
+      checkChat();
+      return;
     } else if (msg.type === 'channels' && msg.value && typeof msg.value === 'object') {
       // Keep only well-formed entries; anything corrupted is ignored, never applied.
       channels = {};
@@ -1317,6 +1324,35 @@
     }
   }, 3000);
 
+  // ---------- hide live chat: YouTube's own close button, once per video ----------
+  let hideChat = false;
+  let chatDoneFor = ''; // video whose chat was closed (or given up on); "Show chat" then stays yours
+  let chatTimer = 0;
+  let chatTries = 0;
+  let chatVid = '';
+  const watchVid = () => (location.pathname === '/watch' && new URLSearchParams(location.search).get('v')) || '';
+  /** true = nothing left to do for this video. */
+  function tryHideChat() {
+    const vid = watchVid();
+    if (!hideChat || !vid || chatDoneFor === vid || !document.querySelector('ytd-live-chat-frame')) return true;
+    if (vid !== chatVid) { chatVid = vid; chatTries = 0; }
+    let doc = null;
+    try { doc = document.querySelector('iframe#chatframe')?.contentDocument; } catch { /* not ours to read */ }
+    // Wait until the chat has drawn; a click before that is ignored by YouTube.
+    const loaded = doc && doc.querySelector('yt-live-chat-item-list-renderer #items [id], yt-live-chat-item-list-renderer #empty-state-message');
+    const close = loaded && doc.querySelector('yt-live-chat-header-renderer #close-button button');
+    if (close) close.click();
+    else if (++chatTries < 120) return false; // shortcut: gives up after ~60 s (e.g. chat turned off by the creator); raise if late chats get missed
+    chatDoneFor = vid;
+    return true;
+  }
+  function checkChat() {
+    if (!IS_TOP || chatTimer || tryHideChat()) return;
+    chatTimer = setInterval(() => {
+      if (tryHideChat()) { clearInterval(chatTimer); chatTimer = 0; }
+    }, 500);
+  }
+
   // ---------- lifecycle ----------
   let ensureQueued = false;
   function queueEnsure() {
@@ -1326,6 +1362,7 @@
       ensureQueued = false;
       ensureUI();
       ensureMast();
+      checkChat();
     }, 150);
   }
 
@@ -1334,6 +1371,7 @@
     document.addEventListener(type, () => {
       ensureUI();
       scheduleApply(false);
+      checkChat();
     });
   }
   // Media events don't bubble, but the capture phase sees them (works in embeds too).

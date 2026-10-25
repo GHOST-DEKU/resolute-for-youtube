@@ -519,6 +519,34 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   hide(false);
   videoPaused = true;
 
+  // Hide live chat: YouTube's close button, once per video; "Show chat" then stays open
+  window.history.pushState({}, '', '/watch?v=live1');
+  const chatFrame = document.createElement('ytd-live-chat-frame');
+  chatFrame.innerHTML = '<iframe id="chatframe"></iframe>';
+  document.body.append(chatFrame);
+  const chatDoc = chatFrame.querySelector('iframe').contentDocument;
+  let closes = 0;
+  chatDoc.body.innerHTML = '<yt-live-chat-header-renderer><div id="close-button"><button></button></div></yt-live-chat-header-renderer>';
+  chatDoc.querySelector('button').addEventListener('click', () => { closes += 1; });
+  window.dispatchEvent(new window.Event('resize')); await wait(700);
+  assert.strictEqual(closes, 0, 'off by default: chat left alone');
+  toPage('chat', true); await wait(700);
+  assert.strictEqual(closes, 0, 'waits until the chat has drawn');
+  chatDoc.body.insertAdjacentHTML('beforeend', '<yt-live-chat-item-list-renderer><div id="items"><div id="m1"></div></div></yt-live-chat-item-list-renderer>');
+  await wait(700);
+  assert.strictEqual(closes, 1, 'chat closed once it is ready');
+  document.dispatchEvent(new window.Event('yt-navigate-finish')); await wait(1200);
+  assert.strictEqual(closes, 1, 'never closed again for the same video (Show chat stays open)');
+  window.history.pushState({}, '', '/watch?v=live2');
+  document.dispatchEvent(new window.Event('yt-navigate-finish')); await wait(700);
+  assert.strictEqual(closes, 2, 'next stream: closed again');
+  toPage('chat', false);
+  window.history.pushState({}, '', '/watch?v=live3');
+  document.dispatchEvent(new window.Event('yt-navigate-finish')); await wait(700);
+  assert.strictEqual(closes, 2, 'switched off: chat left alone');
+  chatFrame.remove();
+  window.history.pushState({}, '', '/watch?v=vid1');
+
   // No toolbar at all -> floating fallback
   document.querySelector('.ytp-chrome-bottom').remove();
   await wait(400);

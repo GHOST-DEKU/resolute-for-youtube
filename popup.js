@@ -153,6 +153,22 @@
     });
   }
 
+  // ---------- hide live chat ----------
+  const HIDE_CHAT = 'hideChat';
+  const hcOn = $('hc-on');
+  const showHideChat = (v) => { hcOn.checked = v === true; };
+  api.storage.sync.get(HIDE_CHAT).then((r) => showHideChat(r[HIDE_CHAT])).catch(() => {});
+  hcOn.addEventListener('change', async () => {
+    const on = hcOn.checked;
+    try {
+      await api.storage.sync.set({ [HIDE_CHAT]: on });
+      flash(on ? 'Live chat will be hidden' : 'Live chat will show');
+    } catch {
+      hcOn.checked = !on; // show the setting that is really saved
+      flash('Could not save. Please try again.');
+    }
+  });
+
   // ---------- background saver: setting + this week's estimate (Sunday to Saturday) ----------
   const SAVER = 'bgSaver';
   const STATS = 'saverStats';
@@ -386,6 +402,7 @@
     if (area === 'sync' && changes[KEY]) select(changes[KEY].newValue);
     if (area === 'sync' && (changes[HOLD.opened] || changes[HOLD.next] || changes[OLD_AUTOPLAY])) readHold();
     if (area === 'sync' && changes[SAVER]) showSaver(changes[SAVER].newValue);
+    if (area === 'sync' && changes[HIDE_CHAT]) showHideChat(changes[HIDE_CHAT].newValue);
     if (area === 'local' && changes[STATS]) showStats(changes[STATS].newValue);
     if (area === 'local' && changes[LAST]) showLast(changes[LAST].newValue);
     if (area === 'sync' && changes[THEME]) applyTheme(changes[THEME].newValue);

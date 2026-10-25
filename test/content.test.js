@@ -24,10 +24,11 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
 
 (async () => {
   await tick();
-  assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides', 'channels', 'autoplay', 'saver', 'tabActive'], 'sends default, remembered videos, channel defaults, autoplay and saver settings');
+  assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides', 'channels', 'autoplay', 'saver', 'chat', 'tabActive'], 'sends default, remembered videos, channel defaults, autoplay, saver and chat settings');
+  assert.strictEqual(posted[5].value, false, 'live chat stays visible by default');
   assert.strictEqual(JSON.stringify(posted[4].value), '{"on":false,"after":30,"to":"tiny"}', 'saver off by default');
   assert.strictEqual(posted[0].value, 'hd1080');
-  assert.strictEqual(posted[5].value, false, 'tells the page whether its tab is selected');
+  assert.strictEqual(posted[6].value, false, 'tells the page whether its tab is selected');
   bgListener({ type: 'tabActive', on: true }, { id: 'me' });
   bgListener({ type: 'tabActive', on: true }, { id: 'someone-else' });
   bgListener({ type: 'tabActive', on: 'yes' }, { id: 'me' });

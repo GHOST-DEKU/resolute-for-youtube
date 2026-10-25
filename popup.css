@@ -292,6 +292,12 @@ fieldset.quality { margin: 0; padding: 0; border: 0; min-width: 0; display: flex
 .switch input:active ~ .thumb { width: 28px; height: 28px; }
 .switch input:focus-visible ~ .track { outline: 3px solid var(--primary); outline-offset: 2px; }
 
+/* ---------- hide live chat: one switch in the card head ---------- */
+.card-chat { border-radius: var(--r-lg); padding-bottom: 12px; }
+.card-chat .card-head { margin-bottom: 0; }
+.card-chat .card-head p b { font-weight: 500; color: var(--on-surface); }
+.badge-chat { background: var(--secondary-container); color: var(--on-secondary-container); border-radius: var(--r-sm) var(--r-sm) var(--r-sm) 4px; } /* speech-bubble corner */
+
 /* ---------- background saver ---------- */
 .card-saver { border-radius: var(--r-lg); }
 .card-saver .card-head { margin-bottom: 6px; }

@@ -65,8 +65,8 @@ One-time setup:
 - Then get the repo, in Command Prompt or PowerShell:
 
 ```bat
-git clone https://github.com/GHOST-DEKU/youtube-quality-control.git
-cd youtube-quality-control
+git clone https://github.com/GHOST-DEKU/resolute-for-youtube.git
+cd resolute-for-youtube
 ```
 
 Build and check, every release:

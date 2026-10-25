@@ -1,10 +1,10 @@
-# Privacy Policy — Resolute: Video Quality Control
+# Privacy Policy — Resolute for YouTube
 
 **Effective date:** 22 October 2026
 
 Resolute is available by manual installation in Chrome and is planned for Mozilla Add-ons (Firefox). This policy covers the extension's own behaviour in any browser.
 
-Resolute: Video Quality Control ("the extension") lets you choose the video quality of YouTube videos from a button inside the YouTube player. This policy explains exactly what the extension stores and what it does not do.
+Resolute for YouTube ("the extension") lets you choose the video quality of YouTube videos from a button inside the YouTube player, and can optionally start videos paused, hide live chat and lower quality in background tabs. This policy explains exactly what the extension stores and what it does not do.
 
 ## What the extension stores
 
@@ -53,6 +53,6 @@ If the extension's data practices change, this policy will be updated and the ef
 
 ## Contact
 
-Questions or concerns: open an issue at <https://github.com/GHOST-DEKU/youtube-quality-control/issues>.
+Questions or concerns: open an issue at <https://github.com/GHOST-DEKU/resolute-for-youtube/issues>.
 
 *YouTube is a trademark of Google LLC. This extension is not made, endorsed, or sponsored by YouTube or Google.*

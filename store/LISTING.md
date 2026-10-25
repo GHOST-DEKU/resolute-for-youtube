@@ -10,12 +10,12 @@ Everything below matches what the code actually does (checked against `page.js`,
 
 **Name** (comes from `manifest.json`, 31/75 characters)
 ```
-Resolute: Video Quality Control
+Resolute for YouTube
 ```
 
-**Summary / short description** (comes from `manifest.json` "description", 125/132 characters)
+**Summary / short description** (comes from `manifest.json` "description", 129/132 characters)
 ```
-Pick video quality from a button inside the YouTube player. Set a default for all videos, for each channel, or for one video.
+Pick YouTube quality from the player, per video, channel or everywhere. Optional: start videos paused, hide live chat, save data.
 ```
 
 **Detailed description**
@@ -58,7 +58,7 @@ DETAILS
 
 PRIVACY
 Your settings stay in your browser. The extension sends no data anywhere and has no analytics or ads.
-Privacy policy: https://github.com/GHOST-DEKU/youtube-quality-control/blob/main/PRIVACY.md
+Privacy policy: https://github.com/GHOST-DEKU/resolute-for-youtube/blob/main/PRIVACY.md
 
 Not available for YouTube Shorts or the mobile site (m.youtube.com).
 
@@ -79,8 +79,8 @@ YouTube is a trademark of Google LLC. Resolute is not made, endorsed, or sponsor
 | Screenshots (1 required, up to 5) | You take 3–4 on real YouTube (take them on real YouTube at 1280×800), plus `store/screenshot-popup-1280x800.png` | 1280×800 |
 
 **Additional fields**
-- Homepage URL: `https://github.com/GHOST-DEKU/youtube-quality-control`
-- Support URL: `https://github.com/GHOST-DEKU/youtube-quality-control/issues`
+- Homepage URL: `https://github.com/GHOST-DEKU/resolute-for-youtube`
+- Support URL: `https://github.com/GHOST-DEKU/resolute-for-youtube/issues`
 - Mature content: **Off**
 
 ---
@@ -122,7 +122,7 @@ The extension adds its quality button to the YouTube video player and applies th
 
 **Privacy policy URL**
 ```
-https://github.com/GHOST-DEKU/youtube-quality-control/blob/main/PRIVACY.md
+https://github.com/GHOST-DEKU/resolute-for-youtube/blob/main/PRIVACY.md
 ```
 
 ---

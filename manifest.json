@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Resolute: Video Quality Control",
+  "name": "Resolute for YouTube",
   "version": "1.1.0",
-  "description": "Pick video quality from a button inside the YouTube player. Set a default for all videos, for each channel, or for one video.",
+  "description": "Pick YouTube quality from the player, per video, channel or everywhere. Optional: start videos paused, hide live chat, save data.",
   "minimum_chrome_version": "111",
   "permissions": ["storage", "notifications"],
   "host_permissions": ["https://www.youtube.com/*", "https://www.youtube-nocookie.com/*"],
@@ -13,7 +13,7 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "Resolute: Video Quality Control",
+    "default_title": "Resolute for YouTube",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon16.png",

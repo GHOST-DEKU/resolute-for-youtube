@@ -1,5 +1,5 @@
 /*
- * YouTube Quality Control — in-player button, menu and quality logic.
+ * Resolute for YouTube — in-player quality button and menu, autoplay control, live chat hiding, background saver.
  *
  * Runs in the page's own JavaScript world ("MAIN" world) because YouTube's
  * player API (methods on #movie_player) is only reachable from there.

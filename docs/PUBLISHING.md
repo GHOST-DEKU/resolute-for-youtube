@@ -89,7 +89,7 @@ Every browser sets its own rules for extensions, so **don't assume Chrome's step
 ## 6. Sharing it with friends (honest instructions you can send)
 
 > Resolute isn't on the Chrome Web Store. To use it in Chrome you need to load it yourself:
-> 1. Download the ZIP from https://github.com/GHOST-DEKU/youtube-quality-control (Code → Download ZIP) and unzip it somewhere you'll keep.
+> 1. Download the ZIP from https://github.com/GHOST-DEKU/resolute-for-youtube (Code → Download ZIP) and unzip it somewhere you'll keep.
 > 2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, and pick the unzipped folder.
 > 3. It won't update by itself: download the new ZIP into the same folder and click reload when there's a new version.
 >

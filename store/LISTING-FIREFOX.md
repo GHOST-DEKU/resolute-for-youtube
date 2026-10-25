@@ -18,7 +18,7 @@ Matches what the code actually does (checked against `page.js`, `content.js`, `p
 
 **Name** (from manifest)
 ```
-Resolute: Video Quality Control
+Resolute for YouTube
 ```
 
 **Add-on URL (slug)**
@@ -26,9 +26,9 @@ Resolute: Video Quality Control
 resolute-video-quality
 ```
 
-**Summary** (198/250 characters)
+**Summary** (205/250 characters)
 ```
-Change YouTube video quality from a button inside the player: for one video, a channel, or all videos (Auto to 4K). Optional: videos you open, or the next one in a playlist, can start paused.
+Change YouTube video quality from a button inside the player: for one video, a channel, or all videos (Auto to 4K). Optional: start videos paused, hide live chat, and save data in tabs you aren't watching.
 ```
 
 **Description**
@@ -75,7 +75,7 @@ Your settings stay in your browser. The extension sends no data anywhere and has
 
 Not available for YouTube Shorts, the mobile site (m.youtube.com), or Firefox for Android.
 
-Source code: https://github.com/GHOST-DEKU/youtube-quality-control
+Source code: https://github.com/GHOST-DEKU/resolute-for-youtube
 
 YouTube is a trademark of Google LLC. Resolute is not made, endorsed, or sponsored by YouTube or Google.
 ```
@@ -87,11 +87,11 @@ YouTube is a trademark of Google LLC. Resolute is not made, endorsed, or sponsor
 **Support email:** an email address you're happy to show publicly (optional if you give a support website)
 **Support website:**
 ```
-https://github.com/GHOST-DEKU/youtube-quality-control/issues
+https://github.com/GHOST-DEKU/resolute-for-youtube/issues
 ```
 **Homepage** (on the listing's edit page after submission)
 ```
-https://github.com/GHOST-DEKU/youtube-quality-control
+https://github.com/GHOST-DEKU/resolute-for-youtube
 ```
 
 **License:** your choice. The repo has no license file yet, so pick one you're happy with:
@@ -104,7 +104,7 @@ Tell me which one and I'll add a matching `LICENSE` file to the repo.
 
 **Notes to Reviewer**
 ```
-- Plain, hand-written JavaScript. No build step, bundler, minifier, transpiler or third-party libraries; the uploaded files are the full source (also at https://github.com/GHOST-DEKU/youtube-quality-control).
+- Plain, hand-written JavaScript. No build step, bundler, minifier, transpiler or third-party libraries; the uploaded files are the full source (also at https://github.com/GHOST-DEKU/resolute-for-youtube).
 - No remote code, no eval, no network requests. Data collection declared as "none": settings are kept only in storage.sync / storage.local.
 - page.js runs in the MAIN world because YouTube's player methods (getAvailableQualityLevels, setPlaybackQualityRange, getPlayerResponse on #movie_player) are only reachable from the page. getPlayerResponse is used only to read the current video's channel ID (videoDetails.channelId) for per-channel defaults. content.js bridges to extension storage via window.postMessage; all incoming values are validated against an allow-list.
 - How to test: open any youtube.com video. A quality button (shows "Max" by default) appears left of the player's settings gear. Pick a quality: it applies to that video only. "Remember for this video" / "Make default for all videos" at the bottom of the menu save the choice. No login required.

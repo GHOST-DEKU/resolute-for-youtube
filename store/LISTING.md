@@ -40,7 +40,11 @@ NO AUTOPLAY (OPTIONAL)
 • Switch them with the button next to YouTube's search box (it unfolds when you point at it) or in the toolbar popup.
 • When Resolute holds a video, the button says "Video waiting" with a Play button. Pressing play any other way works too.
 
-Background saver (optional)
+HIDE LIVE CHAT (OPTIONAL)
+• The chat beside a live stream or stream replay closes when the video opens, using YouTube's own close button.
+• Click "Show chat" and it stays open for that video.
+
+BACKGROUND SAVER (OPTIONAL)
 • Playing a video in a tab you aren't looking at? Quality drops to the lowest (or 480p) after 15 s, 30 s or 1 min, and comes back when you return.
 • The tab title and icon show when it's saving. Videos in picture-in-picture are never lowered.
 • The popup shows roughly how much data it saved this week (an estimate).
@@ -50,7 +54,7 @@ DETAILS
 • Works on youtube.com and on YouTube videos embedded in other websites.
 • Waits for ads to finish before applying your quality.
 • Keyboard friendly: Tab to the button, arrow keys to move, Enter to choose, Esc to close.
-• The toolbar icon lets you set your global default, switch the two autoplay settings and the background saver, see, edit and remove channel defaults, and clear remembered videos.
+• The toolbar icon lets you set your global default, switch the two autoplay settings, hide live chat and the background saver, see, edit and remove channel defaults, and clear remembered videos.
 
 PRIVACY
 Your settings stay in your browser. The extension sends no data anywhere and has no analytics or ads.

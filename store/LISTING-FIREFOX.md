@@ -54,6 +54,10 @@ No autoplay (optional)
 • Switch them with the button next to YouTube's search box (it unfolds when you point at it) or in the toolbar popup.
 • When Resolute holds a video, the button says "Video waiting" with a Play button. Pressing play any other way works too.
 
+Hide live chat (optional)
+• The chat beside a live stream or stream replay closes when the video opens, using YouTube's own close button.
+• Click "Show chat" and it stays open for that video.
+
 Background saver (optional)
 • Playing a video in a tab you aren't looking at? Quality drops to the lowest (or 480p) after 15 s, 30 s or 1 min, and comes back when you return.
 • The tab title and icon show when it's saving. Videos in picture-in-picture are never lowered.
@@ -64,7 +68,7 @@ Details
 • Works on youtube.com and on YouTube videos embedded in other websites.
 • Waits for ads to finish before applying your quality.
 • Keyboard friendly: Tab to the button, arrow keys to move, Enter to choose, Esc to close.
-• The toolbar icon lets you set your global default, switch the two autoplay settings and the background saver, see, edit and remove channel defaults, and clear remembered videos.
+• The toolbar icon lets you set your global default, switch the two autoplay settings, hide live chat and the background saver, see, edit and remove channel defaults, and clear remembered videos.
 
 Privacy
 Your settings stay in your browser. The extension sends no data anywhere and has no analytics or ads.
@@ -105,6 +109,7 @@ Tell me which one and I'll add a matching `LICENSE` file to the repo.
 - page.js runs in the MAIN world because YouTube's player methods (getAvailableQualityLevels, setPlaybackQualityRange, getPlayerResponse on #movie_player) are only reachable from the page. getPlayerResponse is used only to read the current video's channel ID (videoDetails.channelId) for per-channel defaults. content.js bridges to extension storage via window.postMessage; all incoming values are validated against an allow-list.
 - How to test: open any youtube.com video. A quality button (shows "Max" by default) appears left of the player's settings gear. Pick a quality: it applies to that video only. "Remember for this video" / "Make default for all videos" at the bottom of the menu save the choice. No login required.
 - Autoplay settings (both off by default): a button is added next to YouTube's search box, plus two switches in the toolbar popup. "Videos I open" and "Next in queue or playlist" are two booleans in storage.sync ("holdOpened", "holdNext"). When one applies, page.js calls the player's pauseVideo() once, the first time a video starts on its own; "next" means the previous video ended with no user input since. Plays started by the user (pointer in the player, K/Space/media keys within the last second) are never paused.
+- Hide live chat (off by default; boolean "hideChat" in storage.sync): on a /watch page with a ytd-live-chat-frame, page.js reads the same-origin chat iframe (#chatframe) and, once the chat has loaded, calls click() on YouTube's own close button (yt-live-chat-header-renderer #close-button button), once per video. It polls every 500 ms and stops after the click or about 60 s. No network requests.
 - Background saver (off by default; stored as "bgSaver" in storage.sync): on document "visibilitychange" to hidden, page.js waits the chosen delay, then lowers quality with setPlaybackQualityRange only if the video is playing, not an ad and document.pictureInPictureElement is empty; it restores on return or "enterpictureinpicture". background.js also listens to tabs.onActivated and tells YouTube tabs (tabs.query by URL, covered by the host permission; no "tabs" permission) whether they are the selected tab, because some Chromium browsers never report background tabs as hidden. A non-selected tab is only treated as away once requestAnimationFrame stops firing (about 1.5 s), so split or tiled tabs that are still on screen are left alone. On start, it shows one browser notification (the 'notifications' permission) with the video title and quality, cleared on return. While lowered it prefixes document.title and swaps the page's own <link rel="icon"> href for an inline SVG data: URL, and restores both. An estimate of MB saved per day (date → number, last 21 days) is kept in storage.local for the popup. No network requests.
 ```
 

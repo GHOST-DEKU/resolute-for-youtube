@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/banner.png" alt="Resolute for YouTube: YouTube on your terms. Your quality, no autoplay, no live chat, data saver." width="100%">
+  <img src="docs/banner-resolute-for-youtube.png" alt="Resolute for YouTube: YouTube on your terms. Your quality, no autoplay, no live chat, data saver." width="100%">
 </p>
 
 <p align="center">

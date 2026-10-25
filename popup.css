@@ -30,9 +30,9 @@
   --outline-variant: #d8c2bf;
   --inverse-surface: #392e2d;
   --inverse-on-surface: #ffedea;
-  --glass: 0.62;               /* how opaque frosted surfaces are */
-  --glass-edge: rgba(255, 255, 255, 0.7);
-  --wash-1: #ffcdc6; --wash-2: #ffe1b8; --wash-3: #f5d5e8;
+  --glass: 0.5;                /* how opaque frosted surfaces are */
+  --wash-1: #ff9e92; --wash-2: #ffc98a; --wash-3: #eeb0d6; /* "wallpaper" that glows through the glass */
+  --wall: #fbe9e7; --wall-dim: rgba(255, 248, 247, 0.35);
   --state-hover: 0.08;
   --state-press: 0.12;
 
@@ -60,8 +60,9 @@
     --on-surface: #f1dedc; --on-surface-variant: #d8c2bf;
     --outline: #a08c8a; --outline-variant: #534341;
     --inverse-surface: #f1dedc; --inverse-on-surface: #392e2d;
-    --glass: 0.55; --glass-edge: rgba(255, 255, 255, 0.09);
-    --wash-1: #6b1410; --wash-2: #4f3310; --wash-3: #4a1f2e;
+    --glass: 0.42;
+    --wash-1: #b3261e; --wash-2: #8a4a12; --wash-3: #7a2457;
+    --wall: #140b0b; --wall-dim: rgba(20, 11, 11, 0.45);
     color-scheme: dark;
   }
 }
@@ -76,8 +77,9 @@
   --on-surface: #f1dedc; --on-surface-variant: #d8c2bf;
   --outline: #a08c8a; --outline-variant: #534341;
   --inverse-surface: #f1dedc; --inverse-on-surface: #392e2d;
-  --glass: 0.55; --glass-edge: rgba(255, 255, 255, 0.09);
-  --wash-1: #6b1410; --wash-2: #4f3310; --wash-3: #4a1f2e;
+  --glass: 0.42;
+  --wash-1: #b3261e; --wash-2: #8a4a12; --wash-3: #7a2457;
+  --wall: #140b0b; --wall-dim: rgba(20, 11, 11, 0.45);
   color-scheme: dark;
 }
 
@@ -85,16 +87,22 @@
 html, body { margin: 0; }
 body {
   width: 344px;
-  background:
-    radial-gradient(120% 60% at 0% 0%, var(--wash-1), transparent 60%),
-    radial-gradient(90% 55% at 100% 45%, var(--wash-2), transparent 65%),
-    radial-gradient(110% 50% at 20% 100%, var(--wash-3), transparent 60%),
-    var(--surface);
-  background-attachment: fixed;
+  background: var(--wall);
   color: var(--on-surface);
   font: 400 13px/1.45 "Google Sans Text", "Google Sans", Roboto, "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+/* the "wallpaper": soft colour fields, really blurred, with a scrim on top (Pixel's shade does the same over your wallpaper) */
+body::before {
+  content: ""; position: fixed; inset: -60px; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(40% 32% at 12% 8%, var(--wash-1), transparent 70%),
+    radial-gradient(38% 30% at 92% 38%, var(--wash-2), transparent 70%),
+    radial-gradient(45% 34% at 18% 78%, var(--wash-3), transparent 70%),
+    radial-gradient(35% 26% at 85% 96%, var(--wash-1), transparent 70%);
+  filter: blur(36px) saturate(1.2);
+}
+body::after { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: var(--wall-dim); }
 svg { width: 20px; height: 20px; fill: currentColor; flex: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 [hidden] { display: none !important; }
@@ -103,7 +111,12 @@ svg { width: 20px; height: 20px; fill: currentColor; flex: none; }
 .app { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 12px; }
 
 /* ---------- top app bar ---------- */
-.topbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 2px 4px 4px; }
+.topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  position: sticky; top: 0; z-index: 5; margin: -10px -12px 0; padding: 10px 14px 8px 16px;
+  background: color-mix(in srgb, var(--wall) 45%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8); backdrop-filter: blur(20px) saturate(1.8);
+}
 .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .brand img { border-radius: var(--r-sm); }
 h1 { margin: 0; font: 500 18px/1.2 "Google Sans", Roboto, system-ui, sans-serif; letter-spacing: -0.01em; }
@@ -113,7 +126,6 @@ h1 { margin: 0; font: 500 18px/1.2 "Google Sans", Roboto, system-ui, sans-serif;
 .theme {
   display: flex; gap: 2px; padding: 3px; border-radius: var(--r-full);
   background: color-mix(in srgb, var(--surface-container-high) 70%, transparent);
-  box-shadow: inset 0 0 0 1px var(--glass-edge);
   -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
 }
 .theme button {
@@ -133,8 +145,7 @@ h1 { margin: 0; font: 500 18px/1.2 "Google Sans", Roboto, system-ui, sans-serif;
 /* ---------- cards ---------- */
 .card {
   background: color-mix(in srgb, var(--surface-container-low) calc(var(--glass) * 100%), transparent);
-  -webkit-backdrop-filter: blur(24px) saturate(1.5); backdrop-filter: blur(24px) saturate(1.5);
-  box-shadow: inset 0 0 0 1px var(--glass-edge);
+  -webkit-backdrop-filter: blur(24px) saturate(1.8); backdrop-filter: blur(24px) saturate(1.8);
   border-radius: var(--r-xl);
   padding: 12px 14px 14px;
 }
@@ -168,15 +179,15 @@ fieldset.quality { margin: 0; padding: 0; border: 0; min-width: 0; display: flex
   transition: background-color var(--t-effect) var(--ease-effects), color var(--t-effect) var(--ease-effects),
     border-radius var(--t-fast) var(--spring-fast), transform var(--t-fast) var(--spring-fast);
 }
-.chips .choice > .face { height: 34px; padding: 0 6px; font-size: 12.5px; background: transparent;
-  box-shadow: inset 0 0 0 1px var(--outline-variant); }
+.chips .choice > .face { height: 34px; padding: 0 6px; font-size: 12.5px;
+  background: color-mix(in srgb, var(--surface-container-highest) 55%, transparent); }
 /* segmented: inner corners square up, outer stay round */
 .segmented .choice:first-child > .face { border-radius: var(--r-full) var(--r-xs) var(--r-xs) var(--r-full); }
 .segmented .choice:last-child > .face { border-radius: var(--r-xs) var(--r-full) var(--r-full) var(--r-xs); }
 .choice .tick { display: inline-flex; width: 0; height: 18px; overflow: hidden; margin-right: -6px; transition: width var(--t-fast) var(--spring-fast), margin var(--t-fast) var(--spring-fast); }
 .choice .tick svg { width: 18px; height: 18px; }
 .choice input:not(:checked):hover + .face { background-color: color-mix(in srgb, var(--on-surface) 8%, var(--surface-container-highest)); }
-.chips .choice input:not(:checked):hover + .face { background-color: color-mix(in srgb, var(--on-surface) 8%, transparent); }
+.chips .choice input:not(:checked):hover + .face { background-color: color-mix(in srgb, var(--on-surface) 8%, color-mix(in srgb, var(--surface-container-highest) 55%, transparent)); }
 .choice input:active + .face { transform: scale(0.95); }
 /* selected: filled + shape morph (pill -> rounded square) */
 .choice input:checked + .face {
@@ -333,7 +344,7 @@ dialog {
   border-radius: var(--r-xl); color: var(--on-surface);
   background: color-mix(in srgb, var(--surface-container-high) 80%, transparent);
   -webkit-backdrop-filter: blur(28px) saturate(1.5); backdrop-filter: blur(28px) saturate(1.5);
-  box-shadow: inset 0 0 0 1px var(--glass-edge), 0 8px 24px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 }
 dialog[open] { animation: dialog-in var(--t-med) var(--spring); }
 dialog::backdrop { background: rgba(0, 0, 0, 0.25); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); animation: fade-in var(--t-effect) var(--ease-effects); }

@@ -37,109 +37,109 @@
       </div>
     </div>
 
-    <section class="card card-global" aria-labelledby="g-title">
-      <div class="card-head">
-        <span class="badge badge-primary" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
-        </span>
-        <div>
-          <h2 id="g-title">Global default</h2>
-          <p>For videos without their own setting</p>
-        </div>
+    <section class="group" aria-labelledby="q-title">
+      <h2 class="group-title" id="q-title">Quality</h2>
+      <div class="rows">
+      <div class="item row">
+        <span class="ico ico-primary" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg></span>
+        <span class="grow"><span class="name" id="g-title">Global default</span><span class="hint">For videos without their own setting</span></span>
       </div>
-      <fieldset class="quality" id="options">
+      <fieldset class="item quality" id="options">
         <legend class="sr-only">Global default quality</legend>
         <div class="segmented" id="modes"></div>
         <div class="chips" id="resolutions"></div>
       </fieldset>
-    </section>
-
-    <section class="card card-channels" aria-labelledby="ch-title">
-      <div class="card-head">
-        <span class="badge badge-tertiary" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-        </span>
-        <div class="grow">
-          <h2 id="ch-title">Channel defaults</h2>
-          <p id="channel-count">Beat the global default</p>
-        </div>
+      <div class="item row">
+        <span class="ico ico-tertiary" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></span>
+        <span class="grow"><span class="name" id="ch-title">Channel defaults</span><span class="hint" id="channel-count">Beat the global default</span></span>
         <button type="button" id="channels-clear" class="btn text" hidden>Remove all</button>
       </div>
-      <p class="empty" id="channels-empty">None yet. On any video, open the quality menu and choose <b>Set as default for this channel</b>.</p>
+      <p class="item empty" id="channels-empty">None yet. On any video, open the quality menu and choose <b>Set as default for this channel</b>.</p>
       <ul id="channel-list" class="channel-list"></ul>
+      <div class="item row">
+        <span class="ico ico-secondary" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M16 9V4h1a1 1 0 0 0 0-2H7a1 1 0 0 0 0 2h1v5a3 3 0 0 1-3 3v2h5.97v7l1 1 1-1v-7H19v-2a3 3 0 0 1-3-3z"/></svg></span>
+        <span class="grow"><span class="name" id="m-title">Remembered videos</span><span class="hint" id="memory-count">No videos remembered</span></span>
+        <button type="button" id="forget-all" class="btn text" hidden>Forget all</button>
+      </div>
+      </div>
+      <p class="group-foot">Player picks apply to one video until saved.</p>
     </section>
 
-    <section class="card card-autoplay" aria-labelledby="ap-title">
-      <div class="card-head">
-        <span class="badge badge-pause" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zm6.5 0H17v14h-3.5z"/></svg>
-        </span>
-        <div>
-          <h2 id="ap-title">Start paused</h2>
-          <p>Stop autoplay. Pressing play always works.</p>
-        </div>
-      </div>
-      <label class="ap-row" for="ap-opened">
+    <section class="group" aria-labelledby="ap-title">
+      <h2 class="group-title" id="ap-title">Start paused</h2>
+      <div class="rows">
+      <label class="item row toggle" for="ap-opened">
+        <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zm6.5 0H17v14h-3.5z"/></svg></span>
         <span class="grow">
-          <span class="ap-name" id="ap-opened-t">Videos I open</span>
-          <span class="ap-hint" id="ap-opened-d">Clicked, linked or in a new tab</span>
+          <span class="name" id="ap-opened-t">Videos I open</span>
+          <span class="hint" id="ap-opened-d">Clicked, linked or in a new tab</span>
         </span>
         <span class="switch">
           <input type="checkbox" role="switch" id="ap-opened" aria-labelledby="ap-opened-t" aria-describedby="ap-opened-d">
           <span class="track" aria-hidden="true"></span>
-          <span class="thumb" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></span>
+          <span class="thumb" aria-hidden="true"><svg class="sw-on" viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg><svg class="sw-off" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 19 17.59 13.41 12z"/></svg></span>
         </span>
       </label>
-      <label class="ap-row" for="ap-next">
+      <label class="item row toggle" for="ap-next">
+        <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6zm10-12h2.5v12H16z"/></svg></span>
         <span class="grow">
-          <span class="ap-name" id="ap-next-t">Next in queue or playlist</span>
-          <span class="ap-hint" id="ap-next-d">When one video follows another</span>
+          <span class="name" id="ap-next-t">Next in queue or playlist</span>
+          <span class="hint" id="ap-next-d">When one video follows another</span>
         </span>
         <span class="switch">
           <input type="checkbox" role="switch" id="ap-next" aria-labelledby="ap-next-t" aria-describedby="ap-next-d">
           <span class="track" aria-hidden="true"></span>
-          <span class="thumb" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></span>
+          <span class="thumb" aria-hidden="true"><svg class="sw-on" viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg><svg class="sw-off" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 19 17.59 13.41 12z"/></svg></span>
         </span>
       </label>
+      </div>
+      <p class="group-foot">Pressing play always works.</p>
     </section>
-    <section class="card card-chat" aria-labelledby="hc-title">
-      <div class="card-head">
-        <span class="badge badge-chat" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><mask id="hc-cut"><rect width="24" height="24" fill="#fff"/><path d="M3.5 3.5 20.5 20.5" stroke="#000" stroke-width="5"/></mask><path mask="url(#hc-cut)" d="M5 3h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 4v-4.27A2 2 0 0 1 3 15V5a2 2 0 0 1 2-2z"/><path d="M3.5 3.5 20.5 20.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+
+    <section class="group" aria-labelledby="ls-title">
+      <h2 class="group-title" id="ls-title">Live streams</h2>
+      <div class="rows">
+      <label class="item row toggle" for="hc-on">
+        <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><mask id="hc-cut"><rect width="24" height="24" fill="#fff"/><path d="M3.5 3.5 20.5 20.5" stroke="#000" stroke-width="5"/></mask><path mask="url(#hc-cut)" d="M5 3h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 4v-4.27A2 2 0 0 1 3 15V5a2 2 0 0 1 2-2z"/><path d="M3.5 3.5 20.5 20.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+        <span class="grow">
+          <span class="name" id="hc-title">Hide live chat</span>
+          <span class="hint" id="hc-desc">Closed when a stream opens. <b>Show chat</b> brings it back.</span>
         </span>
-        <div class="grow">
-          <h2 id="hc-title">Hide live chat</h2>
-          <p id="hc-desc">Closed when a stream opens. <b>Show chat</b> brings it back.</p>
-        </div>
         <span class="switch">
           <input type="checkbox" role="switch" id="hc-on" aria-labelledby="hc-title" aria-describedby="hc-desc">
           <span class="track" aria-hidden="true"></span>
-          <span class="thumb" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></span>
+          <span class="thumb" aria-hidden="true"><svg class="sw-on" viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg><svg class="sw-off" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 19 17.59 13.41 12z"/></svg></span>
         </span>
+      </label>
       </div>
     </section>
-    <section class="card card-saver" aria-labelledby="sv-title">
-      <div class="card-head">
-        <span class="badge badge-saver" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3c5.4 2.4 8.8 7 7.3 12.6-1.5 4.6-6.8 6-11.1 4.8l-3.6.6-.6-.9 2.7-3.3C3.6 12.8 4.9 6 12 3z"/></svg></span>
-        <div class="grow">
-          <h2 id="sv-title">Background saver</h2>
-          <p id="sv-desc">Lowest quality in tabs you aren&rsquo;t watching</p>
-        </div>
+
+    <section class="group" aria-labelledby="bt-title">
+      <h2 class="group-title" id="bt-title">Tabs you aren&rsquo;t watching</h2>
+      <div class="rows">
+      <label class="item row toggle" for="sv-on">
+        <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3c5.4 2.4 8.8 7 7.3 12.6-1.5 4.6-6.8 6-11.1 4.8l-3.6.6-.6-.9 2.7-3.3C3.6 12.8 4.9 6 12 3z"/></svg></span>
+        <span class="grow">
+          <span class="name" id="sv-title">Background saver</span>
+          <span class="hint" id="sv-desc">Lowest quality in tabs you aren&rsquo;t watching</span>
+        </span>
         <span class="switch">
           <input type="checkbox" role="switch" id="sv-on" aria-labelledby="sv-title" aria-describedby="sv-desc">
           <span class="track" aria-hidden="true"></span>
-          <span class="thumb" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></span>
+          <span class="thumb" aria-hidden="true"><svg class="sw-on" viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg><svg class="sw-off" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 19 17.59 13.41 12z"/></svg></span>
         </span>
+      </label>
+      <p class="item sv-note" id="sv-unsupported" hidden>Needs Chrome, Edge or Firefox 153+, so it can tell when you&rsquo;re watching in picture-in-picture.</p>
+      <div class="item sv-stats">
+        <div class="sv-odo" id="sv-odo">
+          <span class="sv-digits" id="sv-digits" aria-hidden="true"></span>
+          <span class="sv-unit" id="sv-unit"></span>
+        </div>
+        <p class="sv-last" id="sv-last">Hasn&rsquo;t lowered a video yet.</p>
+        <div class="sv-week" id="sv-week" aria-hidden="true"></div>
+        <div class="sv-days" aria-hidden="true"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
       </div>
-      <p class="sv-note" id="sv-unsupported" hidden>Needs Chrome, Edge or Firefox 153+, so it can tell when you&rsquo;re watching in picture-in-picture.</p>
-      <div class="sv-odo" id="sv-odo">
-        <span class="sv-digits" id="sv-digits" aria-hidden="true"></span>
-        <span class="sv-unit" id="sv-unit"></span>
-      </div>
-      <p class="sv-last" id="sv-last">Hasn&rsquo;t lowered a video yet.</p>
-      <div class="sv-week" id="sv-week" aria-hidden="true"></div>
-      <div class="sv-days" aria-hidden="true"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
-      <div class="sv-opts" id="sv-opts">
+      <div class="item sv-opts" id="sv-opts">
         <fieldset class="sv-set">
           <legend class="sv-lab">Start after</legend>
           <div class="segmented seg3"><label class="choice"><input type="radio" name="sv-after" value="15" aria-label="15 s"><span class="face"><span class="tick"><svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></span>15 s</span></label><label class="choice"><input type="radio" name="sv-after" value="30" aria-label="30 s" checked><span class="face"><span class="tick"><svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></span>30 s</span></label><label class="choice"><input type="radio" name="sv-after" value="60" aria-label="1 min"><span class="face"><span class="tick"><svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></span>1 min</span></label></div>
@@ -148,22 +148,9 @@
           <legend class="sv-lab">Drop to</legend>
           <div class="segmented"><label class="choice"><input type="radio" name="sv-to" value="tiny" aria-label="Lowest" checked><span class="face"><span class="tick"><svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></span>Lowest</span></label><label class="choice"><input type="radio" name="sv-to" value="large" aria-label="480p"><span class="face"><span class="tick"><svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></span>480p</span></label></div>
         </fieldset>
-        <p class="sv-fine">Never lowers a video you&rsquo;re watching in picture-in-picture. YouTube pauses for a moment to reload each time quality changes: when it drops, and when you come back. Savings are an estimate.</p>
       </div>
+      <p class="group-foot">Never lowers a video you&rsquo;re watching in picture-in-picture. YouTube pauses for a moment to reload each time quality changes: when it drops, and when you come back. Savings are an estimate.</p>
     </section>
-
-    <section class="card card-row" aria-labelledby="m-title">
-      <span class="badge badge-secondary" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><path d="M16 9V4h1a1 1 0 0 0 0-2H7a1 1 0 0 0 0 2h1v5a3 3 0 0 1-3 3v2h5.97v7l1 1 1-1v-7H19v-2a3 3 0 0 1-3-3z"/></svg>
-      </span>
-      <div class="grow">
-        <h2 id="m-title">Remembered videos</h2>
-        <p id="memory-count">No videos remembered</p>
-      </div>
-      <button type="button" id="forget-all" class="btn text" hidden>Forget all</button>
-    </section>
-
-    <p class="hint">Tip: player picks apply to one video until saved.</p>
   </div>
 
   <dialog id="confirm" aria-labelledby="confirm-title" aria-describedby="confirm-text">

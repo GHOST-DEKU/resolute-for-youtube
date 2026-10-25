@@ -322,6 +322,71 @@
     .filter(([id, v]) => CHANNEL_ID.test(id) && v && VALID.has(v.q)));
   const saveChannels = () => api.storage.local.set({ [CHANNELS]: channels });
 
+  // A channel's quality opens a small frosted menu like the autoplay menu (a native <select> list ignores the popup's design).
+  const shortOf = (q) => SHORT[q] || labelOf(q);
+  function labelPick(btn, name, q) {
+    btn.textContent = shortOf(q);
+    btn.setAttribute('aria-label', `Default quality for ${name}: ${labelOf(q)}`);
+  }
+  const qm = document.createElement('div');
+  qm.className = 'qmenu';
+  qm.setAttribute('role', 'listbox');
+  qm.hidden = true;
+  document.body.append(qm);
+  let qmFor = null; // { btn, onPick } while open
+  function closeQm(refocus) {
+    if (!qmFor) return;
+    const { btn } = qmFor;
+    qmFor = null;
+    qm.classList.remove('show');
+    btn.setAttribute('aria-expanded', 'false');
+    setTimeout(() => { if (!qmFor) qm.hidden = true; }, 250); // after the closing motion
+    if (refocus) btn.focus();
+  }
+  function openQm(btn, current, label, onPick) {
+    if (qmFor && qmFor.btn === btn) return closeQm(true);
+    closeQm(false);
+    qmFor = { btn, onPick };
+    qm.setAttribute('aria-label', label);
+    qm.replaceChildren(...OPTIONS.map(([q, text]) => {
+      const o = document.createElement('div');
+      o.className = 'qopt';
+      o.setAttribute('role', 'option');
+      o.setAttribute('aria-selected', String(q === current));
+      o.tabIndex = -1;
+      const tick = document.createElement('span');
+      tick.className = 'qtick';
+      tick.append(svg(CHECK, 16));
+      o.append(tick, text);
+      o.addEventListener('click', () => { const f = qmFor; closeQm(true); if (f) f.onPick(q); });
+      return o;
+    }));
+    qm.hidden = false;
+    // Under the button, or above it when there's no room below; never past the popup's edges.
+    const r = btn.getBoundingClientRect();
+    const below = r.bottom + 6 + qm.offsetHeight <= window.innerHeight - 8;
+    qm.style.top = `${below ? r.bottom + 6 : Math.max(8, r.top - 6 - qm.offsetHeight)}px`;
+    qm.style.left = `${Math.min(Math.max(8, r.right - qm.offsetWidth), window.innerWidth - qm.offsetWidth - 8)}px`;
+    qm.style.transformOrigin = below ? 'top right' : 'bottom right';
+    btn.setAttribute('aria-expanded', 'true');
+    requestAnimationFrame(() => qm.classList.add('show'));
+    (qm.querySelector('[aria-selected="true"]') || qm.firstChild).focus();
+  }
+  qm.addEventListener('keydown', (e) => {
+    const opts = [...qm.children];
+    const i = opts.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') opts[(i + (e.key === 'ArrowDown' ? 1 : opts.length - 1)) % opts.length].focus();
+    else if (e.key === 'Home' || e.key === 'End') opts[e.key === 'Home' ? 0 : opts.length - 1].focus();
+    else if (e.key === 'Enter' || e.key === ' ') { if (i >= 0) opts[i].click(); }
+    else if (e.key === 'Escape' || e.key === 'Tab') closeQm(true);
+    else return;
+    e.preventDefault();
+  });
+  document.addEventListener('pointerdown', (e) => {
+    if (qmFor && !qm.contains(e.target) && !qmFor.btn.contains(e.target)) closeQm(false);
+  }, true);
+  document.addEventListener('scroll', (e) => { if (!qm.contains(e.target)) closeQm(false); }, true); // the menu would drift from its button
+
   function showChannels(map) {
     channels = clean(map);
     const ids = Object.keys(channels).sort((a, b) =>
@@ -330,7 +395,7 @@
     clearAll.hidden = ids.length === 0;
     channelCount.textContent = ids.length ? `${ids.length} channel${ids.length === 1 ? '' : 's'} saved` : 'Beat the global default';
     if (ids.join() === shownIds) { // same channels: just update values (keeps keyboard focus)
-      for (const id of ids) list.querySelector(`select[data-id="${id}"]`).value = channels[id].q;
+      for (const id of ids) labelPick(list.querySelector(`.pick[data-id="${id}"]`), channels[id].name || id, channels[id].q);
       return;
     }
     shownIds = ids.join();
@@ -348,15 +413,22 @@
       link.rel = 'noopener noreferrer';
       link.textContent = name;
       link.title = `${name} (${id})`;
-      const pick = document.createElement('select');
+      const pick = document.createElement('button');
+      pick.type = 'button';
+      pick.className = 'pick';
       pick.dataset.id = id;
-      pick.setAttribute('aria-label', `Default quality for ${name}`);
-      for (const [q, label] of OPTIONS) pick.append(new Option(SHORT[q] || label, q, false, q === channels[id].q));
-      pick.addEventListener('change', () => {
-        channels[id] = { ...channels[id], q: pick.value };
-        saveChannels().then(() => flash(`${name}: ${labelOf(pick.value)}`))
+      pick.setAttribute('aria-haspopup', 'listbox');
+      pick.setAttribute('aria-expanded', 'false');
+      labelPick(pick, name, channels[id].q);
+      const open = () => openQm(pick, channels[id].q, `Default quality for ${name}`, (q) => {
+        if (q === channels[id].q) return;
+        channels[id] = { ...channels[id], q };
+        labelPick(pick, name, q);
+        saveChannels().then(() => flash(`${name}: ${labelOf(q)}`))
           .catch(() => flash('Could not save. Please try again.'));
       });
+      pick.addEventListener('click', open);
+      pick.addEventListener('keydown', (e) => { if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); open(); } });
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.className = 'icon-btn remove';
@@ -368,7 +440,7 @@
         delete channels[id];
         saveChannels().then(() => {
           flash(`Removed ${name}`);
-          ((next && next.querySelector('select')) || box.querySelector('input:checked')).focus(); // keep keyboard users in place
+          ((next && next.querySelector('.pick')) || box.querySelector('input:checked')).focus(); // keep keyboard users in place
         }).catch(() => flash('Could not remove. Please try again.'));
       });
       li.append(avatar, link, pick, remove);

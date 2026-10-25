@@ -308,6 +308,7 @@ The popup, the in-player menu and the autoplay button are **inspired by Material
 - **Colour roles (from a red seed):** primary red = global default, dusty pink = this video, gold = channel.
 - **Shapes that morph:** the autoplay button changes shape (circle, cookie, rounded square) and has a wavy ring like M3 Expressive's wavy progress indicator.
 - **Motion:** spring-like, and switched off when the system's "reduce motion" setting is on.
+- **Popup layout:** built like the autoplay menu: small group titles, joined glass rows with an icon at the start, a red-filled row for each setting that's on, and a short note under each group. A channel's quality opens the same kind of frosted menu.
 - **Surfaces:** real frosted glass (`backdrop-filter`). In the player the video shows through the quality menu; on the page, the content shows through the autoplay menu. Browsers without blur get solid surfaces instead.
 - **Theme:** the popup has System / Light / Dark. The in-player menu is always dark, like YouTube's own controls. The autoplay button and its menu follow YouTube's light or dark theme.
 </details>

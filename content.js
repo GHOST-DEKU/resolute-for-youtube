@@ -12,6 +12,7 @@
  *  - sync  "hideChat":          true = close YouTube's live chat panel when a stream opens (off unless turned on)
  *  - sync  "cinemaMode":      true = videos open in theater, the top bar hides while they play, the video fills the window (off unless turned on)
  *  - local "cinemaSkip":      { UCchannelId: name } channels where you left theater; cinema mode leaves them alone
+ *  - sync  "tabIcons":          false = the tab countdown shows just the time; otherwise ⏱ comes first (on unless turned off)
  *  - sync  "hideTopBar":       true = YouTube's top bar hides while a video plays (off unless turned on)
  *  - sync  "bgSaver":           { on, after: 15|30|60 seconds, to: "tiny"|"large" } background saver
  *  - local "saverStats":        { "YYYY-MM-DD": estimated MB saved } for the last 21 days
@@ -31,6 +32,7 @@
   const SAVER = 'bgSaver';
   const HIDE_CHAT = 'hideChat';
   const HIDE_BAR = 'hideTopBar';
+  const TAB_ICONS = 'tabIcons';
   const CINEMA = 'cinemaMode';
   const SKIP = 'cinemaSkip';
   const MAX_SKIP = 2000; // shortcut: drops the oldest beyond this; raise if users hit it
@@ -117,6 +119,7 @@
     send({ type: 'saver', value: await readSaver() });
     send({ type: 'chat', value: await readHideChat() });
     send({ type: 'topbar', value: await readHideBar() });
+    send({ type: 'tabicons', value: await readTabIcons() });
     send({ type: 'cinemaSkip', value: await readSkip() }); // before 'cinema', so a skipped channel is known when cinema starts
     send({ type: 'cinema', value: await readCinema() });
     // Is this the selected tab of its window? (Vivaldi never marks background tabs "hidden", so ask the browser.)
@@ -151,6 +154,13 @@
       return cleanSkip((await api.storage.local.get(SKIP))[SKIP]);
     } catch {
       return {};
+    }
+  }
+  async function readTabIcons() {
+    try {
+      return (await api.storage.sync.get(TAB_ICONS))[TAB_ICONS] !== false;
+    } catch {
+      return true;
     }
   }
   async function readHideBar() {
@@ -245,6 +255,9 @@
       }
       if (area === 'local' && changes[SKIP]) {
         send({ type: 'cinemaSkip', value: cleanSkip(changes[SKIP].newValue) });
+      }
+      if (area === 'sync' && changes[TAB_ICONS]) {
+        send({ type: 'tabicons', value: changes[TAB_ICONS].newValue !== false });
       }
       if (area === 'sync' && changes[HIDE_BAR]) {
         send({ type: 'topbar', value: changes[HIDE_BAR].newValue === true });

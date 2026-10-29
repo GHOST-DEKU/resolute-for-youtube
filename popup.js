@@ -519,6 +519,21 @@
       flash('Could not save. Please try again.');
     }
   });
+  // ---------- icons in the tab's time-left countdown ----------
+  const TAB_ICONS = 'tabIcons';
+  const tiOn = $('ti-on');
+  api.storage.sync.get(TAB_ICONS).then((r) => { tiOn.checked = r[TAB_ICONS] !== false; }).catch(() => { tiOn.checked = true; });
+  tiOn.addEventListener('change', async () => {
+    const on = tiOn.checked;
+    try {
+      await api.storage.sync.set({ [TAB_ICONS]: on });
+      flash(on ? 'Icons shown in the tab' : 'Tab shows just the time');
+    } catch {
+      tiOn.checked = !on; // show the setting that is really saved
+      flash('Could not save. Please try again.');
+    }
+  });
+
   checkAccess();
 
   // ---------- three pages: tabs, swipe, arrow keys ----------

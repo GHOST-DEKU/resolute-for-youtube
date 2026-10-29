@@ -521,6 +521,56 @@
   });
   checkAccess();
 
+  // ---------- three pages: tabs, swipe, arrow keys ----------
+  const tabs = [...document.querySelectorAll('#tabs [role=tab]')];
+  const panels = tabs.map((t) => $(t.getAttribute('aria-controls')));
+  const viewport = document.querySelector('.viewport');
+  const trk = $('trk');
+  let page = 0;
+  function goPage(i, focus) {
+    page = Math.max(0, Math.min(tabs.length - 1, i));
+    document.documentElement.style.setProperty('--page', page);
+    tabs.forEach((t, k) => { t.setAttribute('aria-selected', k === page); t.tabIndex = k === page ? 0 : -1; });
+    panels.forEach((p, k) => { p.inert = k !== page; }); // off-screen controls can't be reached by Tab
+    trk.style.transform = '';
+    closeQm(false);
+    if (focus) tabs[page].focus();
+  }
+  tabs.forEach((t, k) => t.addEventListener('click', () => goPage(k)));
+  $('tabs').addEventListener('keydown', (e) => {
+    const to = { ArrowRight: page + 1, ArrowLeft: page - 1, Home: 0, End: tabs.length - 1 }[e.key];
+    if (to === undefined) return;
+    e.preventDefault();
+    goPage(to, true);
+  });
+  // swipe sideways; vertical drags still scroll the page
+  let sx = 0, sy = 0, dx = 0, swiping = false, axis = '';
+  viewport.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' || !e.isPrimary) return; // a mouse never swipes (it would fight text selection and buttons)
+    swiping = true; sx = e.clientX; sy = e.clientY; dx = 0; axis = '';
+  });
+  viewport.addEventListener('pointermove', (e) => {
+    if (!swiping) return;
+    const mx = e.clientX - sx, my = e.clientY - sy;
+    if (!axis && (Math.abs(mx) > 8 || Math.abs(my) > 8)) axis = Math.abs(mx) > Math.abs(my) * 1.4 ? 'x' : 'y';
+    if (axis !== 'x') return;
+    dx = mx;
+    trk.classList.add('drag');
+    const w = viewport.clientWidth;
+    const edge = (page === 0 && dx > 0) || (page === tabs.length - 1 && dx < 0); // resist at the ends
+    trk.style.transform = `translateX(${-page * w + (edge ? dx / 3 : dx)}px)`;
+  });
+  const endSwipe = () => {
+    if (!swiping) return;
+    swiping = false;
+    trk.classList.remove('drag');
+    const w = viewport.clientWidth;
+    goPage(page + (axis === 'x' ? (dx < -w * 0.18 ? 1 : dx > w * 0.18 ? -1 : 0) : 0));
+  };
+  viewport.addEventListener('pointerup', endSwipe);
+  viewport.addEventListener('pointercancel', endSwipe);
+  goPage(0);
+
   // ---------- stay in sync with changes made in the player or another window ----------
   api.storage.onChanged.addListener((changes, area) => {
     if (area === 'sync' && changes[KEY]) select(changes[KEY].newValue);

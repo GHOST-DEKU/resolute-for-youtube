@@ -37,6 +37,14 @@
       </div>
     </div>
 
+    <div class="tabs" id="tabs" role="tablist" aria-label="Settings pages">
+      <span class="ind" aria-hidden="true"></span>
+      <button type="button" role="tab" id="tab-q" aria-controls="pg-q" aria-selected="true">Quality</button>
+      <button type="button" role="tab" id="tab-p" aria-controls="pg-p" aria-selected="false" tabindex="-1">Playing</button>
+      <button type="button" role="tab" id="tab-s" aria-controls="pg-s" aria-selected="false" tabindex="-1">Saver</button>
+    </div>
+    <div class="viewport"><div class="trk" id="trk">
+    <div class="pg" id="pg-q" role="tabpanel" aria-labelledby="tab-q">
     <section class="group" aria-labelledby="q-title">
       <h2 class="group-title" id="q-title">Quality</h2>
       <div class="rows">
@@ -65,6 +73,8 @@
       <p class="group-foot">Player picks apply to one video until saved.</p>
     </section>
 
+    </div>
+    <div class="pg" id="pg-p" role="tabpanel" aria-labelledby="tab-p" inert>
     <section class="group" aria-labelledby="ap-title">
       <h2 class="group-title" id="ap-title">Start paused</h2>
       <div class="rows">
@@ -155,6 +165,8 @@
       </div>
     </section>
 
+    </div>
+    <div class="pg" id="pg-s" role="tabpanel" aria-labelledby="tab-s" inert>
     <section class="group" aria-labelledby="bt-title">
       <h2 class="group-title" id="bt-title">Tabs you aren&rsquo;t watching</h2>
       <div class="rows">
@@ -192,6 +204,8 @@
       </div>
       <p class="group-foot">Never lowers a video you&rsquo;re watching in picture-in-picture. YouTube pauses for a moment to reload each time quality changes: when it drops, and when you come back. Savings are an estimate.</p>
     </section>
+    </div>
+    </div></div>
   </div>
 
   <dialog id="confirm" aria-labelledby="confirm-title" aria-describedby="confirm-text">

@@ -62,7 +62,11 @@ Object.defineProperty(document, 'visibilityState', { get: () => vis, configurabl
 Object.defineProperty(document, 'pictureInPictureElement', { get: () => pipEl, configurable: true });
 const icon = document.createElement('link'); icon.rel = 'icon'; icon.href = 'https://www.youtube.com/favicon.ico'; document.head.append(icon);
 const titleEl = document.createElement('title'); titleEl.textContent = 'Lo-fi beats - YouTube'; document.head.append(titleEl);
-window.eval(fs.readFileSync(path.join(__dirname, '..', 'page.js'), 'utf8'));
+// jsdom events are never "trusted"; let a click/key with detail 7 stand in for the user, and keep detail 0 (Resolute's own click) untrusted.
+const pageSrc = fs.readFileSync(path.join(__dirname, '..', 'page.js'), 'utf8');
+const patchedSrc = pageSrc.replace('const fromUser = (e) => e.isTrusted;', 'const fromUser = (e) => e.isTrusted || e.detail === 7;');
+assert.notStrictEqual(patchedSrc, pageSrc, 'trust check found for the test');
+window.eval(patchedSrc);
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 let overridesBackup = {};
 const open = () => document.querySelector('.yqx-button').dispatchEvent(new window.MouseEvent('click', { bubbles: true, detail: 1 }));
@@ -601,6 +605,63 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
     toPage('topbar', false); await wait(20);
     assert.ok(!root.hasAttribute('yqx-bar') && !gone(), 'switched off: the bar returns');
     holder.remove(); videoPaused = was;
+  }
+
+  // Cinema mode: theater on open, bar away, learns from your own theater toggles
+  {
+    const fx = document.createElement('ytd-watch-flexy');
+    const holder = document.createElement('div');
+    holder.innerHTML = '<div id="masthead-container"><ytd-masthead></ytd-masthead></div><div id="page-manager"></div>';
+    document.body.append(fx, holder);
+    const btn = document.createElement('button'); btn.className = 'ytp-size-button';
+    document.getElementById('movie_player').append(btn);
+    let presses = 0;
+    btn.addEventListener('click', () => { presses += 1; fx.toggleAttribute('theater'); }); // YouTube flips theater
+    const root = document.documentElement;
+    const was = videoPaused;
+    const evt = (el, type) => el.dispatchEvent(new window.Event(type));
+    const userClick = () => btn.dispatchEvent(new window.MouseEvent('click', { bubbles: true, detail: 7 }));
+    const skips = () => sent.filter((m) => m.type === 'cinemaSkip');
+    videoPaused = true; // not playing yet, so the bar logic stays out of the way
+    toPage('cinemaSkip', {}); await wait(700);
+    assert.strictEqual(presses, 0, 'off by default: theater left alone');
+    toPage('cinema', true); await wait(900);
+    assert.strictEqual(presses, 1, 'opens in theater with YouTube\'s own button');
+    assert.ok(fx.hasAttribute('theater') && root.hasAttribute('yqx-cin'), 'cinema is active once theater is on');
+    await wait(700);
+    assert.strictEqual(presses, 1, 'once per video');
+    videoPaused = false; evt(videoEl, 'playing'); await wait(30);
+    assert.ok(root.hasAttribute('yqx-bar-gone'), 'the bar goes away while it plays');
+    videoPaused = true; evt(videoEl, 'pause'); await wait(30);
+    assert.ok(!root.hasAttribute('yqx-bar-gone'), 'and comes back on pause');
+    assert.strictEqual(skips().length, 0, 'its own click is never taken for yours');
+    userClick(); await wait(700);
+    assert.ok(!fx.hasAttribute('theater') && !root.hasAttribute('yqx-cin'), 'you leave theater: cinema ends with it');
+    assert.deepStrictEqual(skips().map((m) => m.on), [true], 'leaving theater teaches it: this channel stays normal');
+    videoId = 'vidB';
+    window.history.pushState({}, '', '/watch?v=vidB');
+    document.dispatchEvent(new window.Event('yt-navigate-finish')); await wait(900);
+    assert.strictEqual(presses, 2, 'the next video of that channel stays normal');
+    userClick(); await wait(700);
+    assert.ok(fx.hasAttribute('theater'), 'you go back into theater');
+    assert.deepStrictEqual(skips().map((m) => m.on), [true, false], 'going back into theater undoes it');
+    videoId = 'vidC';
+    window.history.pushState({}, '', '/watch?v=vidC');
+    fx.removeAttribute('theater');
+    document.dispatchEvent(new window.Event('yt-navigate-finish')); await wait(900);
+    assert.ok(fx.hasAttribute('theater'), 'the channel opens in theater again');
+    toPage('cinemaSkip', { [UC('z')]: 'Other' });
+    videoId = 'vidD';
+    window.history.pushState({}, '', '/watch?v=vidD');
+    fx.removeAttribute('theater');
+    document.dispatchEvent(new window.Event('yt-navigate-finish')); await wait(900);
+    assert.ok(!fx.hasAttribute('theater'), 'a channel saved as "stays normal" is left alone');
+    toPage('cinema', false); await wait(50);
+    assert.ok(!root.hasAttribute('yqx-cin'), 'switched off: nothing is forced');
+    videoId = 'vid1';
+    window.history.pushState({}, '', '/watch?v=vid1');
+    toPage('cinemaSkip', {});
+    fx.remove(); holder.remove(); btn.remove(); videoPaused = was;
   }
 
   // No toolbar at all -> floating fallback

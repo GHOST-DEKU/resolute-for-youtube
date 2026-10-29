@@ -34,6 +34,11 @@
  * moves up with it. It comes back on pause, when the pointer is on the top edge or the bar, while the
  * bar has keyboard focus (YouTube's "/" focuses the search box), or while one of its menus is open.
  * Only YouTube's own bar element is moved with CSS; nothing is removed.
+ *
+ * Optional cinema mode: a video opens in theater (YouTube's own theater button, once per video), the top
+ * bar hides while it plays, and the video fills the window at its own shape (never stretched or cropped).
+ * Leaving theater yourself teaches it: that channel's videos stay normal next time; going back into
+ * theater there undoes that. Your own clicks and the T key count; Resolute's own click never does.
  */
 (() => {
   'use strict';
@@ -1304,6 +1309,14 @@
       hideChat = msg.value;
       checkChat();
       return;
+    } else if (msg.type === 'cinemaSkip' && msg.value && typeof msg.value === 'object') {
+      cinemaSkip = new Set(Object.keys(msg.value).filter((id) => CHANNEL_ID.test(id)));
+      return;
+    } else if (msg.type === 'cinema' && typeof msg.value === 'boolean') {
+      cinemaOn = msg.value;
+      updateBar();
+      checkCinema();
+      return;
     } else if (msg.type === 'topbar' && typeof msg.value === 'boolean') {
       hideBar = msg.value;
       updateBar();
@@ -1370,7 +1383,7 @@
   let barHoldT = 0;
   const BAR_LEAVE_MS = 600; // a quick slip off the edge doesn't make the bar flicker
   const barBox = () => document.getElementById('masthead-container');
-  const barOnWatch = () => IS_TOP && hideBar && location.pathname === '/watch';
+  const barOnWatch = () => IS_TOP && location.pathname === '/watch' && (hideBar || cinemaActive());
   /** Something is using the bar: a focused field (search), an open menu (account, notifications, ours). */
   function barBusy() {
     const box = barBox();
@@ -1391,9 +1404,10 @@
     const root = document.documentElement;
     const on = barOnWatch();
     root.toggleAttribute('yqx-bar', on);
+    root.toggleAttribute('yqx-cin', IS_TOP && cinemaActive());
+    ensureBar(); // idempotent: style, hover strip, and the theater watcher
     // Fullscreen: YouTube already hides its bar there, so leave it to YouTube.
     root.toggleAttribute('yqx-bar-gone', on && !document.fullscreenElement && barVideoPlaying() && !barHover && !barBusy());
-    if (on) ensureBar();
   }
   function barHold() { clearTimeout(barHoldT); barHoldT = 0; if (!barHover) { barHover = true; updateBar(); } }
   function barRelease() {
@@ -1418,6 +1432,11 @@
       zone.addEventListener('pointerenter', barHold);
       zone.addEventListener('pointerleave', barRelease);
       (document.body || document.documentElement).append(zone);
+    }
+    const fx = flexy();
+    if (fx && !fx.__yqxTheater) { // theater flips by YouTube, by you, or by cinema mode: the bar follows
+      fx.__yqxTheater = true;
+      new MutationObserver(updateBar).observe(fx, { attributes: true, attributeFilter: ['theater'] });
     }
     const box = barBox();
     if (box && !box.__yqxBar) {
@@ -1450,10 +1469,73 @@ html[yqx-bar] #page-manager.ytd-app{transition:margin-top .5s cubic-bezier(.2,0,
 /* Away: slides up and softens, the page takes its place. Still focusable, so "/" and Tab reach the search box. */
 html[yqx-bar][yqx-bar-gone] #masthead-container{transform:translateY(-100%);opacity:0;filter:blur(6px);pointer-events:none}
 html[yqx-bar][yqx-bar-gone] #page-manager.ytd-app{margin-top:0}
+/* Cinema: the player takes the whole window, the bar floats over it, and YouTube's "cover" crop is turned off. */
+html[yqx-cin] .html5-video-player .html5-main-video{object-fit:contain!important}
+html[yqx-cin] body ytd-watch-flexy[theater] #full-bleed-container,
+html[yqx-cin] body ytd-watch-flexy[theater] #player-theater-container{height:100vh!important;min-height:100vh!important;max-height:100vh!important}
+html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
 @media (prefers-reduced-motion: reduce){
   html[yqx-bar] #masthead-container{transition:opacity .2s linear}
   html[yqx-bar] #page-manager.ytd-app{transition:none}
 }`;
+
+  // ---------- cinema mode: theater on open, the bar away, the video filling the window ----------
+  let cinemaOn = false;
+  let cinemaSkip = new Set();   // channel ids where the user left theater: they stay normal
+  let cinemaDoneFor = '';       // video already handled (entered, skipped, or given up on)
+  let cinemaTimer = 0;
+  let cinemaTries = 0;
+  let cinemaVid = '';
+  const flexy = () => document.querySelector('ytd-watch-flexy');
+  const isTheater = () => !!(flexy() && flexy().hasAttribute('theater'));
+  const cinemaActive = () => IS_TOP && cinemaOn && location.pathname === '/watch' && isTheater() && !document.fullscreenElement;
+  /** true = nothing left to do for this video. */
+  function tryCinema() {
+    const vid = watchVid();
+    if (!cinemaOn || !vid || cinemaDoneFor === vid) return true;
+    if (vid !== cinemaVid) { cinemaVid = vid; cinemaTries = 0; }
+    const btn = document.querySelector('.ytp-size-button');
+    const ch = channelFor(getPlayer(), vid);
+    // The button is hidden in narrow windows; then there is nothing to press.
+    if (!(ch && btn && flexy() && getComputedStyle(btn).display !== 'none')) {
+      if (++cinemaTries < 40) return false; // shortcut: gives up after ~20 s (narrow window, no theater button); raise if slow pages are missed
+      cinemaDoneFor = vid;
+      return true;
+    }
+    cinemaDoneFor = vid;
+    if (!cinemaSkip.has(ch.id) && !isTheater() && !document.fullscreenElement) btn.click(); // YouTube's own button, same as pressing T
+    return true;
+  }
+  function checkCinema() {
+    if (!IS_TOP || cinemaTimer || tryCinema()) return;
+    cinemaTimer = setInterval(() => {
+      if (tryCinema()) { clearInterval(cinemaTimer); cinemaTimer = 0; }
+    }, 500);
+  }
+  /** Your own switch of theater (button or T) is a choice: out of theater = "not on this channel"; back in = undo. */
+  function learnTheater() {
+    const vid = watchVid();
+    const ch = vid && channelFor(getPlayer(), vid);
+    if (!cinemaOn || !ch) return;
+    setTimeout(() => {
+      if (document.fullscreenElement) return; // T does nothing there
+      const stay = !isTheater();
+      if (stay === cinemaSkip.has(ch.id)) return;
+      if (stay) cinemaSkip.add(ch.id); else cinemaSkip.delete(ch.id);
+      postToExt({ type: 'cinemaSkip', channelId: ch.id, name: ch.name, on: stay });
+    }, 400);
+  }
+  // Resolute's own btn.click() is not trusted, so it is never mistaken for you.
+  const fromUser = (e) => e.isTrusted;
+  document.addEventListener('click', (e) => {
+    if (fromUser(e) && e.target instanceof Element && e.target.closest('.ytp-size-button')) learnTheater();
+  }, true);
+  document.addEventListener('keydown', (e) => {
+    if (!fromUser(e) || e.key.toLowerCase() !== 't' || e.ctrlKey || e.metaKey || e.altKey || location.pathname !== '/watch') return;
+    const t = e.target;
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    learnTheater();
+  }, true);
 
   // ---------- lifecycle ----------
   let ensureQueued = false;
@@ -1465,12 +1547,13 @@ html[yqx-bar][yqx-bar-gone] #page-manager.ytd-app{margin-top:0}
       ensureUI();
       ensureMast();
       checkChat();
+      checkCinema();
       ensureBar();
     }, 150);
   }
 
   document.addEventListener('yt-navigate-start', () => { closeMenu(false); clearHeld(); });
-  document.addEventListener('yt-navigate-finish', () => { updateBar(); });
+  document.addEventListener('yt-navigate-finish', () => { updateBar(); checkCinema(); });
   for (const type of ['yt-navigate-finish', 'yt-player-updated', 'yt-page-data-updated']) {
     document.addEventListener(type, () => {
       ensureUI();

@@ -132,6 +132,29 @@
       </div>
     </section>
 
+    <section class="group" aria-labelledby="cn-title">
+      <h2 class="group-title" id="cn-title">Cinema</h2>
+      <div class="rows">
+      <label class="item row toggle" for="cn-on">
+        <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm6.5 3.5v7l6-3.5z"/></svg></span>
+        <span class="grow">
+          <span class="name" id="cn-title-n">Cinema mode</span>
+          <span class="hint" id="cn-desc">Videos open in theater, the top bar hides while they play, and the video fills the window without cropping.</span>
+        </span>
+        <span class="switch">
+          <input type="checkbox" role="switch" id="cn-on" aria-labelledby="cn-title-n" aria-describedby="cn-desc">
+          <span class="track" aria-hidden="true"></span>
+          <span class="thumb" aria-hidden="true"><svg class="sw-on" viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg><svg class="sw-off" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 19 17.59 13.41 12z"/></svg></span>
+        </span>
+      </label>
+      <div class="item row">
+        <span class="ico ico-secondary" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm0 4v10h16V8z"/></svg></span>
+        <span class="grow"><span class="name" id="sk-title">Channels that stay normal</span><span class="hint" id="skip-count">Leave theater on a channel and it stays normal there</span></span>
+        <button type="button" id="skip-clear" class="btn text" hidden>Forget all</button>
+      </div>
+      </div>
+    </section>
+
     <section class="group" aria-labelledby="bt-title">
       <h2 class="group-title" id="bt-title">Tabs you aren&rsquo;t watching</h2>
       <div class="rows">

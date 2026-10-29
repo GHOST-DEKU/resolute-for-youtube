@@ -468,6 +468,42 @@
     api.permissions.request(YOUTUBE).then(checkAccess).catch(checkAccess); // must run in this click
   });
 
+  // ---------- cinema mode ----------
+  const CINEMA = 'cinemaMode';
+  const SKIP = 'cinemaSkip';
+  const cnOn = $('cn-on');
+  const skipCount = $('skip-count');
+  const skipClear = $('skip-clear');
+  const showCinema = (v) => { cnOn.checked = v === true; };
+  api.storage.sync.get(CINEMA).then((r) => showCinema(r[CINEMA])).catch(() => {});
+  cnOn.addEventListener('change', async () => {
+    const on = cnOn.checked;
+    try {
+      await api.storage.sync.set({ [CINEMA]: on });
+      flash(on ? 'Cinema mode on' : 'Cinema mode off');
+    } catch {
+      cnOn.checked = !on; // show the setting that is really saved
+      flash('Could not save. Please try again.');
+    }
+  });
+  function showSkip(map) {
+    const n = Object.keys(map && typeof map === 'object' ? map : {}).length;
+    skipCount.textContent = n === 0 ? 'Leave theater on a channel and it stays normal there' : n === 1 ? '1 channel stays normal' : `${n} channels stay normal`;
+    skipClear.hidden = n === 0;
+  }
+  api.storage.local.get(SKIP).then((r) => showSkip(r[SKIP])).catch(() => showSkip({}));
+  skipClear.addEventListener('click', async () => {
+    const ok = await confirmAction('Forget channels that stay normal?',
+      'Cinema mode will open their videos in theater again.', 'Forget all');
+    if (!ok) return skipClear.focus();
+    try {
+      await api.storage.local.set({ [SKIP]: {} });
+      flash('Channels forgotten');
+    } catch {
+      flash('Could not clear. Please try again.');
+    }
+  });
+
   // ---------- hide the top bar while a video plays ----------
   const HIDE_BAR = 'hideTopBar';
   const tbOn = $('tb-on');
@@ -492,6 +528,8 @@
     if (area === 'sync' && changes[SAVER]) showSaver(changes[SAVER].newValue);
     if (area === 'sync' && changes[HIDE_CHAT]) showHideChat(changes[HIDE_CHAT].newValue);
     if (area === 'sync' && changes[HIDE_BAR]) showHideBar(changes[HIDE_BAR].newValue);
+    if (area === 'sync' && changes[CINEMA]) showCinema(changes[CINEMA].newValue);
+    if (area === 'local' && changes[SKIP]) showSkip(changes[SKIP].newValue);
     if (area === 'local' && changes[STATS]) showStats(changes[STATS].newValue);
     if (area === 'local' && changes[LAST]) showLast(changes[LAST].newValue);
     if (area === 'sync' && changes[THEME]) applyTheme(changes[THEME].newValue);

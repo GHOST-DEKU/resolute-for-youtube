@@ -22,6 +22,7 @@
   <a href="#autoplay">No autoplay</a> ·
   <a href="#chat">Hide live chat</a> ·
   <a href="#topbar">Hide top bar</a> ·
+  <a href="#cinema">Cinema mode</a> ·
   <a href="#saver">Background saver</a> ·
   <a href="#popup">Popup</a> ·
   <a href="#faq">FAQ</a> ·
@@ -41,6 +42,7 @@
 | ⏸️ **No more autoplay** *(optional)* | Two separate switches: videos you open, and the next video in a queue or playlist, can each start paused until you press play. |
 | 💬 **Hide live chat** *(optional)* | The chat beside a live stream (or a stream replay) closes when it opens, using YouTube's own close button. **Show chat** brings it back, and it stays open for that video. |
 | 🫥 **Hide top bar** *(optional)* | On a watch page, YouTube's top bar slides away while the video plays and the page moves up. Pause, point at the top edge, or press **/** and it is back. |
+| 🎬 **Cinema mode** *(optional)* | Watch pages open in theater mode, the top bar hides while the video plays, and the video fills the window without stretching or cropping. If you leave theater on a channel, that channel stays normal next time (undo by turning theater back on, or **Forget all** in the popup). |
 | 🍃 **Background saver** *(optional)* | Playing music in a tab you're not looking at? Quality drops to save data and comes back when you return. Never touches picture-in-picture. |
 | 🔒 **Private by design** | No servers, no analytics, no network requests. Settings stay in your browser. |
 
@@ -166,6 +168,30 @@ It only moves YouTube's own bar with CSS. Nothing is removed or clicked.
 
 ---
 
+<a id="cinema"></a>
+## 🎬 Cinema mode
+
+Off by default. Switch it on in the toolbar popup.
+
+<p align="center">
+  <img src="docs/cinema-mode.png" alt="Normal page, then cinema mode with the bar gone and the video filling the window, then the bar back over the video" width="100%"><br>
+  <sub>Drawn on a stand-in for a YouTube watch page, using the same rules the extension uses.</sub>
+</p>
+
+Opening a video puts it in theater mode, hides the top bar while it plays (same rules as **Hide top bar**), and makes the video fill the window **without stretching or cropping**. Black bars show only if the video's shape differs from your window.
+
+| Situation | What happens |
+|:---|:---|
+| You open a video | Theater mode starts once for that video |
+| You leave theater mode (button or **T**) on a channel | That channel stays normal next time |
+| You turn theater back on for it | The channel is back to opening in theater |
+| Fullscreen | Left to YouTube (a page cannot start fullscreen by itself) |
+| **Forget all** in the popup | Every left-out channel is cleared |
+
+Only your own click or key press counts as "leaving"; the extension's own actions never do. Left-out channels are stored on this device only (newest 2,000).
+
+---
+
 <a id="chat"></a>
 ## 💬 Hide live chat
 
@@ -225,6 +251,7 @@ The popup card also shows roughly how much data it saved **this week (Sunday to 
 - Switch **Videos I open** and **Next in queue or playlist** to start paused.
 - Switch **Hide live chat** on or off.
 - Switch **Hide top bar** on or off.
+- Switch **Cinema mode** on or off, and forget the channels you left out.
 - Switch the **Background saver** on or off, choose when it starts and how low it goes, and see this week's estimate.
 - See every **channel default**: change its quality, remove it (×), or **Remove all**.
 - Clear remembered videos with **Forget all**.

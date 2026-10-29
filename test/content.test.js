@@ -24,12 +24,14 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
 
 (async () => {
   await tick();
-  assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides', 'channels', 'autoplay', 'saver', 'chat', 'topbar', 'tabActive'], 'sends default, remembered videos, channel defaults, autoplay, saver, chat and top bar settings');
+  assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides', 'channels', 'autoplay', 'saver', 'chat', 'topbar', 'cinemaSkip', 'cinema', 'tabActive'], 'sends default, remembered videos, channel defaults, autoplay, saver, chat, top bar and cinema settings');
   assert.strictEqual(posted[5].value, false, 'live chat stays visible by default');
   assert.strictEqual(posted[6].value, false, 'top bar stays visible by default');
   assert.strictEqual(JSON.stringify(posted[4].value), '{"on":false,"after":30,"to":"tiny"}', 'saver off by default');
   assert.strictEqual(posted[0].value, 'hd1080');
-  assert.strictEqual(posted[7].value, false, 'tells the page whether its tab is selected');
+  assert.strictEqual(JSON.stringify(posted[7].value), '{}', 'no channels left out by default');
+  assert.strictEqual(posted[8].value, false, 'cinema mode is off by default');
+  assert.strictEqual(posted[9].value, false, 'tells the page whether its tab is selected');
   bgListener({ type: 'tabActive', on: true }, { id: 'me' });
   bgListener({ type: 'tabActive', on: true }, { id: 'someone-else' });
   bgListener({ type: 'tabActive', on: 'yes' }, { id: 'me' });
@@ -75,6 +77,13 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
   await fromPage({ type: 'channel', channelId: CH, value: 'hd720', name: 'x'.repeat(500) });
   assert.strictEqual(Object.keys(store.local.channelPrefs).length, 1, 'rejects bad ids and qualities');
   assert.strictEqual(store.local.channelPrefs[CH].name.length, 100, 'name length capped');
+  await fromPage({ type: 'cinemaSkip', channelId: CH, name: '  Alpha  ', on: true });
+  assert.deepStrictEqual(store.local.cinemaSkip, { [CH]: 'Alpha' }, 'saves a channel that stays normal');
+  await fromPage({ type: 'cinemaSkip', channelId: 'nope', name: 'x', on: true });
+  await fromPage({ type: 'cinemaSkip', channelId: CH, name: 'x', on: 'yes' });
+  assert.deepStrictEqual(Object.keys(store.local.cinemaSkip), [CH], 'rejects bad ids and values');
+  await fromPage({ type: 'cinemaSkip', channelId: CH, name: 'Alpha', on: false });
+  assert.deepStrictEqual(store.local.cinemaSkip, {}, 'going back into theater forgets the channel');
   await fromPage({ type: 'channel', channelId: CH, value: null });
   assert.deepStrictEqual(store.local.channelPrefs, {}, 'removes channel default');
   // Corrupted storage is cleaned on read

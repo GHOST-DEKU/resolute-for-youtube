@@ -467,6 +467,22 @@
   $('grant').addEventListener('click', () => {
     api.permissions.request(YOUTUBE).then(checkAccess).catch(checkAccess); // must run in this click
   });
+
+  // ---------- hide the top bar while a video plays ----------
+  const HIDE_BAR = 'hideTopBar';
+  const tbOn = $('tb-on');
+  const showHideBar = (v) => { tbOn.checked = v === true; };
+  api.storage.sync.get(HIDE_BAR).then((r) => showHideBar(r[HIDE_BAR])).catch(() => {});
+  tbOn.addEventListener('change', async () => {
+    const on = tbOn.checked;
+    try {
+      await api.storage.sync.set({ [HIDE_BAR]: on });
+      flash(on ? 'Top bar will hide while a video plays' : 'Top bar will stay visible');
+    } catch {
+      tbOn.checked = !on; // show the setting that is really saved
+      flash('Could not save. Please try again.');
+    }
+  });
   checkAccess();
 
   // ---------- stay in sync with changes made in the player or another window ----------
@@ -475,6 +491,7 @@
     if (area === 'sync' && (changes[HOLD.opened] || changes[HOLD.next] || changes[OLD_AUTOPLAY])) readHold();
     if (area === 'sync' && changes[SAVER]) showSaver(changes[SAVER].newValue);
     if (area === 'sync' && changes[HIDE_CHAT]) showHideChat(changes[HIDE_CHAT].newValue);
+    if (area === 'sync' && changes[HIDE_BAR]) showHideBar(changes[HIDE_BAR].newValue);
     if (area === 'local' && changes[STATS]) showStats(changes[STATS].newValue);
     if (area === 'local' && changes[LAST]) showLast(changes[LAST].newValue);
     if (area === 'sync' && changes[THEME]) applyTheme(changes[THEME].newValue);

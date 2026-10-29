@@ -547,6 +547,62 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   chatFrame.remove();
   window.history.pushState({}, '', '/watch?v=vid1');
 
+  // Hide the top bar while a video plays: away on play, back on pause / pointer / focus / menu
+  {
+    const holder = document.createElement('div');
+    holder.innerHTML = '<div id="masthead-container"><ytd-masthead><input id="srch" role="combobox" aria-expanded="true"><button id="acct" aria-expanded="false"></button></ytd-masthead></div><div id="page-manager"></div>';
+    document.body.append(holder);
+    const root = document.documentElement;
+    const was = videoPaused;
+    const evt = (el, type) => el.dispatchEvent(new window.Event(type));
+    const gone = () => root.hasAttribute('yqx-bar-gone');
+    videoPaused = false;
+    await wait(50);
+    assert.ok(!root.hasAttribute('yqx-bar') && !gone(), 'off by default: nothing changes');
+    toPage('topbar', true); await wait(50);
+    assert.ok(root.hasAttribute('yqx-bar') && gone(), 'switched on and playing: the bar is away');
+    assert.ok(document.getElementById('yqx-bar-style').textContent.includes('#page-manager'), 'styles are added once the bar is managed');
+    videoPaused = true; evt(videoEl, 'pause'); await wait(20);
+    assert.ok(!gone(), 'paused: the bar comes back');
+    videoPaused = false; evt(videoEl, 'playing'); await wait(20);
+    assert.ok(gone(), 'playing again: away again');
+    const zone = document.getElementById('yqx-bar-zone');
+    evt(zone, 'pointerenter'); await wait(20);
+    assert.ok(!gone(), 'pointer on the top edge: the bar comes back');
+    evt(zone, 'pointerleave'); await wait(300);
+    assert.ok(!gone(), 'a quick slip off the edge does not hide it');
+    await wait(500);
+    assert.ok(gone(), 'pointer left for good: away again');
+    const search = document.getElementById('srch');
+    search.focus(); await wait(30);
+    assert.ok(!gone(), 'search focused ("/" or click): the bar stays');
+    search.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await wait(30);
+    assert.ok(gone(), 'Escape in the search box lets the bar go');
+    evt(zone, 'pointerenter'); search.focus(); await wait(30);
+    search.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await wait(30);
+    assert.ok(gone(), 'Escape also drops a pointer hold: the bar goes at once');
+    const acct = document.getElementById('acct');
+    acct.setAttribute('aria-expanded', 'true'); evt(zone, 'pointerenter'); evt(zone, 'pointerleave'); await wait(1300);
+    assert.ok(!gone(), 'a menu from the bar is open: it stays');
+    acct.setAttribute('aria-expanded', 'false'); await wait(1300);
+    assert.ok(gone(), 'menu closed: away again');
+    Object.defineProperty(document, 'fullscreenElement', { get: () => videoEl, configurable: true });
+    evt(document, 'fullscreenchange'); await wait(20);
+    assert.ok(!gone(), 'fullscreen: left to YouTube');
+    delete document.fullscreenElement;
+    evt(document, 'fullscreenchange'); await wait(20);
+    assert.ok(gone(), 'out of fullscreen: away again');
+    window.history.pushState({}, '', '/feed/subscriptions');
+    document.dispatchEvent(new window.Event('yt-navigate-finish')); await wait(20);
+    assert.ok(!root.hasAttribute('yqx-bar') && !gone(), 'other pages: the bar is always there');
+    window.history.pushState({}, '', '/watch?v=vid1');
+    document.dispatchEvent(new window.Event('yt-navigate-finish')); await wait(20);
+    assert.ok(gone(), 'back on a watch page: away while playing');
+    toPage('topbar', false); await wait(20);
+    assert.ok(!root.hasAttribute('yqx-bar') && !gone(), 'switched off: the bar returns');
+    holder.remove(); videoPaused = was;
+  }
+
   // No toolbar at all -> floating fallback
   document.querySelector('.ytp-chrome-bottom').remove();
   await wait(400);

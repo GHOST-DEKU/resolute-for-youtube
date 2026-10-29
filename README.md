@@ -21,6 +21,7 @@
   <a href="#quality">Quality button</a> ·
   <a href="#autoplay">No autoplay</a> ·
   <a href="#chat">Hide live chat</a> ·
+  <a href="#topbar">Hide top bar</a> ·
   <a href="#saver">Background saver</a> ·
   <a href="#popup">Popup</a> ·
   <a href="#faq">FAQ</a> ·
@@ -39,6 +40,7 @@
 | ⭐ **One global default** | For everything else. |
 | ⏸️ **No more autoplay** *(optional)* | Two separate switches: videos you open, and the next video in a queue or playlist, can each start paused until you press play. |
 | 💬 **Hide live chat** *(optional)* | The chat beside a live stream (or a stream replay) closes when it opens, using YouTube's own close button. **Show chat** brings it back, and it stays open for that video. |
+| 🫥 **Hide top bar** *(optional)* | On a watch page, YouTube's top bar slides away while the video plays and the page moves up. Pause, point at the top edge, or press **/** and it is back. |
 | 🍃 **Background saver** *(optional)* | Playing music in a tab you're not looking at? Quality drops to save data and comes back when you return. Never touches picture-in-picture. |
 | 🔒 **Private by design** | No servers, no analytics, no network requests. Settings stay in your browser. |
 
@@ -142,6 +144,28 @@ Keyboard: Tab to the button (it unfolds), Enter toggles both, ↓ opens the menu
 
 ---
 
+<a id="topbar"></a>
+## 🫥 Hide top bar
+
+Off by default. Switch it on in the toolbar popup.
+
+On a watch page, YouTube's top bar (logo, search, icons) moves away while the video **plays**, and the page moves up to use the space. Everywhere else the bar stays as it is.
+
+| Situation | What happens |
+|:---|:---|
+| The video plays | The bar slides up and softens away |
+| You pause | The bar comes back |
+| You point at the top edge or the bar | The bar comes back, and leaves 0.6 s after the pointer does |
+| You press **/** (YouTube's own search key) or click the search box | The bar comes back and stays while the search box is in use. **Esc** sends it away again, even if the pointer is resting on it |
+| An account, notification or Resolute menu is open | The bar stays |
+| You type in a comment or live chat | Nothing changes; letters are never taken |
+| Fullscreen | Left to YouTube, which already hides its bar |
+| Reduce Motion is on in your system | The bar fades instead of sliding |
+
+It only moves YouTube's own bar with CSS. Nothing is removed or clicked.
+
+---
+
 <a id="chat"></a>
 ## 💬 Hide live chat
 
@@ -200,6 +224,7 @@ The popup card also shows roughly how much data it saved **this week (Sunday to 
 - Set the **global default** quality.
 - Switch **Videos I open** and **Next in queue or playlist** to start paused.
 - Switch **Hide live chat** on or off.
+- Switch **Hide top bar** on or off.
 - Switch the **Background saver** on or off, choose when it starts and how low it goes, and see this week's estimate.
 - See every **channel default**: change its quality, remove it (×), or **Remove all**.
 - Clear remembered videos with **Forget all**.
@@ -240,7 +265,7 @@ Each has its own rules; see the [Chrome guide, section 5](docs/PUBLISHING.md#5-l
 <details>
 <summary><b>Does it send my data anywhere?</b></summary>
 
-No. There's no code that makes network requests. Your global default, the two autoplay settings, the hide-live-chat setting and the saver setting are kept in your browser's synced extension storage; remembered videos, channel defaults and the saver's daily estimates stay on this device only. Full details in the [privacy policy](PRIVACY.md).
+No. There's no code that makes network requests. Your global default, the two autoplay settings, the hide-live-chat setting, the hide-top-bar setting and the saver setting are kept in your browser's synced extension storage; remembered videos, channel defaults and the saver's daily estimates stay on this device only. Full details in the [privacy policy](PRIVACY.md).
 </details>
 
 <details>
@@ -279,6 +304,7 @@ No. Shorts and m.youtube.com use a different player. The autoplay settings also 
 - "Next in queue or playlist" means the previous video played to its end and you didn't click or type before the next one started. If you click something in that moment, the next video counts as one you opened.
 - Material 3 Expressive spring motion uses CSS `linear()` easing (Chrome 113+, Firefox 112+). On Chrome 111–112 the button works the same, just without animation.
 - Channel defaults need the channel ID from YouTube's player data (`getPlayerResponse`). If YouTube stops providing it, videos fall back to the global default ("Channel not detected"). Nothing wrong is applied.
+- **Hide top bar** moves YouTube's `#masthead-container` and the page's top margin with CSS. If YouTube renames those, the bar simply stays where it is until Resolute is updated. The hidden bar stays focusable so **/** and Tab still reach search.
 - **Hide live chat** clicks the close button inside YouTube's chat panel. If YouTube renames that button, the chat just stays open until Resolute is updated. Chat that loads more than about a minute after the page opens is left open.
 - Remembered videos and channel defaults stay on the device where you saved them (not synced).
 - "Auto" after a forced quality uses `setPlaybackQualityRange('auto')`; verify on a real video.
@@ -292,10 +318,10 @@ No. Shorts and m.youtube.com use a different player. The autoplay settings also 
 
 | File | Job |
 |:---|:---|
-| `page.js` | Runs in YouTube's page (the "MAIN" world) so it can use the player's own methods. Adds the quality button + menu, applies the quality on every new video, waits for ads. Adds the autoplay button beside the search box and, per your two autoplay settings, pauses a video the first time it starts by itself (telling "opened" apart from "next in queue"). Shows "Video waiting" on that button while a video is held, closes the live chat panel once per video if you asked for it, and runs the background saver (tab hidden, not in picture-in-picture), including the tab title and icon. |
+| `page.js` | Runs in YouTube's page (the "MAIN" world) so it can use the player's own methods. Adds the quality button + menu, applies the quality on every new video, waits for ads. Adds the autoplay button beside the search box and, per your two autoplay settings, pauses a video the first time it starts by itself (telling "opened" apart from "next in queue"). Shows "Video waiting" on that button while a video is held, closes the live chat panel once per video and slides the top bar away while a video plays, if you asked for either, and runs the background saver (tab hidden, not in picture-in-picture), including the tab title and icon. |
 | `background.js` | Tells each YouTube tab whether it's the selected tab of its window (Vivaldi keeps background tabs "visible" to pages; the page then checks it's no longer drawn), and shows the "Background saver: 144p" notification while a tab is lowered, cleared when you return. |
-| `content.js` | Bridge to extension storage: the global default, the two autoplay settings, the hide-live-chat setting and the saver setting (all synced), the saver's daily estimates (this device, last 21 days), remembered videos (this device, newest 1,000) and channel defaults (this device, newest 2,000). Validates every message and drops corrupted entries. |
-| `popup.*` | The toolbar popup: global default, the two autoplay switches, hide live chat, the background saver and its weekly estimate, channel defaults, remembered videos, theme, and a fix for switched-off YouTube access. |
+| `content.js` | Bridge to extension storage: the global default, the two autoplay settings, the hide-live-chat setting, the hide-top-bar setting and the saver setting (all synced), the saver's daily estimates (this device, last 21 days), remembered videos (this device, newest 1,000) and channel defaults (this device, newest 2,000). Validates every message and drops corrupted entries. |
+| `popup.*` | The toolbar popup: global default, the two autoplay switches, hide live chat, hide top bar, the background saver and its weekly estimate, channel defaults, remembered videos, theme, and a fix for switched-off YouTube access. |
 
 The two scripts talk through `window.postMessage`. No build step, no bundler, no libraries.
 </details>
@@ -329,6 +355,7 @@ Runs the scripts against a fake YouTube player and fake storage. They cover:
 - **Autoplay settings:** "opened" vs. "next in queue" detection, each setting on its own, your play never undone, ads skipped, search-box typing and menu clicks not counted as play, switching on never pausing the video already playing.
 - **Autoplay button:** unfolding, toggling both, the menu, keyboard, following the popup; "Video waiting" with every play method, your own pause staying quiet, a different video clearing it.
 - **Hide live chat:** off by default, waits until the chat has loaded, closes it once per video so **Show chat** stays open, closes it again on the next stream, leaves it alone when switched off.
+- **Hide top bar:** off by default, away while playing, back on pause / pointer / focus / open menu, Esc lets it go, fullscreen and other pages untouched, switching off restores it.
 - **Background saver:** off by default, the delay, lowest or 480p, the tab title and icon, the next playlist video staying low, picture-in-picture never lowered or counted, paused time not counted, daily estimates kept for 21 days.
 </details>
 

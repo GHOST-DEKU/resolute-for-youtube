@@ -29,6 +29,11 @@
  *
  * Optional live chat hiding: when a stream (or a stream replay) opens, its chat panel is closed with
  * YouTube's own close button, once per video. YouTube's "Show chat" brings it back and it stays open.
+ *
+ * Optional top bar hiding: on a /watch page the bar slides away while the video plays, and the page
+ * moves up with it. It comes back on pause, when the pointer is on the top edge or the bar, while the
+ * bar has keyboard focus (YouTube's "/" focuses the search box), or while one of its menus is open.
+ * Only YouTube's own bar element is moved with CSS; nothing is removed.
  */
 (() => {
   'use strict';
@@ -1299,6 +1304,10 @@
       hideChat = msg.value;
       checkChat();
       return;
+    } else if (msg.type === 'topbar' && typeof msg.value === 'boolean') {
+      hideBar = msg.value;
+      updateBar();
+      return;
     } else if (msg.type === 'channels' && msg.value && typeof msg.value === 'object') {
       // Keep only well-formed entries; anything corrupted is ignored, never applied.
       channels = {};
@@ -1353,6 +1362,99 @@
     }, 500);
   }
 
+  // ---------- hide the top bar while a video plays ----------
+  // Two attributes on <html> drive the CSS: "yqx-bar" = the feature is on and this is a watch page
+  // (transitions apply), "yqx-bar-gone" = the bar is away right now.
+  let hideBar = false;
+  let barHover = false; // pointer on the top edge or on the bar
+  let barHoldT = 0;
+  const BAR_LEAVE_MS = 600; // a quick slip off the edge doesn't make the bar flicker
+  const barBox = () => document.getElementById('masthead-container');
+  const barOnWatch = () => IS_TOP && hideBar && location.pathname === '/watch';
+  /** Something is using the bar: a focused field (search), an open menu (account, notifications, ours). */
+  function barBusy() {
+    const box = barBox();
+    if (!box) return false;
+    try {
+      if (box.matches(':focus-within')) return true;
+      // Buttons only: YouTube's search box (a combobox input) says aria-expanded="true" even when idle; its focus is covered above.
+      if (box.querySelector('button[aria-expanded="true"]')) return true;
+    } catch { /* selector unsupported: treat as idle */ }
+    return mast.open;
+  }
+  function barVideoPlaying() {
+    const p = getPlayer();
+    const v = p && p.querySelector('video');
+    return !!v && !v.paused && !v.ended;
+  }
+  function updateBar() {
+    const root = document.documentElement;
+    const on = barOnWatch();
+    root.toggleAttribute('yqx-bar', on);
+    // Fullscreen: YouTube already hides its bar there, so leave it to YouTube.
+    root.toggleAttribute('yqx-bar-gone', on && !document.fullscreenElement && barVideoPlaying() && !barHover && !barBusy());
+    if (on) ensureBar();
+  }
+  function barHold() { clearTimeout(barHoldT); barHoldT = 0; if (!barHover) { barHover = true; updateBar(); } }
+  function barRelease() {
+    clearTimeout(barHoldT);
+    barHoldT = setTimeout(function tick() {
+      const box = barBox(), zone = document.getElementById('yqx-bar-zone');
+      const pointed = (box && box.matches(':hover')) || (zone && zone.matches(':hover')); // pointer sits still on the bar
+      if (pointed || barBusy()) { barHoldT = setTimeout(tick, BAR_LEAVE_MS); return; } // a menu is open or the pointer is still there
+      barHoldT = 0; barHover = false; updateBar();
+    }, BAR_LEAVE_MS);
+  }
+  function ensureBar() {
+    if (!IS_TOP) return;
+    if (!document.getElementById('yqx-bar-style')) {
+      const style = el('style', '', { id: 'yqx-bar-style' });
+      style.textContent = BAR_CSS;
+      (document.head || document.documentElement).append(style);
+    }
+    let zone = document.getElementById('yqx-bar-zone');
+    if (!zone) {
+      zone = el('div', '', { id: 'yqx-bar-zone', 'aria-hidden': 'true' });
+      zone.addEventListener('pointerenter', barHold);
+      zone.addEventListener('pointerleave', barRelease);
+      (document.body || document.documentElement).append(zone);
+    }
+    const box = barBox();
+    if (box && !box.__yqxBar) {
+      box.__yqxBar = true;
+      box.addEventListener('pointerenter', barHold);
+      box.addEventListener('pointerleave', barRelease);
+    }
+  }
+  for (const type of ['playing', 'pause', 'ended', 'emptied']) document.addEventListener(type, (e) => {
+    if (e.target instanceof HTMLVideoElement) updateBar();
+  }, true);
+  // focusin/out: the focused element changes after focusout, so look one tick later.
+  for (const type of ['focusin', 'focusout']) document.addEventListener(type, () => { if (hideBar) setTimeout(updateBar, 0); }, true);
+  document.addEventListener('fullscreenchange', updateBar);
+  document.addEventListener('keydown', (e) => {
+    // Escape in the search box means "done": leave the box and drop any pointer hold, so the bar goes now.
+    if (e.key !== 'Escape' || !barOnWatch()) return;
+    const t = e.target, box = barBox();
+    if (!(t instanceof HTMLInputElement) || !box || !box.contains(t)) return;
+    clearTimeout(barHoldT); barHoldT = 0; barHover = false;
+    setTimeout(() => { if (document.activeElement === t) t.blur(); updateBar(); }, 0);
+  }, true);
+  const BAR_CSS = `
+#yqx-bar-zone{position:fixed;top:0;left:0;right:0;height:12px;z-index:2147483000;pointer-events:none}
+html[yqx-bar][yqx-bar-gone] #yqx-bar-zone{pointer-events:auto}
+html[yqx-bar]{--yqx-bar-sp:linear(0,.0105 1.4%,.0436 3%,.1754 6.6%,.4153 11.8%,.6593 17.9%,.8448 24.5%,.9578 31.8%,1.0148 39.8%,1.0306 47.6%,1.0222 58.5%,1.0039 76%,1)}
+html[yqx-bar] #masthead-container{
+  transition:transform .6s var(--yqx-bar-sp),opacity .35s cubic-bezier(.2,0,0,1),filter .45s cubic-bezier(.2,0,0,1)}
+html[yqx-bar] #page-manager.ytd-app{transition:margin-top .5s cubic-bezier(.2,0,0,1)}
+/* Away: slides up and softens, the page takes its place. Still focusable, so "/" and Tab reach the search box. */
+html[yqx-bar][yqx-bar-gone] #masthead-container{transform:translateY(-100%);opacity:0;filter:blur(6px);pointer-events:none}
+html[yqx-bar][yqx-bar-gone] #page-manager.ytd-app{margin-top:0}
+@media (prefers-reduced-motion: reduce){
+  html[yqx-bar] #masthead-container{transition:opacity .2s linear}
+  html[yqx-bar] #page-manager.ytd-app{transition:none}
+}`;
+
   // ---------- lifecycle ----------
   let ensureQueued = false;
   function queueEnsure() {
@@ -1363,10 +1465,12 @@
       ensureUI();
       ensureMast();
       checkChat();
+      ensureBar();
     }, 150);
   }
 
   document.addEventListener('yt-navigate-start', () => { closeMenu(false); clearHeld(); });
+  document.addEventListener('yt-navigate-finish', () => { updateBar(); });
   for (const type of ['yt-navigate-finish', 'yt-player-updated', 'yt-page-data-updated']) {
     document.addEventListener(type, () => {
       ensureUI();

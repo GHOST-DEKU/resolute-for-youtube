@@ -4,7 +4,7 @@
 
 Resolute is available by manual installation in Chrome and is planned for Mozilla Add-ons (Firefox). This policy covers the extension's own behaviour in any browser.
 
-Resolute for YouTube ("the extension") lets you choose the video quality of YouTube videos from a button inside the YouTube player, and can optionally start videos paused, hide live chat and lower quality in background tabs. This policy explains exactly what the extension stores and what it does not do.
+Resolute for YouTube ("the extension") lets you choose the video quality of YouTube videos from a button inside the YouTube player, and can optionally start videos paused, hide live chat, hide the top bar while a video plays and lower quality in background tabs. This policy explains exactly what the extension stores and what it does not do.
 
 ## What the extension stores
 
@@ -13,6 +13,7 @@ Resolute for YouTube ("the extension") lets you choose the video quality of YouT
 | Your **default quality** (for example "1080p" or "Highest available") | When you pick a default in the popup or click **Make default for all videos** in the player menu | Your browser's extension storage (`storage.sync`). If you have turned on Chrome Sync or Firefox Sync, your browser copies this setting to your other signed-in browsers. That copying is done by your browser and your Google or Mozilla account, not by the extension or its developer. |
 | Your two **autoplay settings** ("Videos I open" and "Next in queue or playlist", each on or off) | When you switch them in the toolbar popup or with the button next to YouTube's search box | Your browser's extension storage (`storage.sync`), synced by your browser like the default quality. |
 | Your **hide live chat** setting (on or off) | When you switch it in the toolbar popup | Your browser's extension storage (`storage.sync`), synced by your browser like the default quality. |
+| Your **hide top bar** setting (on or off) | When you switch it in the toolbar popup | Your browser's extension storage (`storage.sync`), synced by your browser like the default quality. |
 | Your **background saver** setting (on or off, when it starts, how low it goes) | When you change it in the toolbar popup | Your browser's extension storage (`storage.sync`), synced by your browser like the default quality. |
 | The saver's **last run** (when, the quality before and after, how long, about how many MB) | Each time the background saver has lowered a video | Your browser's local extension storage (`storage.local`), on this device only. Only the most recent run is kept (or, if it didn't lower the video, the reason), and it doesn't include which video it was. |
 | The saver's **daily estimate** of data saved (for example `2026-10-23 → 140 MB`) | Only while the background saver is on, after it has lowered a video | Your browser's local extension storage (`storage.local`), on this device only. It is never synced. Only the last 21 days are kept. It holds a date and a number, nothing about which videos you watched. |

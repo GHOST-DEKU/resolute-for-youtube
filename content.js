@@ -10,6 +10,7 @@
  *  - sync  "holdNext":          true = the next video in a queue/playlist starts paused (off unless turned on)
  *    (older versions stored one "stopAutoplay" switch; it counts as both until either is set)
  *  - sync  "hideChat":          true = close YouTube's live chat panel when a stream opens (off unless turned on)
+ *  - sync  "hideTopBar":       true = YouTube's top bar hides while a video plays (off unless turned on)
  *  - sync  "bgSaver":           { on, after: 15|30|60 seconds, to: "tiny"|"large" } background saver
  *  - local "saverStats":        { "YYYY-MM-DD": estimated MB saved } for the last 21 days
  *  - local "saverLast":         { at, from, to, secs, mb } the most recent run, or { at, skipped: reason }
@@ -27,6 +28,7 @@
   const OLD_AUTOPLAY = 'stopAutoplay';
   const SAVER = 'bgSaver';
   const HIDE_CHAT = 'hideChat';
+  const HIDE_BAR = 'hideTopBar';
   const STATS = 'saverStats';
   const LAST = 'saverLast';
   const QUALITY_ID = /^(tiny|small|medium|large|hd720|hd1080|hd1440|hd2160|highres)$/;
@@ -109,6 +111,7 @@
     send({ type: 'autoplay', value: await readAutoplay() });
     send({ type: 'saver', value: await readSaver() });
     send({ type: 'chat', value: await readHideChat() });
+    send({ type: 'topbar', value: await readHideBar() });
     // Is this the selected tab of its window? (Vivaldi never marks background tabs "hidden", so ask the browser.)
     try {
       const active = await api.runtime.sendMessage({ type: 'amActive' });
@@ -118,6 +121,13 @@
   async function readHideChat() {
     try {
       return (await api.storage.sync.get(HIDE_CHAT))[HIDE_CHAT] === true;
+    } catch {
+      return false;
+    }
+  }
+  async function readHideBar() {
+    try {
+      return (await api.storage.sync.get(HIDE_BAR))[HIDE_BAR] === true;
     } catch {
       return false;
     }
@@ -194,6 +204,9 @@
       }
       if (area === 'sync' && changes[HIDE_CHAT]) {
         send({ type: 'chat', value: changes[HIDE_CHAT].newValue === true });
+      }
+      if (area === 'sync' && changes[HIDE_BAR]) {
+        send({ type: 'topbar', value: changes[HIDE_BAR].newValue === true });
       }
       if (area === 'sync' && changes[SAVER]) {
         send({ type: 'saver', value: cleanSaver(changes[SAVER].newValue) });

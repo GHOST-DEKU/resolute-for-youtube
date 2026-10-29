@@ -14,6 +14,7 @@ Resolute for YouTube ("the extension") lets you choose the video quality of YouT
 | Your two **autoplay settings** ("Videos I open" and "Next in queue or playlist", each on or off) | When you switch them in the toolbar popup or with the button next to YouTube's search box | Your browser's extension storage (`storage.sync`), synced by your browser like the default quality. |
 | Your **hide live chat** setting (on or off) | When you switch it in the toolbar popup | Your browser's extension storage (`storage.sync`), synced by your browser like the default quality. |
 | Your **hide top bar** setting (on or off) | When you switch it in the toolbar popup | Your browser's extension storage (`storage.sync`), synced by your browser like the default quality. |
+| Your **tab countdown icons** setting (on or off) | When you switch it in the toolbar popup | Your browser's extension storage (`storage.sync`). |
 | Your **Cinema mode** setting (on or off) | When you switch it in the toolbar popup | Your browser's extension storage (`storage.sync`). |
 | The **channels you left in normal view** (channel ID and name, newest 2,000) | When you leave theater mode on a channel while Cinema mode is on | Your browser's local extension storage (`storage.local`), this device only. **Forget all** in the popup clears it. |
 | Your **background saver** setting (on or off, when it starts, how low it goes) | When you change it in the toolbar popup | Your browser's extension storage (`storage.sync`), synced by your browser like the default quality. |

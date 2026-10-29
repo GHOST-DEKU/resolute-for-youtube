@@ -369,7 +369,7 @@
     forceQuality(p, target);
     forcedEarlier = true;
     lastApplied = `${videoIdOf(p)}|${saver.to}`;
-    tabMark(heightLabel(target));
+    tabRefresh();
     const data = call(p, 'getVideoData');
     postToExt({ type: 'saverOn', label: heightLabel(target), title: (data && data.title) || '' }); // the "it's running" notification
   }
@@ -380,7 +380,7 @@
     saverActive = null;
     postToExt({ type: 'saverOff' });
     if (a.t0) a.ms += Date.now() - a.t0;
-    tabMark('');
+    tabRefresh();
     const mb = Math.max(0, ((MBPS[a.fromQ] || 0) - (MBPS[a.target] || 0)) * a.ms / 8000);
     // Every run is reported (the popup's "Last time" line is your proof it happened); only real savings are added up.
     if (a.ms >= 1000) postToExt({ type: 'saved', mb: Math.round(mb * 10) / 10, from: a.fromQ, to: a.target, secs: Math.round(a.ms / 1000) });
@@ -404,19 +404,19 @@
       '<path d="M16 8.5c4.6 2 7.5 6 6.2 10.8-1.3 3.9-5.8 5.1-9.5 4.1l-3 .5-.5-.8 2.3-2.8c-2.6-3.4-1.5-9.2 4.5-11.8z" fill="#3a2a00"/></svg>';
     return `data:image/svg+xml,${encodeURIComponent(svg)}`;
   })();
-  function tabMark(label) {
+  function tabMark(label, leaf) {
     if (tab.obs) { tab.obs.disconnect(); tab.obs = null; }
     if (tab.prefix && document.title.startsWith(tab.prefix)) document.title = document.title.slice(tab.prefix.length);
     tab.prefix = '';
     // Browsers (Chromium/Vivaldi especially) don't always repaint the tab when an icon's href changes in place,
     // but always pick up a new icon element. So: take YouTube's icons out, add ours, and put theirs back after.
-    if (label && !tab.icon) {
+    if (leaf && !tab.icon) {
       tab.saved = [...document.querySelectorAll('link[rel~="icon"]')].map((l) => [l, l.parentNode, l.nextSibling]);
       tab.saved.forEach(([l]) => l.remove());
       tab.icon = Object.assign(document.createElement('link'), { rel: 'icon', type: 'image/svg+xml', href: LEAF_ICON });
       tab.icon.id = 'yqx-saver-icon';
       (document.head || document.documentElement).append(tab.icon);
-    } else if (!label && tab.icon) {
+    } else if (!leaf && tab.icon) {
       tab.icon.remove();
       tab.icon = null;
       for (const [l, parent, next] of tab.saved) parent.insertBefore(l, next && next.parentNode === parent ? next : null);
@@ -428,6 +428,63 @@
     keep();
     const t = document.querySelector('title');
     if (t) { tab.obs = new MutationObserver(keep); tab.obs.observe(t, { childList: true, characterData: true, subtree: true }); } // YouTube retitles on the next video
+  }
+
+  // ---------- time left at your speed ----------
+  // In the player: "· 5:36 left 1.5×" after YouTube's time. In the tab, while you are away: "⏱ 6m" (saver: "144p · ⏱ 6m · …").
+  const leftNow = () => {
+    const p = getPlayer();
+    const v = p && p.querySelector('video');
+    if (!p || !v || p.classList.contains('ad-showing') || !(v.duration > 0) || !isFinite(v.duration)) return null; // ads, live, not loaded
+    const d = call(p, 'getVideoData');
+    if (d && d.isLive) return null;
+    const rate = v.playbackRate > 0 ? v.playbackRate : 1;
+    return { p, v, rate, secs: Math.max(0, v.duration - v.currentTime) / rate };
+  };
+  const clock = (s) => { s = Math.floor(s); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; // floored, like YouTube's own clock
+    return h ? `${h}:${String(m).padStart(2, '0')}:${String(x).padStart(2, '0')}` : `${m}:${String(x).padStart(2, '0')}`; };
+  const shortLeft = (s) => { // rounded up so it never says "0m" while time remains
+    s = Math.ceil(s);
+    if (s >= 3600) { const h = Math.floor(s / 3600), m = Math.ceil((s % 3600) / 60); return m === 60 ? `${h + 1}h` : `${h}h ${m}m`; }
+    return s >= 60 ? `${Math.ceil(s / 60)}m` : `${s}s`;
+  };
+  const leftEl = { box: null, txt: null, x: null };
+  function leftUpdate() {
+    const n = leftNow();
+    const disp = n && (n.p.querySelector('.ytp-time-contents') || n.p.querySelector('.ytp-time-display')); // the clock pill itself, so it grows with it
+    if (!n || !disp || n.p.clientWidth < 520) { if (leftEl.box) leftEl.box.hidden = true; return; } // small player: no room
+    if (!leftEl.box) {
+      leftEl.box = el('span', 'yqx-left');
+      leftEl.txt = document.createTextNode('');
+      leftEl.x = el('span', 'yqx-left-x');
+      leftEl.box.append(leftEl.txt, leftEl.x);
+    }
+    if (leftEl.box.parentElement !== disp) disp.append(leftEl.box); // YouTube may rebuild its time display
+    leftEl.box.hidden = false;
+    const t = `· ${clock(n.secs)} left`;
+    if (leftEl.txt.data !== t) leftEl.txt.data = t;
+    const x = n.rate === 1 ? '' : ` ${String(+n.rate.toFixed(2))}×`;
+    if (leftEl.x.textContent !== x) leftEl.x.textContent = x;
+  }
+  const elsewhere = () => document.visibilityState === 'hidden' || !tabActive; // another tab is selected
+  let tabIcons = true; // popup switch: ⏱ / ⏸ in front of the time
+  let tabLast = null;
+  function tabRefresh() {
+    const n = elsewhere() ? leftNow() : null; // not the drawn-check `away()`: that waits 1.5 s+ and the countdown needs no such care
+    const parts = [];
+    if (saverActive) parts.push(heightLabel(saverActive.target));
+    const sign = tabIcons ? '⏱ ' : ''; // same clock paused or playing
+    if (n) parts.push(`${sign}${shortLeft(n.secs)}`);
+    const key = `${parts.join(' · ')}|${!!saverActive}`;
+    if (key === tabLast && (!parts.length || document.title.startsWith(`${parts.join(' · ')} · `))) return;
+    tabLast = key;
+    tabMark(parts.join(' · '), !!saverActive);
+  }
+  for (const type of ['timeupdate', 'ratechange', 'pause', 'playing', 'seeked', 'durationchange', 'emptied']) {
+    document.addEventListener(type, (e) => {
+      const p = getPlayer();
+      if (p && e.target instanceof HTMLVideoElement && p.contains(e.target)) { leftUpdate(); tabRefresh(); }
+    }, true);
   }
 
   // ---------- autoplay button next to YouTube's search box (top page only) ----------
@@ -1291,6 +1348,7 @@
       return;
     } else if (msg.type === 'tabActive' && typeof msg.value === 'boolean') {
       tabActive = msg.value;
+      tabRefresh(); // the tab countdown follows at once
       // Selected: on screen. Not selected: keep the last answer until the re-check, so switching
       // between other tabs never looks like coming back (that restored quality and cleared the notification).
       if (tabActive) { probeId++; drawn = true; } else checkDrawn();
@@ -1316,6 +1374,10 @@
       cinemaOn = msg.value;
       updateBar();
       checkCinema();
+      return;
+    } else if (msg.type === 'tabicons' && typeof msg.value === 'boolean') {
+      tabIcons = msg.value;
+      tabRefresh();
       return;
     } else if (msg.type === 'topbar' && typeof msg.value === 'boolean') {
       hideBar = msg.value;
@@ -1576,6 +1638,7 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
   }
   document.addEventListener('pause', (e) => { if (e.target instanceof HTMLVideoElement) saverPlaying(false); }, true);
   function awayChanged() {
+    tabRefresh();
     if (away()) { if (!saverTimer && !saverActive) armSaver(); return; } // both signals may fire: keep one timer
     if (saverTimer && saver.on && !saverActive) saverSkip('back-early'); // you returned before the delay
     endSaver();
@@ -1629,6 +1692,7 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
   // dark in both YouTube themes, so the menu always uses the dark tonal palette.
   // Roles: primary = global default, secondary = this video, tertiary = channel.
   const CSS = `
+.yqx-left{margin-left:6px;white-space:nowrap;opacity:.95}.yqx-left[hidden]{display:none}.yqx-left-x{color:#ffb4ab;font-weight:500}
 #movie_player{
   --yqx-primary:#ffb4ab;--yqx-on-primary:#690005;--yqx-primary-container:#93000a;--yqx-on-primary-container:#ffdad6;
   --yqx-secondary:#e7bdb8;--yqx-secondary-container:#5d3f3c;--yqx-on-secondary-container:#ffdad6;

@@ -664,6 +664,74 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
     fx.remove(); holder.remove(); btn.remove(); videoPaused = was;
   }
 
+  // ---------- time left at your speed ----------
+  {
+    const outer = document.createElement('div'); outer.className = 'ytp-time-display';
+    const disp = document.createElement('div'); disp.className = 'ytp-time-contents'; // real YouTube: display > wrapper > contents
+    disp.innerHTML = '<span class="ytp-time-current">2:07</span> / <span class="ytp-time-duration">10:34</span>';
+    outer.append(disp);
+    p.querySelector('.ytp-chrome-bottom').prepend(outer);
+    let dur = 634, cur = 127, rate = 1.5, adOn = false, live = false;
+    Object.defineProperty(videoEl, 'duration', { get: () => dur, configurable: true });
+    Object.defineProperty(videoEl, 'currentTime', { get: () => cur, configurable: true });
+    Object.defineProperty(videoEl, 'playbackRate', { get: () => rate, configurable: true });
+    Object.defineProperty(p, 'clientWidth', { get: () => 900, configurable: true });
+    p.getVideoData = () => ({ video_id: videoId, isLive: live });
+    const tick = async () => { videoEl.dispatchEvent(new window.Event('timeupdate')); await wait(10); };
+    const box = () => disp.querySelector('.yqx-left');
+    videoPaused = false; vis = 'visible';
+    await tick();
+    assert.strictEqual(box().textContent, '· 5:38 left 1.5×', 'player: real time left at 1.5x (507s / 1.5 = 338s)');
+    rate = 1; await tick();
+    assert.strictEqual(box().textContent, '· 8:27 left', 'at 1x: no speed tag, always shown');
+    rate = 2; cur = 600; await tick();
+    assert.strictEqual(box().textContent, '· 0:17 left 2×', 'follows the speed');
+    adOn = true; p.classList.add('ad-showing'); await tick();
+    assert.ok(box().hidden, 'hidden during an ad'); p.classList.remove('ad-showing');
+    live = true; await tick(); assert.ok(box().hidden, 'hidden for live streams'); live = false;
+    dur = Infinity; await tick(); assert.ok(box().hidden, 'hidden when the length is unknown'); dur = 634;
+    Object.defineProperty(p, 'clientWidth', { get: () => 400, configurable: true }); await tick();
+    assert.ok(box().hidden, 'hidden in a small player'); Object.defineProperty(p, 'clientWidth', { get: () => 900, configurable: true });
+    box().remove(); await tick(); assert.strictEqual(disp.querySelectorAll('.yqx-left').length, 1, 'comes back once if YouTube rebuilds the time display');
+    // tab: only while away
+    cur = 127; rate = 1.5; await tick();
+    assert.ok(!/⏱/.test(document.title), 'on the tab: title untouched');
+    vis = 'hidden'; document.dispatchEvent(new window.Event('visibilitychange')); await wait(20);
+    assert.ok(document.title.startsWith('⏱ 6m · Next video'), `away: "⏱ 6m · title" (got ${document.title})`);
+    assert.ok(icons().length === 1 && icons()[0] === icon, "no saver: YouTube's icon stays");
+    rate = 1; await tick(); assert.ok(document.title.startsWith('⏱ 9m · '), 'speed change updates the tab');
+    videoPaused = true; await tick(); assert.ok(document.title.startsWith('⏱ 9m · '), 'paused: the clock stays');
+    videoPaused = false; await tick();
+    toPage('tabicons', false); await wait(20);
+    assert.ok(document.title.startsWith('9m · Next video'), 'icons off: just the time');
+    videoPaused = true; await tick(); assert.ok(document.title.startsWith('9m · '), 'icons off + paused: still just the time');
+    toPage('tabicons', true); videoPaused = false; await tick();
+    assert.ok(document.title.startsWith('⏱ 9m · '), 'icons back on');
+    videoPaused = false; cur = 580; rate = 1; await tick(); assert.ok(document.title.startsWith('⏱ 54s · '), 'under a minute: seconds');
+    dur = 8000; cur = 0; await tick(); assert.ok(document.title.startsWith('⏱ 2h 14m · '), 'hours');
+    dur = 634; cur = 127; rate = 1.5; await tick();
+    titleEl.textContent = 'Next - YouTube'; await wait(20);
+    assert.ok(document.title.startsWith('⏱ 6m · Next'), 'survives YouTube renaming the tab');
+    vis = 'visible'; document.dispatchEvent(new window.Event('visibilitychange')); await wait(20);
+    assert.strictEqual(document.title, 'Next - YouTube', 'back: title restored');
+    toPage('tabActive', false); await wait(20);
+    assert.ok(document.title.startsWith('⏱ 6m · Next'), 'another tab selected: countdown shows at once, without waiting for the drawn check');
+    toPage('tabActive', true); await wait(20);
+    assert.strictEqual(document.title, 'Next - YouTube', 'selected again: gone at once');
+    // together with the background saver
+    toPage('saver', { on: true, after: 0.1, to: 'tiny' }); playing = 'hd1080';
+    vis = 'hidden'; document.dispatchEvent(new window.Event('visibilitychange')); await wait(350);
+    assert.ok(document.title.startsWith('144p · ⏱ 6m · Next'), `saver + time: "144p · ⏱ 6m · title" (got ${document.title})`);
+    assert.ok(icons().length === 1 && icons()[0].href.startsWith('data:image/svg+xml'), 'saver keeps its leaf icon');
+    cur = 400; await tick(); assert.ok(document.title.startsWith('144p · ⏱ 3m · '), 'time keeps counting while saver runs');
+    assert.strictEqual(icons().length, 1, 'still one icon');
+    vis = 'visible'; document.dispatchEvent(new window.Event('visibilitychange')); await wait(80);
+    assert.strictEqual(document.title, 'Next - YouTube', 'back: both gone');
+    assert.ok(icon.isConnected && icons().length === 1 && icons()[0] === icon, "YouTube's icon is back");
+    toPage('saver', { on: false, after: 0.1, to: 'tiny' });
+    outer.remove(); delete videoEl.duration; delete videoEl.currentTime; delete videoEl.playbackRate; delete p.clientWidth; await wait(20);
+  }
+
   // No toolbar at all -> floating fallback
   document.querySelector('.ytp-chrome-bottom').remove();
   await wait(400);

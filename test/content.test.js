@@ -24,14 +24,15 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
 
 (async () => {
   await tick();
-  assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides', 'channels', 'autoplay', 'saver', 'chat', 'topbar', 'cinemaSkip', 'cinema', 'tabActive'], 'sends default, remembered videos, channel defaults, autoplay, saver, chat, top bar and cinema settings');
+  assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides', 'channels', 'autoplay', 'saver', 'chat', 'topbar', 'tabicons', 'cinemaSkip', 'cinema', 'tabActive'], 'sends default, remembered videos, channel defaults, autoplay, saver, chat, top bar, tab icons and cinema settings');
+  assert.strictEqual(posted[7].value, true, 'tab countdown icons are on by default');
   assert.strictEqual(posted[5].value, false, 'live chat stays visible by default');
   assert.strictEqual(posted[6].value, false, 'top bar stays visible by default');
   assert.strictEqual(JSON.stringify(posted[4].value), '{"on":false,"after":30,"to":"tiny"}', 'saver off by default');
   assert.strictEqual(posted[0].value, 'hd1080');
-  assert.strictEqual(JSON.stringify(posted[7].value), '{}', 'no channels left out by default');
-  assert.strictEqual(posted[8].value, false, 'cinema mode is off by default');
-  assert.strictEqual(posted[9].value, false, 'tells the page whether its tab is selected');
+  assert.strictEqual(JSON.stringify(posted[8].value), '{}', 'no channels left out by default');
+  assert.strictEqual(posted[9].value, false, 'cinema mode is off by default');
+  assert.strictEqual(posted[10].value, false, 'tells the page whether its tab is selected');
   bgListener({ type: 'tabActive', on: true }, { id: 'me' });
   bgListener({ type: 'tabActive', on: true }, { id: 'someone-else' });
   bgListener({ type: 'tabActive', on: 'yes' }, { id: 'me' });

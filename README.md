@@ -23,6 +23,7 @@
   <a href="#chat">Hide live chat</a> ·
   <a href="#topbar">Hide top bar</a> ·
   <a href="#cinema">Cinema mode</a> ·
+  <a href="#time-left">Time left</a> ·
   <a href="#saver">Background saver</a> ·
   <a href="#popup">Popup</a> ·
   <a href="#faq">FAQ</a> ·
@@ -44,6 +45,7 @@
 | 🫥 **Hide top bar** *(optional)* | On a watch page, YouTube's top bar slides away while the video plays and the page moves up. Pause, point at the top edge, or press **/** and it is back. |
 | 🎬 **Cinema mode** *(optional)* | Watch pages open in theater mode, the top bar hides while the video plays, and the video fills the window without stretching or cropping. If you leave theater on a channel, that channel stays normal next time (undo by turning theater back on, or **Forget all** in the popup). |
 | 🍃 **Background saver** *(optional)* | Playing music in a tab you're not looking at? Quality drops to save data and comes back when you return. Never touches picture-in-picture. |
+| ⏱️ **Time left at your speed** | Next to YouTube's clock: `· 5:38 left 1.5×`, the real time left at the speed you are watching. While you are in another tab, the tab title starts with `⏱ 6m` (and works together with the background saver: `144p · ⏱ 6m · …`). |
 | 🔒 **Private by design** | No servers, no analytics, no network requests. Settings stay in your browser. |
 
 ---
@@ -192,6 +194,27 @@ Only your own click or key press counts as "leaving"; the extension's own action
 
 ---
 
+<a id="time-left"></a>
+## ⏱️ Time left at your speed
+
+Always on. YouTube shows the length of the video, but at 1.5× it really takes a lot less. Resolute adds the real time left next to YouTube's clock, and counts it down in the browser tab while you are in another tab.
+
+<p align="center">
+  <img src="docs/time-left.png" alt="The player clock with 5:38 left at 1.5×, the tab title with a clock and 6m, and the same together with the background saver" width="100%"><br>
+  <sub>Drawn on a stand-in for a YouTube page, using the same text the extension produces.</sub>
+</p>
+
+| Where | What you see |
+|:---|:---|
+| **Player** | `· 5:38 left 1.5×` after YouTube's clock. At normal speed just `· 8:27 left`. Hidden during ads, on live streams and in small players. |
+| **Browser tab** | While another tab is selected, the title starts with `⏱ 6m`. It rounds up to whole minutes (seconds in the last minute, `1h 20m` for long videos) and follows speed changes and seeking. |
+| **With the background saver** | `144p · ⏱ 6m · title`, with the saver's leaf icon. Both go away when you come back. |
+| **Icons switch** | Popup, **Playing** page, **Time left**. On: ⏱ while playing, ⏸ when paused. Off: just the time. |
+
+Nothing is sent anywhere; the numbers come from the video element on the page.
+
+---
+
 <a id="chat"></a>
 ## 💬 Hide live chat
 
@@ -247,13 +270,14 @@ The popup card also shows roughly how much data it saved **this week (Sunday to 
   <sub>The real popup's three pages in dark (top) and light (bottom), rendered from the extension's code. The channels and counts are example data.</sub>
 </p>
 
-The popup has three pages, so it is never one long scroll: **Quality** (default quality, channel defaults, remembered videos), **Playing** (the switches: start paused, hide chat, hide top bar, Cinema mode) and **Saver** (the background saver and its weekly estimate). Tap a tab, press the left or right arrow key while a tab is focused (Home and End work too), or swipe on a touch screen.
+The popup has three pages, so it is never one long scroll: **Quality** (default quality, channel defaults, remembered videos), **Playing** (the switches: start paused, hide chat, hide top bar, Cinema mode, the time-left icons) and **Saver** (the background saver and its weekly estimate). Tap a tab, press the left or right arrow key while a tab is focused (Home and End work too), or swipe on a touch screen.
 
 - Set the **global default** quality.
 - Switch **Videos I open** and **Next in queue or playlist** to start paused.
 - Switch **Hide live chat** on or off.
 - Switch **Hide top bar** on or off.
 - Switch **Cinema mode** on or off, and forget the channels you left out.
+- Switch the **icons in the tab countdown** (⏱ / ⏸) on or off.
 - Switch the **Background saver** on or off, choose when it starts and how low it goes, and see this week's estimate.
 - See every **channel default**: change its quality, remove it (×), or **Remove all**.
 - Clear remembered videos with **Forget all**.
@@ -294,7 +318,7 @@ Each has its own rules; see the [Chrome guide, section 5](docs/PUBLISHING.md#5-l
 <details>
 <summary><b>Does it send my data anywhere?</b></summary>
 
-No. There's no code that makes network requests. Your global default, the two autoplay settings, the hide-live-chat setting, the hide-top-bar setting, the Cinema mode setting and the saver setting are kept in your browser's synced extension storage; remembered videos, channel defaults, the channels Cinema mode leaves normal and the saver's daily estimates stay on this device only. Full details in the [privacy policy](PRIVACY.md).
+No. There's no code that makes network requests. Your global default, the two autoplay settings, the hide-live-chat setting, the hide-top-bar setting, the Cinema mode setting, the tab-countdown icons setting and the saver setting are kept in your browser's synced extension storage; remembered videos, channel defaults, the channels Cinema mode leaves normal and the saver's daily estimates stay on this device only. Full details in the [privacy policy](PRIVACY.md).
 </details>
 
 <details>
@@ -336,6 +360,7 @@ No. Shorts and m.youtube.com use a different player. The autoplay settings also 
 - **Hide top bar** moves YouTube's `#masthead-container` and the page's top margin with CSS. If YouTube renames those, the bar simply stays where it is until Resolute is updated. The hidden bar stays focusable so **/** and Tab still reach search.
 - **Cinema mode** clicks YouTube's own theater button once per video, then uses CSS so the video fills the window (`object-fit: contain`, so nothing is cropped). If YouTube renames the button, theater simply isn't switched on. It only counts a real click or **T** from you as "leaving" theater; its own click never does.
 - **Hide live chat** clicks the close button inside YouTube's chat panel. If YouTube renames that button, the chat just stays open until Resolute is updated. Chat that loads more than about a minute after the page opens is left open.
+- **Time left** is hidden during ads, on live streams, and in small players. It adds one small label inside YouTube's time display; if YouTube renames that element the label is simply not shown. The tab countdown rounds up to whole minutes ("54s" in the last minute) and the ⏱ sign in front can be switched off on the popup's **Playing** page.
 - Remembered videos and channel defaults stay on the device where you saved them (not synced).
 - "Auto" after a forced quality uses `setPlaybackQualityRange('auto')`; verify on a real video.
 
@@ -350,8 +375,8 @@ No. Shorts and m.youtube.com use a different player. The autoplay settings also 
 |:---|:---|
 | `page.js` | Runs in YouTube's page (the "MAIN" world) so it can use the player's own methods. Adds the quality button + menu, applies the quality on every new video, waits for ads. Adds the autoplay button beside the search box and, per your two autoplay settings, pauses a video the first time it starts by itself (telling "opened" apart from "next in queue"). Shows "Video waiting" on that button while a video is held, closes the live chat panel once per video, slides the top bar away while a video plays and (Cinema mode) switches theater on and lets the video fill the window, if you asked for any of these, and runs the background saver (tab hidden, not in picture-in-picture), including the tab title and icon. |
 | `background.js` | Tells each YouTube tab whether it's the selected tab of its window (Vivaldi keeps background tabs "visible" to pages; the page then checks it's no longer drawn), and shows the "Background saver: 144p" notification while a tab is lowered, cleared when you return. |
-| `content.js` | Bridge to extension storage: the global default, the two autoplay settings, the hide-live-chat setting, the hide-top-bar setting, the Cinema mode setting and the saver setting (all synced), the saver's daily estimates (this device, last 21 days), remembered videos (this device, newest 1,000) and channel defaults (this device, newest 2,000) and the channels Cinema mode leaves normal (this device, newest 2,000). Validates every message and drops corrupted entries. |
-| `popup.*` | The toolbar popup, in three pages (Quality, Playing, Saver) with a sliding tab bar and swipe: global default, the two autoplay switches, hide live chat, hide top bar, Cinema mode and its left-out channels, the background saver and its weekly estimate, channel defaults, remembered videos, theme, and a fix for switched-off YouTube access. |
+| `content.js` | Bridge to extension storage: the global default, the two autoplay settings, the hide-live-chat setting, the hide-top-bar setting, the Cinema mode setting, the tab-countdown icons setting and the saver setting (all synced), the saver's daily estimates (this device, last 21 days), remembered videos (this device, newest 1,000) and channel defaults (this device, newest 2,000) and the channels Cinema mode leaves normal (this device, newest 2,000). Validates every message and drops corrupted entries. |
+| `popup.*` | The toolbar popup, in three pages (Quality, Playing, Saver) with a sliding tab bar and swipe: global default, the two autoplay switches, hide live chat, hide top bar, Cinema mode and its left-out channels, the tab-countdown icons, the background saver and its weekly estimate, channel defaults, remembered videos, theme, and a fix for switched-off YouTube access. |
 
 The two scripts talk through `window.postMessage`. No build step, no bundler, no libraries.
 </details>
@@ -387,6 +412,7 @@ Runs the scripts against a fake YouTube player and fake storage. They cover:
 - **Hide live chat:** off by default, waits until the chat has loaded, closes it once per video so **Show chat** stays open, closes it again on the next stream, leaves it alone when switched off.
 - **Hide top bar:** off by default, away while playing, back on pause / pointer / focus / open menu, Esc lets it go, fullscreen and other pages untouched, switching off restores it.
 - **Cinema mode:** off by default, theater on once per video, channels you leave stay normal and are undone when you turn theater back on, only real clicks/**T** count, fullscreen and non-watch pages untouched, switching off restores the page.
+- **Time left:** real time left at the current speed in the player (any speed, ads/live/small player hidden, survives YouTube rebuilding its clock) and in the tab only while away (rounding, hours, seconds, follows speed and seeking, clears on return), together with the saver's prefix and leaf icon, ⏱/⏸ switchable.
 - **Background saver:** off by default, the delay, lowest or 480p, the tab title and icon, the next playlist video staying low, picture-in-picture never lowered or counted, paused time not counted, daily estimates kept for 21 days.
 </details>
 

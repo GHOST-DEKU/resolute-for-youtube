@@ -13,7 +13,7 @@
 <p align="center">
   <b>YouTube often picks a lower quality than you want, and starts videos before you're ready.</b><br>
   Resolute puts a quality button right in the player, remembers what you like per video and per channel,<br>
-  and, if you want, makes every video wait for <i>you</i> to press play, hides live chat, and saves data in tabs you aren't watching.
+  and, if you want, makes every video wait for <i>you</i> to press play, hides live chat and the top bar, opens videos in a full-window cinema view, and saves data in tabs you aren't watching.
 </p>
 
 <p align="center">
@@ -292,7 +292,7 @@ Each has its own rules; see the [Chrome guide, section 5](docs/PUBLISHING.md#5-l
 <details>
 <summary><b>Does it send my data anywhere?</b></summary>
 
-No. There's no code that makes network requests. Your global default, the two autoplay settings, the hide-live-chat setting, the hide-top-bar setting and the saver setting are kept in your browser's synced extension storage; remembered videos, channel defaults and the saver's daily estimates stay on this device only. Full details in the [privacy policy](PRIVACY.md).
+No. There's no code that makes network requests. Your global default, the two autoplay settings, the hide-live-chat setting, the hide-top-bar setting, the Cinema mode setting and the saver setting are kept in your browser's synced extension storage; remembered videos, channel defaults, the channels Cinema mode leaves normal and the saver's daily estimates stay on this device only. Full details in the [privacy policy](PRIVACY.md).
 </details>
 
 <details>
@@ -310,7 +310,7 @@ From the permanent channel ID (`UC…`) in YouTube's own player data for the vid
 <details>
 <summary><b>Will it break if YouTube changes its layout?</b></summary>
 
-Playback is never affected. If YouTube moves its controls, the quality button falls back to a small floating control above the progress bar. If YouTube redesigns its top bar, the autoplay button may not appear, but the popup switch keeps working. If YouTube changes its live chat panel, the chat simply stays open; nothing else is affected.
+Playback is never affected. If YouTube moves its controls, the quality button falls back to a small floating control above the progress bar. If YouTube redesigns its top bar, the autoplay button may not appear, but the popup switch keeps working. If YouTube changes its live chat panel, the chat simply stays open. If YouTube changes its theater button, Cinema mode simply doesn't switch theater on; nothing else is affected.
 </details>
 
 <details>
@@ -332,6 +332,7 @@ No. Shorts and m.youtube.com use a different player. The autoplay settings also 
 - Material 3 Expressive spring motion uses CSS `linear()` easing (Chrome 113+, Firefox 112+). On Chrome 111–112 the button works the same, just without animation.
 - Channel defaults need the channel ID from YouTube's player data (`getPlayerResponse`). If YouTube stops providing it, videos fall back to the global default ("Channel not detected"). Nothing wrong is applied.
 - **Hide top bar** moves YouTube's `#masthead-container` and the page's top margin with CSS. If YouTube renames those, the bar simply stays where it is until Resolute is updated. The hidden bar stays focusable so **/** and Tab still reach search.
+- **Cinema mode** clicks YouTube's own theater button once per video, then uses CSS so the video fills the window (`object-fit: contain`, so nothing is cropped). If YouTube renames the button, theater simply isn't switched on. It only counts a real click or **T** from you as "leaving" theater; its own click never does.
 - **Hide live chat** clicks the close button inside YouTube's chat panel. If YouTube renames that button, the chat just stays open until Resolute is updated. Chat that loads more than about a minute after the page opens is left open.
 - Remembered videos and channel defaults stay on the device where you saved them (not synced).
 - "Auto" after a forced quality uses `setPlaybackQualityRange('auto')`; verify on a real video.
@@ -345,10 +346,10 @@ No. Shorts and m.youtube.com use a different player. The autoplay settings also 
 
 | File | Job |
 |:---|:---|
-| `page.js` | Runs in YouTube's page (the "MAIN" world) so it can use the player's own methods. Adds the quality button + menu, applies the quality on every new video, waits for ads. Adds the autoplay button beside the search box and, per your two autoplay settings, pauses a video the first time it starts by itself (telling "opened" apart from "next in queue"). Shows "Video waiting" on that button while a video is held, closes the live chat panel once per video and slides the top bar away while a video plays, if you asked for either, and runs the background saver (tab hidden, not in picture-in-picture), including the tab title and icon. |
+| `page.js` | Runs in YouTube's page (the "MAIN" world) so it can use the player's own methods. Adds the quality button + menu, applies the quality on every new video, waits for ads. Adds the autoplay button beside the search box and, per your two autoplay settings, pauses a video the first time it starts by itself (telling "opened" apart from "next in queue"). Shows "Video waiting" on that button while a video is held, closes the live chat panel once per video, slides the top bar away while a video plays and (Cinema mode) switches theater on and lets the video fill the window, if you asked for any of these, and runs the background saver (tab hidden, not in picture-in-picture), including the tab title and icon. |
 | `background.js` | Tells each YouTube tab whether it's the selected tab of its window (Vivaldi keeps background tabs "visible" to pages; the page then checks it's no longer drawn), and shows the "Background saver: 144p" notification while a tab is lowered, cleared when you return. |
-| `content.js` | Bridge to extension storage: the global default, the two autoplay settings, the hide-live-chat setting, the hide-top-bar setting and the saver setting (all synced), the saver's daily estimates (this device, last 21 days), remembered videos (this device, newest 1,000) and channel defaults (this device, newest 2,000). Validates every message and drops corrupted entries. |
-| `popup.*` | The toolbar popup: global default, the two autoplay switches, hide live chat, hide top bar, the background saver and its weekly estimate, channel defaults, remembered videos, theme, and a fix for switched-off YouTube access. |
+| `content.js` | Bridge to extension storage: the global default, the two autoplay settings, the hide-live-chat setting, the hide-top-bar setting, the Cinema mode setting and the saver setting (all synced), the saver's daily estimates (this device, last 21 days), remembered videos (this device, newest 1,000) and channel defaults (this device, newest 2,000) and the channels Cinema mode leaves normal (this device, newest 2,000). Validates every message and drops corrupted entries. |
+| `popup.*` | The toolbar popup: global default, the two autoplay switches, hide live chat, hide top bar, Cinema mode and its left-out channels, the background saver and its weekly estimate, channel defaults, remembered videos, theme, and a fix for switched-off YouTube access. |
 
 The two scripts talk through `window.postMessage`. No build step, no bundler, no libraries.
 </details>
@@ -383,6 +384,7 @@ Runs the scripts against a fake YouTube player and fake storage. They cover:
 - **Autoplay button:** unfolding, toggling both, the menu, keyboard, following the popup; "Video waiting" with every play method, your own pause staying quiet, a different video clearing it.
 - **Hide live chat:** off by default, waits until the chat has loaded, closes it once per video so **Show chat** stays open, closes it again on the next stream, leaves it alone when switched off.
 - **Hide top bar:** off by default, away while playing, back on pause / pointer / focus / open menu, Esc lets it go, fullscreen and other pages untouched, switching off restores it.
+- **Cinema mode:** off by default, theater on once per video, channels you leave stay normal and are undone when you turn theater back on, only real clicks/**T** count, fullscreen and non-watch pages untouched, switching off restores the page.
 - **Background saver:** off by default, the delay, lowest or 480p, the tab title and icon, the next playlist video staying low, picture-in-picture never lowered or counted, paused time not counted, daily estimates kept for 21 days.
 </details>
 

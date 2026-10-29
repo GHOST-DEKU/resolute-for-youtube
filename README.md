@@ -243,9 +243,11 @@ The popup card also shows roughly how much data it saved **this week (Sunday to 
 ## 🗂️ The toolbar popup
 
 <p align="center">
-  <img src="docs/popup.png" alt="The Resolute popup in light and dark themes" width="80%"><br>
-  <sub>The real popup in light and dark, rendered from the extension's code. The channels and counts are example data.</sub>
+  <img src="docs/popup.png" alt="The Resolute popup's three pages, Quality, Playing and Saver, in dark (top) and light (bottom) themes" width="100%"><br>
+  <sub>The real popup's three pages in dark (top) and light (bottom), rendered from the extension's code. The channels and counts are example data.</sub>
 </p>
+
+The popup has three pages, so it is never one long scroll: **Quality** (default quality, channel defaults, remembered videos), **Playing** (the switches: start paused, hide chat, hide top bar, Cinema mode) and **Saver** (the background saver and its weekly estimate). Tap a tab, press the left or right arrow key while a tab is focused (Home and End work too), or swipe on a touch screen.
 
 - Set the **global default** quality.
 - Switch **Videos I open** and **Next in queue or playlist** to start paused.
@@ -349,7 +351,7 @@ No. Shorts and m.youtube.com use a different player. The autoplay settings also 
 | `page.js` | Runs in YouTube's page (the "MAIN" world) so it can use the player's own methods. Adds the quality button + menu, applies the quality on every new video, waits for ads. Adds the autoplay button beside the search box and, per your two autoplay settings, pauses a video the first time it starts by itself (telling "opened" apart from "next in queue"). Shows "Video waiting" on that button while a video is held, closes the live chat panel once per video, slides the top bar away while a video plays and (Cinema mode) switches theater on and lets the video fill the window, if you asked for any of these, and runs the background saver (tab hidden, not in picture-in-picture), including the tab title and icon. |
 | `background.js` | Tells each YouTube tab whether it's the selected tab of its window (Vivaldi keeps background tabs "visible" to pages; the page then checks it's no longer drawn), and shows the "Background saver: 144p" notification while a tab is lowered, cleared when you return. |
 | `content.js` | Bridge to extension storage: the global default, the two autoplay settings, the hide-live-chat setting, the hide-top-bar setting, the Cinema mode setting and the saver setting (all synced), the saver's daily estimates (this device, last 21 days), remembered videos (this device, newest 1,000) and channel defaults (this device, newest 2,000) and the channels Cinema mode leaves normal (this device, newest 2,000). Validates every message and drops corrupted entries. |
-| `popup.*` | The toolbar popup: global default, the two autoplay switches, hide live chat, hide top bar, Cinema mode and its left-out channels, the background saver and its weekly estimate, channel defaults, remembered videos, theme, and a fix for switched-off YouTube access. |
+| `popup.*` | The toolbar popup, in three pages (Quality, Playing, Saver) with a sliding tab bar and swipe: global default, the two autoplay switches, hide live chat, hide top bar, Cinema mode and its left-out channels, the background saver and its weekly estimate, channel defaults, remembered videos, theme, and a fix for switched-off YouTube access. |
 
 The two scripts talk through `window.postMessage`. No build step, no bundler, no libraries.
 </details>
@@ -362,7 +364,7 @@ The popup, the in-player menu and the autoplay button are **inspired by Material
 - **Colour roles (from a red seed):** primary red = global default, dusty pink = this video, gold = channel.
 - **Shapes that morph:** the autoplay button changes shape (circle, cookie, rounded square) and has a wavy ring like M3 Expressive's wavy progress indicator.
 - **Motion:** spring-like, and switched off when the system's "reduce motion" setting is on.
-- **Popup layout:** built like the autoplay menu: small group titles, joined glass rows with an icon at the start, a red-filled row for each setting that's on, and a short note under each group. A channel's quality opens the same kind of frosted menu.
+- **Popup layout:** built like the autoplay menu: small group titles, joined glass rows with an icon at the start, a red-filled row for each setting that's on, and a short note under each group, on three pages with a sliding tab bar. A channel's quality opens the same kind of frosted menu.
 - **Surfaces:** real frosted glass (`backdrop-filter`). In the player the video shows through the quality menu; on the page, the content shows through the autoplay menu. Browsers without blur get solid surfaces instead.
 - **Theme:** the popup has System / Light / Dark. The in-player menu is always dark, like YouTube's own controls. The autoplay button and its menu follow YouTube's light or dark theme.
 </details>

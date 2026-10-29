@@ -111,12 +111,12 @@ svg { width: 20px; height: 20px; fill: currentColor; flex: none; }
 [hidden] { display: none !important; }
 .grow { flex: 1; min-width: 0; }
 
-.app { display: flex; flex-direction: column; gap: 4px; padding: 10px 8px; }
+.app { display: flex; flex-direction: column; gap: 4px; padding: 10px 8px 0; height: 600px; }
 
 /* ---------- top app bar: stays put and blurs what scrolls under it ---------- */
 .topbar {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  position: sticky; top: 0; z-index: 5; margin: -10px -8px 0; padding: 10px 12px 8px 14px;
+  flex: none; position: relative; z-index: 5; margin: -10px -8px 0; padding: 10px 12px 8px 14px;
   background: color-mix(in srgb, var(--wall) 45%, transparent);
   -webkit-backdrop-filter: blur(20px) saturate(1.8); backdrop-filter: blur(20px) saturate(1.8);
 }
@@ -375,6 +375,23 @@ dialog .actions { display: flex; justify-content: flex-end; gap: 8px; }
 @keyframes dialog-in { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: none; } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 
+/* ---------- three pages: Quality, Playing, Saver ---------- */
+.tabs { position: relative; flex: none; display: grid; grid-template-columns: repeat(3, 1fr); margin: 2px 0 4px; padding: 4px; border-radius: var(--r-full);
+  background: var(--panel); border: 1px solid var(--panel-edge); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
+.tabs .ind { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 3); border-radius: var(--r-full); background: var(--sel);
+  transform: translateX(calc(var(--page, 0) * 100%)); transition: transform 0.6s cubic-bezier(0.32, 0.72, 0, 1); }
+.tabs button { position: relative; height: 36px; border: 0; border-radius: var(--r-full); background: transparent; color: var(--on-surface-variant);
+  font: 500 13px/1 "Google Sans", Roboto, system-ui, sans-serif; cursor: pointer; transition: color var(--t-effect) var(--ease-effects); }
+.tabs button[aria-selected="true"] { color: var(--on-primary-container); }
+.tabs button:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.viewport { flex: 1; min-height: 0; margin: 0 -8px; overflow: hidden; }
+.trk { display: flex; width: 300%; height: 100%; transform: translateX(calc(var(--page, 0) * -33.3333%)); transition: transform 0.65s cubic-bezier(0.32, 0.72, 0, 1); }
+.trk.drag { transition: none; }
+.pg { width: 33.3333%; height: 100%; overflow-y: auto; overflow-x: hidden; padding: 0 8px 14px; display: flex; flex-direction: column; gap: 4px;
+  scrollbar-width: thin; scrollbar-color: var(--outline-variant) transparent; }
+.pg > .group { flex: none; }
+
 @media (prefers-reduced-motion: reduce) {
+  .tabs .ind, .trk { transition-duration: 0.01s; }
   *, *::before, *::after, dialog::backdrop { transition: none !important; animation: none !important; }
 }

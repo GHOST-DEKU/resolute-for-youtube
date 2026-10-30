@@ -13,7 +13,7 @@
 <p align="center">
   <b>Does YouTube play your videos in low quality? Does it start playing before you are ready?</b><br>
   Resolute fixes that. It adds a quality button inside the video player and remembers your choice for each video and each channel.<br>
-  If you want, it can also stop videos from starting by themselves, hide the live chat and the top bar, open videos in a big cinema view, show the real time left, and save your data when you are on another tab.
+  If you want, it can also stop videos from starting by themselves, hide the live chat and the top bar, open videos in a big cinema view, show the real time left, pick up a video where you stopped, and save your data when you are on another tab.
 </p>
 
 <p align="center">
@@ -24,6 +24,7 @@
   <a href="#topbar">Hide top bar</a> ·
   <a href="#cinema">Cinema mode</a> ·
   <a href="#time-left">Time left</a> ·
+  <a href="#resume">Pick up where you stopped</a> ·
   <a href="#saver">Background saver</a> ·
   <a href="#popup">Popup</a> ·
   <a href="#faq">FAQ</a> ·
@@ -46,6 +47,7 @@
 | 🎬 **Cinema mode** *(optional)* | Videos open in theater mode and fill your window, without stretching or cutting anything. |
 | 🍃 **Background saver** *(optional)* | Listening to music in a tab you are not looking at? The quality goes down to use less data, and comes back when you return. |
 | ⏯️ **Pick up where you stopped** | YouTube sometimes forgets. Resolute remembers the spot and jumps back when you open the video, with a small "Resumed at 12:29 · Start over" note. |
+| 🚩 **Marks on the progress bar** | A flag where you stopped, a lighter stripe up to it, a "Back to 12:35" chip after you skip ahead, and a small button by the clock with a menu (jump, start over, don't save, forget). Each part has its own switch. |
 | ⏱️ **Time left at your speed** | Next to the clock you see how long the video really takes at your speed. If you are in another tab, the tab name shows the time left too. |
 | 🔒 **Private** | It has no servers, no tracking and no internet requests. Your settings stay in your browser. |
 
@@ -235,22 +237,60 @@ When you open a live stream, a premiere or a stream replay, Resolute closes the 
 <a id="resume"></a>
 ## ⏯️ Pick up where you stopped
 
-On by default. Resolute saves where you are while you watch. Next time you open that video, it jumps back to that spot. A small note shows **"Resumed at 12:29"** with a **Start over** button. The note fades after 6 seconds.
+On by default. YouTube sometimes forgets where you stopped. Resolute keeps its own list, so it does not depend on YouTube.
 
-In the popup, on the **Playing** tab:
-- **Rewind a little:** *Exact* goes to the very second. *5 seconds* goes back 5 seconds. *Smart* (default) goes back 2 seconds if you were away less than an hour, 5 seconds if less than a week, and 10 seconds after that.
-- **What counts as progress:** live streams are included, the first 10 seconds are not saved, the last 30 seconds count as finished (the video starts fresh next time), and videos under 3 minutes are skipped. Each of these is a switch. **Shorts are never saved.**
+**What happens:** while you watch, Resolute saves your spot (every 5 seconds, and also when you pause, switch tabs, close the tab or open another video). Next time you open that video, it jumps back to the spot. A small note says **"Resumed at 12:29"** with a **Start over** button. The note fades after 6 seconds.
 
-Resolute does not jump if the link already has a time in it, or if YouTube already resumed the video itself. The spots stay on your device (the 1,000 most recent videos).
+| Situation | What Resolute does |
+|:---|:---|
+| You open a video you watched before | It jumps to your spot, minus the rewind (see below). |
+| You press **Start over** in the note | It goes to 0:00. The old spot is replaced as you watch. |
+| The link already has a time in it (`t=` or `start=`) | Resolute leaves it alone. The link wins. |
+| YouTube already resumed the video itself | Resolute does nothing, so you never jump twice. |
+| An ad is playing | It waits until the ad is over. |
+| You are near the end (last 30 seconds) | The video counts as finished and starts fresh next time. |
+| It is a **Short** | Never saved, never resumed. |
+| You chose **Don't save this video** (see the menu below) | Not saved, and not resumed. |
+
+### Settings in the popup (Playing page)
+
+**Rewind a little** (default **Smart**):
+- *Exact*: the very second you left.
+- *5 seconds*: always 5 seconds before.
+- *Smart*: 2 seconds before if you were away less than an hour, 5 seconds if less than a week, and 10 seconds after that. You forget more the longer you are away. These numbers are my own guess, not a rule.
+
+**What counts as progress** (all four are on by default, each is a switch):
+- *Live streams are included.* Off = streams are never saved.
+- *Ignore the first 10 seconds.* A video you left after 5 seconds is not saved.
+- *The last 30 seconds count as finished.* The video starts fresh next time.
+- *Skip videos under 3 minutes.* Short clips are not worth a spot.
+
+Your spots stay on this device only (the 1,000 most recent videos). They are not synced.
 
 ### On the progress bar
 
-For a video you have watched before, Resolute adds a few things where you can see them. Each one has a switch in the popup, on the **Playing** tab, under **On the progress bar**.
+For a video you have watched before, Resolute adds a few things where you can see them. Each one has its own switch in the popup, on the **Playing** page, under **On the progress bar**. All four are on by default.
 
-- **Spot flag:** a small flag on the bar where you stopped. Point at the bar to see its time. Click it to go there.
-- **Watched-last-time fill:** a lighter stripe on the bar, up to your old spot.
-- **Back chip:** skip more than 30 seconds yourself and a chip says **"Back to 12:35"** for 8 seconds. One click and you are back. It does not show for jumps YouTube makes by itself.
-- **Button by the clock:** a small pill with the time you left off. It opens a menu: **Jump to your spot**, **Start over**, **Don't save this video** and **Forget this spot**. The dot on the pill is red while the video is being saved and hollow when you chose not to save it. A video you chose not to save is also not resumed.
+| Part | What you see | What you can do |
+|:---|:---|:---|
+| **Spot flag** | A small flag on the bar where you stopped. | Point at the bar to see its time. Click the flag to go there. |
+| **Watched-last-time fill** | A lighter stripe on the bar, up to your old spot. | Nothing to click. It shows how far you got before. |
+| **Back chip** | After you skip ahead by more than 30 seconds yourself, a chip says **"Back to 12:35"** for 8 seconds. | One click and you are back where you were. It does not show for jumps YouTube makes by itself, or on the first jump of a new video. |
+| **Button by the clock** | A small pill with a history icon and the time you left off. | Opens the menu below. |
+
+The pill has a dot: **red** while the video is being saved, **hollow** when you chose not to save it.
+
+**The menu** starts with a header (*"Left off at 12:29"*, how long ago you saved it, the video length, and a small bar). Then four items:
+- **Jump to your spot**: go to the spot (the same as clicking the flag).
+- **Start over**: go to 0:00.
+- **Don't save this video**: stop saving this video, and stop jumping back to it. The row then says **Save this video again**.
+- **Forget this spot**: delete the saved spot for this video.
+
+You can use the arrow keys and Escape in the menu. The spot you see is the one you **arrived with**. It stays still while you watch, so you can always find the place you came from.
+
+**How do I know it worked?** Open a video you watched before. You should see the "Resumed at" note, the flag on the bar, and the pill by the clock. If the pill is missing, you may have switched it off, or the video is a Short, a stream, or too short to be saved.
+
+**Good to know:** on a live stream the flag, the stripe and the chip are hidden (the bar means something different there). The pill and menu still work.
 
 ---
 
@@ -294,7 +334,7 @@ The popup card also shows about how much data you saved **this week (Sunday to S
 
 The popup has three pages, so you never have to scroll a long list:
 - **Quality**: default quality, channel defaults, remembered videos.
-- **Playing**: the switches for start paused, hide chat, hide top bar, Cinema mode, the time-left icons, and the resume settings (rewind a little, what counts as progress).
+- **Playing**: the switches for start paused, hide chat, hide top bar, Cinema mode, the time-left icons, the resume settings (rewind a little, what counts as progress), and the progress-bar parts (flag, fill, back chip, button).
 - **Saver**: the background saver and its weekly estimate.
 
 Tap a tab, press the left or right arrow key while a tab is selected (Home and End work too), or swipe on a touch screen.
@@ -305,6 +345,8 @@ What you can do in the popup:
 - Turn **Hide live chat** on or off.
 - Turn **Hide top bar** on or off.
 - Turn **Cinema mode** on or off, and forget the channels you left out.
+- Choose how far to **rewind** when a video resumes, and what **counts as progress**.
+- Turn the parts **on the progress bar** (flag, fill, back chip, button) on or off.
 - Turn the **icons in the tab countdown** (⏱ and ⏸) on or off.
 - Turn the **Background saver** on or off, choose when it starts and how low it goes, and see this week's estimate.
 - See every **channel default**: change its quality, remove it with ×, or use **Remove all**.
@@ -378,7 +420,7 @@ Firefox removes it when you close it, so load it again next time.
 <details>
 <summary><b>Does it send my data anywhere?</b></summary>
 
-No. Resolute has no code that uses the internet. Your settings (default quality, the autoplay switches, hide live chat, hide top bar, Cinema mode, tab icons and the saver) are saved in your browser's own extension storage and sync with your browser account if you use sync. Remembered videos, the spots where you stopped watching, channel defaults, the channels Cinema mode leaves normal, and the saver's daily numbers stay on this device only. You can read all the details in the [privacy policy](PRIVACY.md).
+No. Resolute has no code that uses the internet. Your settings (default quality, the autoplay switches, hide live chat, hide top bar, Cinema mode, tab icons, the resume settings and the saver) are saved in your browser's own extension storage and sync with your browser account if you use sync. Remembered videos, the spots where you stopped watching, channel defaults, the channels Cinema mode leaves normal, and the saver's daily numbers stay on this device only. You can read all the details in the [privacy policy](PRIVACY.md).
 </details>
 
 <details>
@@ -400,9 +442,21 @@ Your videos will still play normally. If YouTube moves its controls, the quality
 </details>
 
 <details>
+<summary><b>It did not jump to where I stopped. Why?</b></summary>
+
+Check these: the link has a time in it (`t=`), the video is a Short, a live stream (with *Live streams are included* off), or shorter than 3 minutes, you stopped in the first 10 seconds or the last 30 seconds, you chose **Don't save this video**, or you pressed **Forget this spot**. Also, Resolute only saves while the video is playing in a normal YouTube tab.
+</details>
+
+<details>
+<summary><b>Where are my spots saved? Can I delete them?</b></summary>
+
+On your device only, in the browser's extension storage. They are never sent anywhere and never synced. To delete one, use **Forget this spot** in the menu by the clock. To delete all of them, remove the extension or clear its data.
+</details>
+
+<details>
 <summary><b>Does it work on Shorts or on the phone website?</b></summary>
 
-No. Shorts and m.youtube.com use a different player. The autoplay switches also leave Shorts and the small muted previews on the home page alone.
+No. Shorts and m.youtube.com use a different player. The autoplay switches also leave Shorts and the small muted previews on the home page alone. Resume never saves a Short.
 </details>
 
 ---
@@ -421,7 +475,10 @@ No. Shorts and m.youtube.com use a different player. The autoplay switches also 
 - **Cinema mode** clicks YouTube's own theater button once for each video, then makes the video fill the window without cutting it. If YouTube renames the button, theater just does not turn on. Only your own click or the **T** key counts as leaving theater.
 - **Hide live chat** presses the close button inside YouTube's chat. If YouTube renames that button, the chat stays open until Resolute is updated. A chat that loads more than about a minute after the page opens is left open.
 - **Time left** is hidden during ads, on live streams, and in small players. It adds one small label inside YouTube's clock. If YouTube renames that part, the label is simply not shown. The tab countdown rounds up to whole minutes (seconds in the last minute), and you can switch off the ⏱ sign on the popup's **Playing** page.
-- Remembered videos and channel defaults stay on the device where you saved them. They are not synced to your other devices.
+- **Resume** needs the player's own functions to read and set the time. If YouTube changes them, Resolute simply does not save or jump. The rewind numbers of *Smart* (2, 5 and 10 seconds) are my own choice.
+- **Progress-bar marks** are placed by measuring YouTube's bar on screen, so they can be a few pixels off if YouTube changes its look. If the bar cannot be found, the marks are hidden. This was tested on a stand-in player, so please try it on a real video.
+- **Don't save this video** also stops the automatic jump for that video. There is no master switch for all of resume yet.
+- Remembered videos, resume spots and channel defaults stay on the device where you saved them. They are not synced to your other devices.
 - After a forced quality, "Auto" uses YouTube's own automatic mode. This has not been checked on every kind of video, so please try it on a real one.
 
 ---
@@ -435,10 +492,10 @@ You do not need this part to use Resolute. It is for people who want to look ins
 
 | File | What it does |
 |:---|:---|
-| `page.js` | Runs inside the YouTube page itself, so it can use the player's own functions. It adds the quality button and menu and sets the quality on every new video (it waits for ads to finish). It also adds the autoplay button next to the search box and pauses a video the first time it starts by itself (it can tell "opened by you" from "next in the queue"). It shows "Video waiting" while a video is held, closes the live chat once per video, slides the top bar away while a video plays, and (Cinema mode) turns theater on and makes the video fill the window. It also shows the time left, and runs the background saver (tab hidden, not in picture-in-picture) with its tab name and icon. Each of these only works if you switched it on. |
+| `page.js` | Runs inside the YouTube page itself, so it can use the player's own functions. It adds the quality button and menu and sets the quality on every new video (it waits for ads to finish). It also adds the autoplay button next to the search box and pauses a video the first time it starts by itself (it can tell "opened by you" from "next in the queue"). It shows "Video waiting" while a video is held, closes the live chat once per video, slides the top bar away while a video plays, and (Cinema mode) turns theater on and makes the video fill the window. It also saves and restores your spot, draws the flag, stripe, back chip and the button with its menu, shows the time left, and runs the background saver (tab hidden, not in picture-in-picture) with its tab name and icon. Each of these only works if you switched it on. |
 | `background.js` | Tells each YouTube tab if it is the selected tab of its window (Vivaldi keeps background tabs "visible" to pages, so the page also checks that it is no longer being drawn). It also shows the "Background saver: 144p" notification while a tab is lowered, and removes it when you return. |
-| `content.js` | The bridge to the extension's storage. It holds the default quality, the autoplay switches, the hide-chat, hide-top-bar, Cinema mode, tab-icons and saver settings (all synced), and, on this device only: the saver's daily numbers (last 21 days), remembered videos (newest 1,000), channel defaults (newest 2,000) and the channels Cinema mode leaves normal (newest 2,000). It checks every message and throws away damaged entries. |
-| `popup.*` | The toolbar popup, with three pages (Quality, Playing, Saver), a sliding tab bar and swipe. It has every setting above, the channel defaults, remembered videos, the theme, and a fix for when YouTube access is switched off. |
+| `content.js` | The bridge to the extension's storage. It holds the default quality, the autoplay switches, the hide-chat, hide-top-bar, Cinema mode, tab-icons and saver settings (the resume rewind, rules and progress-bar switches too, all synced), and, on this device only: the saver's daily numbers (last 21 days), remembered videos (newest 1,000), resume spots (newest 1,000), the videos you chose not to save (newest 1,000), channel defaults (newest 2,000) and the channels Cinema mode leaves normal (newest 2,000). It checks every message and throws away damaged entries. |
+| `popup.*` | The toolbar popup, with three pages (Quality, Playing, Saver), a sliding tab bar and swipe. It has every setting above (resume and progress-bar included), the channel defaults, remembered videos, the theme, and a fix for when YouTube access is switched off. |
 
 `page.js` and `content.js` talk to each other through `window.postMessage`. There is no build step, no bundler and no libraries.
 </details>
@@ -449,6 +506,7 @@ You do not need this part to use Resolute. It is for people who want to look ins
 The popup, the in-player menu and the autoplay button are **inspired by Material 3 Expressive** (they are not an official Material version):
 - **Shapes:** pill buttons and chips, joined button groups, and a chosen item that changes from a pill into a rounded square.
 - **Colours (from a red starting colour):** red = default for all videos, dusty pink = this video, gold = channel.
+- **Progress-bar marks:** the pill uses the accent colour, the menu is a list with a header, and the flag label shows on hover. They follow the same motion rules as the rest.
 - **Moving shapes:** the autoplay button changes its shape (circle, cookie, rounded square) and has a wavy ring, like Material's wavy progress bar.
 - **Motion:** springy and smooth. It is switched off when your system's "reduce motion" setting is on.
 - **Popup layout:** it follows the autoplay menu: small group titles, joined glass rows with an icon at the start, a red row for every setting that is on, and a short note under each group, on three pages with a sliding tab bar. A channel's quality opens the same kind of frosted menu.
@@ -475,6 +533,8 @@ The tests run the scripts against a fake YouTube player and fake storage. They c
 - **Hide top bar:** off by default, away while playing, back on pause / pointer / focus / open menu, Esc lets it go, fullscreen and other pages untouched, switching off restores it.
 - **Cinema mode:** off by default, theater on once per video, channels you leave stay normal and are undone when you turn theater back on, only real clicks/**T** count, fullscreen and non-watch pages untouched, switching off restores the page.
 - **Time left:** real time left at the current speed in the player (any speed, ads/live/small player hidden, survives YouTube rebuilding its clock) and in the tab only while away (rounding, hours, seconds, follows speed and seeking, clears on return), together with the saver's prefix and leaf icon, ⏱/⏸ switchable.
+- **Resume:** saves while playing and on pause / hide / navigate, jumps once per video, rewind (exact, 5 s, smart), no jump for links with a time, Shorts, short videos, live (unless included), ads or videos you chose not to save, never drifts back, last 30 seconds count as finished.
+- **Progress-bar marks:** button placement beside the clock, the menu and its four items, Start over, Don't save, Forget, the Back chip only after your own skip, each popup switch hiding its part, Shorts untouched.
 - **Background saver:** off by default, the delay, lowest or 480p, the tab title and icon, the next playlist video staying low, picture-in-picture never lowered or counted, paused time not counted, daily estimates kept for 21 days.
 </details>
 

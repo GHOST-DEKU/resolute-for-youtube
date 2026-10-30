@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Resolute for YouTube",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Pick YouTube quality from the player, per video, channel or everywhere. Optional: start videos paused, hide live chat, save data.",
   "minimum_chrome_version": "111",
   "permissions": ["storage", "notifications"],

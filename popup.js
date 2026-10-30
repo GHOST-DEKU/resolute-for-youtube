@@ -199,6 +199,35 @@
   }
   api.storage.sync.get(REWIND).then((r) => showRewind(r[REWIND])).catch(() => showRewind(null));
 
+  // ---------- resume: what counts as progress (every switch is on unless turned off) ----------
+  const PROG = 'resumeRules';
+  const PROG_KEYS = ['includeLive', 'skipStart', 'endFinished', 'skipShort'];
+  const progBoxes = [...document.querySelectorAll('input[data-rule]')];
+  const cleanProg = (v) => Object.fromEntries(PROG_KEYS.map((k) => [k, !(v && v[k] === false)]));
+  let progSetting = cleanProg(null);
+  function showProg(v) {
+    progSetting = cleanProg(v);
+    for (const b of progBoxes) b.checked = progSetting[b.dataset.rule];
+    $('pr-za').classList.toggle('off', !progSetting.skipStart);
+    $('pr-zb').classList.toggle('off', !progSetting.endFinished);
+    $('pr-zat').textContent = progSetting.skipStart ? 'first 10 s\nnot saved' : 'first 10 s\nsaved';
+    $('pr-zbt').textContent = progSetting.endFinished ? 'last 30 s\nfinished' : 'last 30 s\nsaved';
+  }
+  for (const b of progBoxes) {
+    b.addEventListener('change', async () => {
+      const next = { ...progSetting, [b.dataset.rule]: b.checked };
+      try {
+        await api.storage.sync.set({ [PROG]: next });
+        showProg(next);
+        flash(b.checked ? 'Rule on' : 'Rule off');
+      } catch {
+        showProg(progSetting); // show what is really saved
+        flash('Could not save. Please try again.');
+      }
+    });
+  }
+  api.storage.sync.get(PROG).then((r) => showProg(r[PROG])).catch(() => showProg(null));
+
   // ---------- background saver: setting + this week's estimate (Sunday to Saturday) ----------
   const SAVER = 'bgSaver';
   const STATS = 'saverStats';

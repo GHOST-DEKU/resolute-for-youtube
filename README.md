@@ -243,6 +243,15 @@ In the popup, on the **Playing** tab:
 
 Resolute does not jump if the link already has a time in it, or if YouTube already resumed the video itself. The spots stay on your device (the 1,000 most recent videos).
 
+### On the progress bar
+
+For a video you have watched before, Resolute adds a few things where you can see them. Each one has a switch in the popup, on the **Playing** tab, under **On the progress bar**.
+
+- **Spot flag:** a small flag on the bar where you stopped. Point at the bar to see its time. Click it to go there.
+- **Watched-last-time fill:** a lighter stripe on the bar, up to your old spot.
+- **Back chip:** skip more than 30 seconds yourself and a chip says **"Back to 12:35"** for 8 seconds. One click and you are back. It does not show for jumps YouTube makes by itself.
+- **Button by the clock:** a small pill with the time you left off. It opens a menu: **Jump to your spot**, **Start over**, **Don't save this video** and **Forget this spot**. The dot on the pill is red while the video is being saved and hollow when you chose not to save it. A video you chose not to save is also not resumed.
+
 ---
 
 <a id="saver"></a>

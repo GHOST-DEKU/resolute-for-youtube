@@ -20,6 +20,8 @@
  *  - local "resumeSpots":       { videoId: { t: seconds, at: time saved } } where you stopped watching
  *  - sync  "resumeRewind":      "off" | "5" | "smart" how far back a video starts when it resumes (smart unless changed)
  *  - sync  "resumeRules":       { includeLive, skipStart, endFinished, skipShort } what counts as progress (all on unless turned off)
+ *  - sync  "resumeBar":         { flag, back, ghost, button } what shows on the progress bar (all on unless turned off)
+ *  - local "resumeOff":         { videoId: true } videos you chose not to save
  *  - local "videoOverrides":    { videoId: quality } for videos the user chose to remember
  *  - local "channelPrefs":      { UCchannelId: { q: quality, name } } channel defaults
  *    (name is only for showing the list; the id is the key, so renames don't matter)
@@ -54,9 +56,14 @@
   const SPOTS = 'resumeSpots';
   const REWIND = 'resumeRewind';
   const RULES = 'resumeRules';
+  const BAR = 'resumeBar';        // sync: which extras show on the player's progress bar
+  const OFF = 'resumeOff';        // local: videos you told Resolute not to save { videoId: true }
   const MAX_SPOTS = 1000; // shortcut: drops the oldest beyond this; raise if users hit it
   const RULE_KEYS = ['includeLive', 'skipStart', 'endFinished', 'skipShort'];
   const cleanRewind = (v) => (v === 'off' || v === '5' ? v : 'smart');
+  const BAR_KEYS = ['flag', 'back', 'ghost', 'button'];
+  const cleanBar = (v) => Object.fromEntries(BAR_KEYS.map((k) => [k, !(v && v[k] === false)]));
+  const cleanOff = (map) => Object.fromEntries(Object.keys(map && typeof map === 'object' ? map : {}).filter((id) => VIDEO_ID.test(id)).map((id) => [id, true]));
   const cleanRules = (v) => Object.fromEntries(RULE_KEYS.map((k) => [k, !(v && v[k] === false)]));
   /** Only well-formed spots survive; corrupted data is dropped, never applied. */
   function cleanSpots(map) {
@@ -80,6 +87,20 @@
       return cleanRewind((await api.storage.sync.get(REWIND))[REWIND]);
     } catch {
       return 'smart';
+    }
+  }
+  async function readBar() {
+    try {
+      return cleanBar((await api.storage.sync.get(BAR))[BAR]);
+    } catch {
+      return cleanBar(null);
+    }
+  }
+  async function readOff() {
+    try {
+      return cleanOff((await api.storage.local.get(OFF))[OFF]);
+    } catch {
+      return {};
     }
   }
   async function readRules() {
@@ -166,6 +187,8 @@
     send({ type: 'spots', value: await readSpots() });
     send({ type: 'resumeRewind', value: await readRewind() });
     send({ type: 'resumeRules', value: await readRules() });
+    send({ type: 'resumeBar', value: await readBar() });
+    send({ type: 'spotsOff', value: await readOff() });
     // Is this the selected tab of its window? (Vivaldi never marks background tabs "hidden", so ask the browser.)
     try {
       const active = await api.runtime.sendMessage({ type: 'amActive' });
@@ -274,6 +297,13 @@
           delete map[msg.videoId];
           await api.storage.local.set({ [SPOTS]: map });
         }
+      } else if (msg.type === 'spotOff' && VIDEO_ID.test(msg.videoId) && typeof msg.off === 'boolean') {
+        const map = await readOff();
+        delete map[msg.videoId]; // re-adding moves it to the newest position
+        if (msg.off) map[msg.videoId] = true;
+        const ids = Object.keys(map);
+        for (const id of ids.slice(0, Math.max(0, ids.length - MAX_SPOTS))) delete map[id];
+        await api.storage.local.set({ [OFF]: map });
       } else if (msg.type === 'cinemaSkip' && CHANNEL_ID.test(msg.channelId) && typeof msg.on === 'boolean') {
         const map = await readSkip();
         delete map[msg.channelId]; // re-adding moves it to the newest position
@@ -327,6 +357,12 @@
       }
       if (area === 'sync' && changes[REWIND]) {
         send({ type: 'resumeRewind', value: cleanRewind(changes[REWIND].newValue) });
+      }
+      if (area === 'sync' && changes[BAR]) {
+        send({ type: 'resumeBar', value: cleanBar(changes[BAR].newValue) });
+      }
+      if (area === 'local' && changes[OFF]) {
+        send({ type: 'spotsOff', value: cleanOff(changes[OFF].newValue) });
       }
       if (area === 'sync' && changes[RULES]) {
         send({ type: 'resumeRules', value: cleanRules(changes[RULES].newValue) });

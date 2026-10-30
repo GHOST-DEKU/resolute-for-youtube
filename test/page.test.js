@@ -816,6 +816,94 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
     document.getElementById('yqx-resume')?.remove();
   }
 
+  // ---- resume: controls on the player ----
+  {
+    let curT = 0;
+    const seeks = [];
+    Object.defineProperty(videoEl, 'currentTime', { get: () => curT, configurable: true });
+    Object.assign(p, { getCurrentTime: () => curT, getDuration: () => 600, seekTo: (t) => { seeks.push(t); curT = t; }, getVideoData: () => ({ video_id: videoId, isLive: false }) });
+    const left = document.createElement('div'); left.className = 'ytp-left-controls';
+    const clockEl = document.createElement('span'); clockEl.className = 'ytp-time-display'; left.append(clockEl);
+    const barBox = document.createElement('div'); barBox.className = 'ytp-progress-bar-container';
+    const barEl = document.createElement('div'); barEl.className = 'ytp-progress-bar'; barBox.append(barEl);
+    p.append(left, barBox);
+    const hourAgo = Date.now() - 30 * 60e3;
+    const reopen = async (id) => {
+      document.dispatchEvent(new window.Event('yt-navigate-start'));
+      videoId = id; curT = 0; seeks.length = 0; sent.length = 0;
+      videoEl.dispatchEvent(new window.Event('playing')); await wait(560);
+    };
+    const rbtn = () => document.querySelector('.yqx-rbutton');
+    const menu = () => document.querySelector('.yqx-rmenu');
+    const row = (act) => menu().querySelector(`[data-act="${act}"]`);
+    toPage('resumeRules', { includeLive: true, skipStart: true, endFinished: true, skipShort: true });
+    toPage('resumeRewind', 'off');
+    toPage('resumeBar', { flag: true, back: true, ghost: true, button: true });
+    toPage('spotsOff', {});
+    toPage('spots', { resume0001: { t: 300, at: hourAgo } }); await wait(20);
+
+    await reopen('resume0001');
+    assert.ok(rbtn() && rbtn().previousElementSibling === clockEl, 'the button sits right after the clock');
+    assert.ok(rbtn().textContent.includes('5:00'), 'it shows where you left off');
+    assert.ok(document.querySelector('.yqx-fm').classList.contains('yqx-on') && document.querySelector('.yqx-ghost').classList.contains('yqx-on'), 'flag and stripe are on the bar');
+    assert.strictEqual(document.querySelector('.yqx-fm .yqx-mlab').textContent, '5:00', 'the flag says the time');
+    assert.ok(p.classList.contains('yqx-pilled'), 'the flag label steps aside while "Resumed at" shows');
+    document.getElementById('yqx-resume').querySelector('button').click(); await wait(1500); // Start over from the pill: no chip
+    assert.ok(!document.querySelector('.yqx-bm').classList.contains('yqx-on'), 'Start over on the pill offers no "Back to"');
+
+    // the menu
+    rbtn().click();
+    assert.ok(menu().classList.contains('yqx-on') && rbtn().getAttribute('aria-expanded') === 'true', 'the menu opens');
+    assert.ok(menu().textContent.includes('Left off at 5:00') && menu().textContent.includes('Saved 30 min ago · of 10:00'), 'with where you left off, how long ago, and the length');
+    assert.strictEqual(menu().querySelectorAll('button').length, 4, 'four actions');
+    menu().dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    assert.ok(!menu().classList.contains('yqx-on'), 'Escape closes it');
+    rbtn().click(); row('pause').click();
+    assert.ok(sent.some((m) => m.type === 'spotOff' && m.videoId === 'resume0001' && m.off === true), "Don't save tells the extension");
+    assert.ok(rbtn().querySelector('.yqx-nosave'), 'the dot turns hollow');
+    sent.length = 0; curT = 200; videoEl.dispatchEvent(new window.Event('timeupdate')); await wait(5);
+    assert.strictEqual(sent.filter((m) => m.type === 'spot').length, 0, 'a video you chose not to save is not saved');
+    rbtn().click(); assert.ok(row('pause').textContent.includes('Save this video again')); row('pause').click();
+    assert.ok(sent.some((m) => m.type === 'spotOff' && m.off === false), 'saving again');
+    seeks.length = 0; curT = 400; rbtn().click(); row('jump').click();
+    assert.deepStrictEqual(seeks, [300], 'Jump goes to the spot you left');
+    assert.ok(document.querySelector('.yqx-bm').classList.contains('yqx-on') && document.querySelector('.yqx-bm .yqx-mlab').textContent === 'Back to 6:40', 'and offers the way back');
+    document.querySelector('.yqx-bm .yqx-mtip').click();
+    assert.strictEqual(seeks[seeks.length - 1], 400, 'the chip goes back');
+    assert.ok(!document.querySelector('.yqx-bm').classList.contains('yqx-on'), 'and goes away');
+    seeks.length = 0; rbtn().click(); row('start').click();
+    assert.deepStrictEqual(seeks, [0], 'Start over goes to 0:00');
+
+    // a long jump you make yourself offers a way back; one YouTube makes does not
+    await wait(1600);
+    curT = 100; videoEl.dispatchEvent(new window.Event('timeupdate')); await wait(5);
+    const chip = () => document.querySelector('.yqx-bm .yqx-mlab').textContent;
+    assert.strictEqual(chip(), 'Back to 6:40', 'chip from Start over is still showing (it began at 6:40)');
+    curT = 500; videoEl.dispatchEvent(new window.Event('seeking'));
+    assert.strictEqual(chip(), 'Back to 6:40', 'no click or key: no new chip');
+    curT = 100; videoEl.dispatchEvent(new window.Event('timeupdate'));
+    document.dispatchEvent(new window.Event('pointerdown')); await wait(5);
+    curT = 120; videoEl.dispatchEvent(new window.Event('seeking'));
+    assert.strictEqual(chip(), 'Back to 6:40', 'under 30 seconds: no new chip');
+    curT = 100; videoEl.dispatchEvent(new window.Event('timeupdate')); curT = 520; videoEl.dispatchEvent(new window.Event('seeking'));
+    assert.ok(document.querySelector('.yqx-bm').classList.contains('yqx-on') && document.querySelector('.yqx-bm .yqx-mlab').textContent === 'Back to 1:40', 'your own long jump: chip points at where you were');
+    toPage('resumeBar', { flag: true, back: false, ghost: false, button: false }); await wait(5);
+    assert.ok(rbtn().hidden && !document.querySelector('.yqx-ghost').classList.contains('yqx-on'), 'switched off in the popup: button and stripe go');
+    toPage('resumeBar', { flag: true, back: true, ghost: true, button: true });
+
+    // forget, and no spot at all
+    rbtn().click(); row('forget').click();
+    assert.ok(sent.some((m) => m.type === 'spotClear' && m.videoId === 'resume0001'), 'Forget removes the saved spot');
+    assert.ok(!document.querySelector('.yqx-fm').classList.contains('yqx-on'), 'and the flag');
+    await reopen('fresh000009');
+    assert.ok(rbtn().classList.contains('yqx-rbutton') && !rbtn().textContent.trim(), 'a video you have not watched: the button shows just the icon');
+    window.history.pushState({}, '', '/shorts/fresh000009'); await reopen('fresh000009');
+    assert.ok(rbtn().hidden, 'Shorts: no button');
+    window.history.pushState({}, '', '/watch?v=vid1');
+    for (const n of document.querySelectorAll('.yqx-rlayer, .yqx-rmenu, .yqx-rbutton, .ytp-left-controls, .ytp-progress-bar-container')) n.remove();
+    delete videoEl.currentTime;
+  }
+
   console.log('All checks passed');
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

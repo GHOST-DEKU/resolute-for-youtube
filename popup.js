@@ -228,6 +228,31 @@
   }
   api.storage.sync.get(PROG).then((r) => showProg(r[PROG])).catch(() => showProg(null));
 
+  // ---------- resume: what shows on the progress bar (every switch is on unless turned off) ----------
+  const BAR = 'resumeBar';
+  const BAR_KEYS = ['flag', 'back', 'ghost', 'button'];
+  const barBoxes = [...document.querySelectorAll('input[data-bar]')];
+  const cleanBar = (v) => Object.fromEntries(BAR_KEYS.map((k) => [k, !(v && v[k] === false)]));
+  let barSetting = cleanBar(null);
+  function showBar(v) {
+    barSetting = cleanBar(v);
+    for (const b of barBoxes) b.checked = barSetting[b.dataset.bar];
+  }
+  for (const b of barBoxes) {
+    b.addEventListener('change', async () => {
+      const next = { ...barSetting, [b.dataset.bar]: b.checked };
+      try {
+        await api.storage.sync.set({ [BAR]: next });
+        showBar(next);
+        flash(b.checked ? 'Shown on the bar' : 'Hidden from the bar');
+      } catch {
+        showBar(barSetting); // show what is really saved
+        flash('Could not save. Please try again.');
+      }
+    });
+  }
+  api.storage.sync.get(BAR).then((r) => showBar(r[BAR])).catch(() => showBar(null));
+
   // ---------- background saver: setting + this week's estimate (Sunday to Saturday) ----------
   const SAVER = 'bgSaver';
   const STATS = 'saverStats';

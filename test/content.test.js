@@ -25,7 +25,7 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
 
 (async () => {
   await tick();
-  assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides', 'channels', 'autoplay', 'saver', 'chat', 'topbar', 'tabicons', 'cinemaSkip', 'cinema', 'spots', 'resumeRewind', 'resumeRules', 'tabActive'], 'sends default, remembered videos, channel defaults, autoplay, saver, chat, top bar, tab icons, cinema and resume settings');
+  assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides', 'channels', 'autoplay', 'saver', 'chat', 'topbar', 'tabicons', 'cinemaSkip', 'cinema', 'spots', 'resumeRewind', 'resumeRules', 'resumeBar', 'spotsOff', 'tabActive'], 'sends default, remembered videos, channel defaults, autoplay, saver, chat, top bar, tab icons, cinema and resume settings');
   assert.strictEqual(posted[7].value, true, 'tab countdown icons are on by default');
   assert.strictEqual(posted[5].value, false, 'live chat stays visible by default');
   assert.strictEqual(posted[6].value, false, 'top bar stays visible by default');
@@ -33,7 +33,9 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
   assert.strictEqual(posted[0].value, 'hd1080');
   assert.strictEqual(JSON.stringify(posted[8].value), '{}', 'no channels left out by default');
   assert.strictEqual(posted[9].value, false, 'cinema mode is off by default');
-  assert.strictEqual(posted[13].value, false, 'tells the page whether its tab is selected');
+  assert.strictEqual(posted[15].value, false, 'tells the page whether its tab is selected');
+  assert.strictEqual(JSON.stringify(posted[13].value), '{"flag":true,"back":true,"ghost":true,"button":true}', 'every bar extra is on by default');
+  assert.strictEqual(JSON.stringify(posted[14].value), '{}', 'no videos left out by default');
   bgListener({ type: 'tabActive', on: true }, { id: 'me' });
   bgListener({ type: 'tabActive', on: true }, { id: 'someone-else' });
   bgListener({ type: 'tabActive', on: 'yes' }, { id: 'me' });
@@ -157,6 +159,20 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
   assert.strictEqual(posted.slice(1).map((m) => m.value).join(), '5,smart', 'unknown rewind falls back to smart');
   changeListener({ resumeRules: { newValue: { skipStart: false, includeLive: 'no' } } }, 'sync');
   assert.strictEqual(JSON.stringify(posted[3].value), '{"includeLive":true,"skipStart":false,"endFinished":true,"skipShort":true}', 'a rule is off only when it is exactly false');
+
+  // ---- resume: progress-bar extras and "don't save this video" ----
+  await fromPage({ type: 'spotOff', videoId: 'dQw4w9WgXcQ', off: true });
+  await fromPage({ type: 'spotOff', videoId: 'second12345', off: true });
+  await fromPage({ type: 'spotOff', videoId: 'bad id!', off: true });
+  await fromPage({ type: 'spotOff', videoId: 'abcdefghijk', off: 'yes' });
+  assert.strictEqual(Object.keys(store.local.resumeOff).join(), 'dQw4w9WgXcQ,second12345', 'saves videos you chose not to save, rejects bad input');
+  await fromPage({ type: 'spotOff', videoId: 'dQw4w9WgXcQ', off: false });
+  assert.strictEqual(Object.keys(store.local.resumeOff).join(), 'second12345', 'saving again removes it');
+  posted.length = 0;
+  changeListener({ resumeOff: { newValue: { good1234567: true, bad: true } } }, 'local');
+  changeListener({ resumeBar: { newValue: { ghost: false, flag: 'no' } } }, 'sync');
+  assert.strictEqual(Object.keys(posted[0].value).join(), 'good1234567', 'only well-formed ids reach the page');
+  assert.strictEqual(JSON.stringify(posted[1].value), '{"flag":true,"back":true,"ghost":false,"button":true}', 'an extra is off only when exactly false');
 
   console.log('All checks passed');
 })().catch((e) => { console.error(e); process.exit(1); });

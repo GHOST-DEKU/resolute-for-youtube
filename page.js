@@ -832,6 +832,11 @@
     star: 'M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z',
     channel: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z',
     history: 'M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z',
+    flag: 'M14.4 6 14 4H5v17h2v-7h5.6l.4 2h7V6z',
+    undo: 'M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z',
+    start: 'M6 6h2v12H6zm3.5 6 8.5 6V6z',
+    block: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9A7.9 7.9 0 0 1 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1A7.9 7.9 0 0 1 20 12c0 4.42-3.58 8-8 8z',
+    trash: 'M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z',
     close: 'M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'
   };
   function icon(name, className) {
@@ -1386,10 +1391,20 @@
         if (/^[\w-]{6,20}$/.test(id) && v && Number.isFinite(v.t) && Number.isFinite(v.at)) spots[id] = { t: v.t, at: v.at };
       }
       spotsKnown = true;
+      updateResumeUI();
       scheduleResume(300); // a video that started before this arrived still gets its turn
       return;
     } else if (msg.type === 'resumeRewind' && ['off', '5', 'smart'].includes(msg.value)) {
       resumeRewind = msg.value;
+      return;
+    } else if (msg.type === 'resumeBar' && msg.value && typeof msg.value === 'object') {
+      for (const k of Object.keys(barOpts)) barOpts[k] = msg.value[k] !== false;
+      updateResumeUI();
+      return;
+    } else if (msg.type === 'spotsOff' && msg.value && typeof msg.value === 'object') {
+      spotsOff = {};
+      for (const id of Object.keys(msg.value)) if (/^[\w-]{6,20}$/.test(id)) spotsOff[id] = true;
+      updateResumeUI();
       return;
     } else if (msg.type === 'resumeRules' && msg.value && typeof msg.value === 'object') {
       for (const k of Object.keys(resumeRules)) resumeRules[k] = msg.value[k] !== false;
@@ -1654,6 +1669,7 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
     delete spots[vid];
     spotSent = { vid: '', t: -99 };
     postToExt({ type: 'spotClear', videoId: vid });
+    updateResumeUI();
   }
   /** Remember where you are. Called as the video plays, and once more when you pause, leave or close the tab. */
   function saveSpot(final) {
@@ -1662,7 +1678,7 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
     const v = p && p.querySelector('video');
     if (!v || p.classList.contains('ad-showing')) return; // ad time is not your video's time
     const vid = videoIdOf(p);
-    if (!vid || vid !== resumeVid) return;
+    if (!vid || vid !== resumeVid || spotsOff[vid]) return;
     const info = resumeInfo(p, v);
     if (info.skip) return;
     const raw = call(p, 'getCurrentTime');
@@ -1682,6 +1698,7 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
     const box = document.getElementById('yqx-resume');
     if (!box) return;
     box.classList.remove('yqx-on');
+    getPlayer()?.classList.remove('yqx-pilled');
     setTimeout(() => { if (!box.classList.contains('yqx-on')) box.remove(); }, 600);
   }
   function showResumePill(p, text, withButton) {
@@ -1708,6 +1725,7 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
     }
     box.addEventListener('pointerdown', (e) => e.stopPropagation());
     p.append(box);
+    p.classList.add('yqx-pilled'); // the flag's label steps aside while this shows
     void box.offsetWidth; // so the first frame is the hidden one and the entrance animates
     box.classList.add('yqx-on');
     pillTimer = setTimeout(hideResumePill, withButton ? PILL_MS : 1400);
@@ -1723,7 +1741,9 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
     if (!vid || vid === resumeVid) return;
     resumeVid = vid; // one decision per video
     const spot = spots[vid];
-    if (!spot || /[?&](t|start)=/.test(location.search)) return; // nothing saved, or the link has its own time
+    anchor = spot ? { vid, t: spot.t, at: spot.at } : null; // where you left off before this viewing; the bar controls use it
+    updateResumeUI();
+    if (!spot || spotsOff[vid] || /[?&](t|start)=/.test(location.search)) return; // nothing saved, you said not to save it, or the link has its own time
     const info = resumeInfo(p, v);
     if (info.skip) return;
     const target = Math.max(0, spot.t - rewindSecs(spot));
@@ -1731,11 +1751,272 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
     const cur = Number.isFinite(raw) ? raw : v.currentTime;
     if (!(cur < target - 3)) return; // already there (YouTube resumed it) or you moved on
     if (info.live && v.seekable && v.seekable.length && target > v.seekable.end(v.seekable.length - 1)) return; // the stream no longer holds that moment
+    ourSeekUntil = Date.now() + 1500;
     call(p, 'seekTo', target, true);
     skipWin = { vid, from: target, to: spot.t };
     showResumePill(p, `Resumed at ${clock(target)}`, true);
   }
   const scheduleResume = (ms) => { clearTimeout(resumeTimer); resumeTimer = setTimeout(tryResume, ms); };
+
+  // ---------- resume: controls on the player ----------
+  // A flag on the progress bar where you stopped, a lighter stripe up to it, a "Back to" chip after a long skip,
+  // and a button by the clock with a small menu. They all read `anchor`: the spot you came with, which does not
+  // move while you watch (the saved spot does).
+  const barOpts = { flag: true, back: true, ghost: true, button: true };
+  let spotsOff = {};              // videos you chose not to save { videoId: true }
+  let anchor = null;              // { vid, t, at }
+  let rc = null;                  // the controls, built on first use
+  let menuOpen = false;
+  let backTimer = 0;
+  let backFrom = 0;
+  let backShownAt = 0;
+  let seekGesture = 0;            // last click, tap or key: a long jump right after one is yours, not YouTube's
+  let ourSeekUntil = 0;           // our own seeks (resume, Jump, Start over) never offer "Back to"
+  let lastT = 0;                  // playback time before any seek
+  let lastTVid = '';
+  let lastLayout = 0;
+  const BACK_MIN = 30, BACK_MS = 8000;
+
+  const ago = (at) => {
+    const m = Math.floor((Date.now() - at) / 60e3);
+    if (m < 1) return 'just now';
+    if (m < 60) return `${m} min ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return h === 1 ? '1 hour ago' : `${h} hours ago`;
+    const d = Math.floor(h / 24);
+    if (d < 14) return d === 1 ? 'yesterday' : `${d} days ago`;
+    const w = Math.floor(d / 7);
+    return w < 9 ? `${w} weeks ago` : `${Math.floor(d / 30)} months ago`;
+  };
+  const stopBubble = (node, types) => { for (const t of types) node.addEventListener(t, (e) => e.stopPropagation()); }; // keep YouTube from seeking or pausing when you use ours
+  const MOUSE = ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'touchstart', 'touchend', 'dblclick'];
+
+  /** The video on screen, if these controls apply (not Shorts, not left out by your rules). */
+  function resumeCtx() {
+    if (!IS_TOP) return null;
+    const p = getPlayer();
+    const v = p && p.querySelector('video');
+    const vid = p && videoIdOf(p);
+    if (!v || !vid) return null;
+    const info = resumeInfo(p, v);
+    if (info.skip) return null;
+    return { p, v, vid, info, a: anchor && anchor.vid === vid ? anchor : null, off: !!spotsOff[vid] };
+  }
+
+  function makeMarker(cls, iconName, onClick) {
+    const box = el('div', `yqx-mkr ${cls}`);
+    const tip = el('button', 'yqx-mtip', { type: 'button' });
+    const label = el('span', 'yqx-mlab');
+    tip.append(icon(iconName, ''), label, el('span', 'yqx-mdrain', { 'aria-hidden': 'true' }));
+    stopBubble(tip, MOUSE);
+    tip.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
+    tip.addEventListener('pointerenter', () => progHover(true));
+    tip.addEventListener('pointerleave', () => progHover(false));
+    box.append(el('span', 'yqx-mk', { 'aria-hidden': 'true' }), tip);
+    return { box, tip, label };
+  }
+  function progHover(on) {
+    if (!rc) return;
+    clearTimeout(rc.hoverT);
+    if (on) rc.layer.classList.add('yqx-hover');
+    else rc.hoverT = setTimeout(() => rc.layer.classList.remove('yqx-hover'), 160);
+  }
+  function buildResumeUI() {
+    const layer = el('div', 'yqx-rlayer');
+    const ghost = el('div', 'yqx-ghost', { 'aria-hidden': 'true' });
+    const fm = makeMarker('yqx-fm', 'flag', () => { const x = resumeCtx(); if (x && x.a) jumpTo(x.p, x.a.t, true); });
+    const bm = makeMarker('yqx-bm', 'undo', () => { const x = resumeCtx(); if (x) jumpTo(x.p, backFrom, false); hideBack(); });
+    layer.append(ghost, fm.box, bm.box);
+    const btn = el('button', 'ytp-button yqx-rbutton', { type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false' });
+    const pill = el('span', 'yqx-rpill');
+    btn.append(pill);
+    stopBubble(btn, MOUSE);
+    btn.addEventListener('click', (e) => { e.stopPropagation(); menuOpen ? closeResumeMenu(false) : openResumeMenu(); });
+    const menu = el('div', 'yqx-rmenu', { role: 'menu', 'aria-label': 'Resume options' });
+    stopBubble(menu, [...MOUSE, 'click']);
+    menu.addEventListener('click', (e) => { const b = e.target.closest('button[data-act]'); if (b && !b.disabled) onResumeAction(b.dataset.act); });
+    menu.addEventListener('keydown', (e) => {
+      const bs = [...menu.querySelectorAll('button:not(:disabled)')];
+      const i = bs.indexOf(document.activeElement);
+      if (!bs.length) return;
+      if (e.key === 'ArrowDown') { e.preventDefault(); bs[(i + 1) % bs.length].focus(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); bs[(i - 1 + bs.length) % bs.length].focus(); }
+      else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeResumeMenu(true); }
+    });
+    rc = { p: null, layer, ghost, fm, bm, btn, pill, menu, pillKey: null, geo: '', hoverT: 0, hoverEl: null, ro: null };
+  }
+
+  /** Put the flag, stripe and chip on the bar's real position (it moves with window size, theater and fullscreen). */
+  function layoutResume() {
+    if (!rc || !rc.p || !rc.layer.isConnected) return;
+    const p = rc.p;
+    const bar = p.querySelector('.ytp-progress-bar') || p.querySelector('.ytp-progress-bar-container');
+    if (!bar) return;
+    const pr = p.getBoundingClientRect(), br = bar.getBoundingClientRect();
+    if (!br.width || !pr.width) return;
+    const fill = p.querySelector('.ytp-play-progress'), fr = fill && fill.getBoundingClientRect();
+    const cy = (fr && fr.height ? fr.top + fr.height / 2 : br.top + br.height / 2) - pr.top; // the drawn line, so marks sit on it
+    const x0 = br.left - pr.left, w = br.width, dur = rc.dur || 0;
+    const key = [x0, w, cy, pr.width, dur, rc.fmT, backFrom].join('|');
+    if (key === rc.geo) return;
+    rc.geo = key;
+    const put = (m, t) => {
+      const x = x0 + (dur ? Math.max(0, Math.min(1, t / dur)) : 0) * w;
+      const edge = Math.max(0, 70 - x) || Math.min(0, pr.width - 70 - x); // keep the label inside the player
+      m.box.style.left = `${x}px`;
+      m.box.style.top = `${cy}px`;
+      m.tip.style.setProperty('--yqx-tx', `calc(-50% + ${edge}px)`);
+    };
+    put(rc.fm, rc.fmT || 0);
+    put(rc.bm, backFrom);
+    rc.ghost.style.left = `${x0}px`;
+    rc.ghost.style.top = `${cy}px`;
+    rc.ghost.style.width = `${(dur ? Math.max(0, Math.min(1, (rc.fmT || 0) / dur)) : 0) * w}px`;
+  }
+
+  /** Make the controls match the video on screen. Safe to call often: it only touches what changed. */
+  function updateResumeUI() {
+    const ctx = resumeCtx();
+    if (!ctx) { if (rc) { rc.btn.hidden = true; rc.layer.classList.add('yqx-gone'); closeResumeMenu(false); hideBack(); } return; }
+    if (!rc) buildResumeUI();
+    const { p, v, info, a, off } = ctx;
+    rc.p = p;
+    // the button sits just after the clock
+    const left = p.querySelector('.ytp-left-controls');
+    const clockEl = left && left.querySelector('.ytp-time-display');
+    if (left && rc.btn.parentElement !== left) (clockEl ? clockEl.after(rc.btn) : left.append(rc.btn));
+    else if (clockEl && rc.btn.previousElementSibling !== clockEl) clockEl.after(rc.btn);
+    rc.btn.hidden = !(left && barOpts.button);
+    const key = `${a ? a.t : -1}|${off}`;
+    if (key !== rc.pillKey) {
+      rc.pillKey = key;
+      rc.pill.replaceChildren(icon('history', ''));
+      if (a) { const t = el('span'); t.textContent = clock(a.t); rc.pill.append(t); }
+      rc.pill.classList.toggle('yqx-bare', !a);
+      rc.pill.classList.toggle('yqx-nospot', !a);
+      rc.pill.classList.toggle('yqx-nosave', off);
+      rc.btn.setAttribute('aria-label', a ? `Resume options. Left off at ${clock(a.t)}${off ? '. Not saving this video' : ''}` : 'Resume options. Nothing saved before');
+    }
+    // the bar
+    if (rc.layer.parentElement !== p) p.append(rc.layer);
+    if (rc.menu.parentElement !== p) p.append(rc.menu);
+    rc.layer.classList.remove('yqx-gone');
+    const marks = !info.live && info.dur > 0 && !!a;
+    rc.dur = info.dur;
+    rc.fmT = a ? a.t : 0;
+    rc.fm.box.classList.toggle('yqx-on', barOpts.flag && marks);
+    rc.ghost.classList.toggle('yqx-on', barOpts.ghost && marks);
+    if (a && rc.fm.label.textContent !== clock(a.t)) rc.fm.label.textContent = clock(a.t);
+    const cont = p.querySelector('.ytp-progress-bar-container');
+    if (cont && rc.hoverEl !== cont) { // the bar lives in YouTube's DOM and can be replaced
+      rc.hoverEl = cont;
+      cont.addEventListener('pointerenter', () => progHover(true));
+      cont.addEventListener('pointerleave', () => progHover(false));
+    }
+    if (!rc.ro && typeof ResizeObserver === 'function') { rc.ro = new ResizeObserver(() => layoutResume()); rc.ro.observe(p); }
+    p.classList.toggle('yqx-passed', !!a && v.currentTime >= a.t - 0.5);
+    layoutResume();
+  }
+
+  function jumpTo(p, t, offerBack) {
+    const from = call(p, 'getCurrentTime');
+    if (offerBack && Number.isFinite(from) && Math.abs(from - t) >= BACK_MIN) showBack(from);
+    ourSeekUntil = Date.now() + 1500;
+    call(p, 'seekTo', t, true);
+  }
+  function showBack(from) {
+    const ctx = resumeCtx();
+    if (!barOpts.back || !rc || !ctx || ctx.info.live || !(ctx.info.dur > 0)) return;
+    clearTimeout(backTimer);
+    backFrom = from;
+    backShownAt = Date.now();
+    rc.bm.label.textContent = `Back to ${clock(from)}`;
+    rc.bm.box.classList.remove('yqx-on');
+    void rc.bm.box.offsetWidth; // restart the countdown line
+    rc.bm.box.classList.add('yqx-on');
+    ctx.p.classList.toggle('yqx-bmnear', !!ctx.a && Math.abs(from - ctx.a.t) < 150); // two labels would overlap: the chip wins
+    layoutResume();
+    backTimer = setTimeout(hideBack, BACK_MS);
+  }
+  function hideBack() {
+    clearTimeout(backTimer);
+    backTimer = 0;
+    if (rc) rc.bm.box.classList.remove('yqx-on');
+    getPlayer()?.classList.remove('yqx-bmnear');
+  }
+
+  function openResumeMenu() {
+    const ctx = resumeCtx();
+    if (!ctx || !rc || rc.btn.hidden) return;
+    const { p, vid, a, off, info } = ctx;
+    const m = rc.menu;
+    const head = el('div', 'yqx-mh');
+    const top = el('div');
+    const b = el('b');
+    const small = el('small');
+    if (a) {
+      b.textContent = `Left off at ${clock(a.t)}`;
+      small.textContent = `Saved ${ago(a.at)}${info.dur > 0 ? ` · of ${clock(info.dur)}` : ''}`;
+    } else {
+      b.textContent = 'Nothing saved before';
+      small.textContent = off ? 'This video is not being saved' : 'Your spot is saved as you watch';
+    }
+    top.append(b, small);
+    head.append(top);
+    if (a && !info.live && info.dur > 0) {
+      const track = el('div', 'yqx-mt', { 'aria-hidden': 'true' });
+      const pct = `${Math.max(0, Math.min(100, (a.t / info.dur) * 100)).toFixed(1)}%`;
+      const fill = el('i'); fill.style.width = pct;
+      const dot = el('u'); dot.style.left = pct;
+      track.append(fill, dot);
+      head.append(track);
+    }
+    const row = (act, ic, text, disabled) => {
+      const r = el('button', 'yqx-rrow', { type: 'button', role: 'menuitem', 'data-act': act });
+      r.disabled = !!disabled;
+      const t = el('span'); t.textContent = text;
+      r.append(icon(ic, ''), t);
+      return r;
+    };
+    m.replaceChildren(head, el('hr'),
+      row('jump', 'history', a ? `Jump to ${clock(a.t)}` : 'Jump to your spot', !a),
+      row('start', 'start', 'Start over', false),
+      row('pause', off ? 'check' : 'block', off ? 'Save this video again' : 'Don’t save this video', false),
+      row('forget', 'trash', 'Forget this spot', !a && !spots[vid]));
+    const pr = p.getBoundingClientRect(), br = rc.btn.getBoundingClientRect(), w = m.offsetWidth || 246;
+    m.style.left = `${Math.max(8, Math.min(pr.width - w - 8, br.left - pr.left))}px`;
+    m.style.bottom = `${Math.max(8, pr.bottom - br.top + 10)}px`;
+    m.classList.add('yqx-on');
+    rc.btn.setAttribute('aria-expanded', 'true');
+    menuOpen = true;
+    m.querySelector('button:not(:disabled)')?.focus({ preventScroll: true });
+  }
+  function closeResumeMenu(refocus) {
+    if (!menuOpen || !rc) return;
+    rc.menu.classList.remove('yqx-on');
+    rc.btn.setAttribute('aria-expanded', 'false');
+    menuOpen = false;
+    if (refocus) rc.btn.focus({ preventScroll: true });
+  }
+  function onResumeAction(act) {
+    const ctx = resumeCtx();
+    closeResumeMenu(true);
+    if (!ctx) return;
+    const { p, vid, a } = ctx;
+    if (act === 'jump' && a) jumpTo(p, a.t, true);
+    else if (act === 'start') { skipWin = { vid: '', from: 0, to: 0 }; jumpTo(p, 0, true); }
+    else if (act === 'pause') {
+      const off = !spotsOff[vid];
+      if (off) spotsOff[vid] = true; else delete spotsOff[vid];
+      postToExt({ type: 'spotOff', videoId: vid, off });
+      showResumePill(p, off ? 'This video won’t be saved' : 'Saving this video again', false);
+    } else if (act === 'forget') {
+      clearSpot(vid);
+      if (anchor && anchor.vid === vid) anchor = null;
+      showResumePill(p, 'Spot forgotten', false);
+    }
+    updateResumeUI();
+  }
 
   // ---------- lifecycle ----------
   let ensureQueued = false;
@@ -1749,10 +2030,11 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
       checkChat();
       checkCinema();
       ensureBar();
+      updateResumeUI();
     }, 150);
   }
 
-  document.addEventListener('yt-navigate-start', () => { saveSpot(true); hideResumePill(); resumeVid = ''; closeMenu(false); clearHeld(); });
+  document.addEventListener('yt-navigate-start', () => { saveSpot(true); hideResumePill(); hideBack(); closeResumeMenu(false); lastT = 0; resumeVid = ''; closeMenu(false); clearHeld(); });
   document.addEventListener('yt-navigate-finish', () => { updateBar(); checkCinema(); });
   for (const type of ['yt-navigate-finish', 'yt-player-updated', 'yt-page-data-updated']) {
     document.addEventListener(type, () => {
@@ -1768,6 +2050,7 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
       if (p && e.target instanceof HTMLVideoElement && p.contains(e.target)) {
         checkVideoChange();
         scheduleResume(e.type === 'playing' ? 500 : 2500);
+        updateResumeUI();
         if (e.type === 'playing') {
           saverPlaying(true);
           if (!holdIfAutoplayed() && mast.held) releaseHeld(); // a later start = someone pressed play
@@ -1776,7 +2059,30 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
     }, true);
   }
   document.addEventListener('pause', (e) => { if (e.target instanceof HTMLVideoElement) { saverPlaying(false); saveSpot(true); } }, true);
-  document.addEventListener('timeupdate', (e) => { if (e.target instanceof HTMLVideoElement) saveSpot(false); }, true);
+  document.addEventListener('timeupdate', (e) => {
+    const t = e.target;
+    if (!(t instanceof HTMLVideoElement)) return;
+    saveSpot(false);
+    const p = getPlayer();
+    if (!p || !p.contains(t) || p.classList.contains('ad-showing')) return; // ad time is not your video's time
+    lastT = t.currentTime;
+    lastTVid = videoIdOf(p);
+    if (rc && anchor && Date.now() - lastLayout > 800) { lastLayout = Date.now(); p.classList.toggle('yqx-passed', t.currentTime >= anchor.t - 0.5); layoutResume(); }
+  }, true);
+  // A long jump right after your click or key press is yours: offer a way back. Jumps YouTube makes by itself never are.
+  for (const type of ['pointerdown', 'pointerup', 'keydown']) document.addEventListener(type, () => { seekGesture = Date.now(); }, true);
+  document.addEventListener('seeking', (e) => {
+    const t = e.target;
+    const p = getPlayer();
+    if (!(t instanceof HTMLVideoElement) || !p || !p.contains(t) || p.classList.contains('ad-showing')) return;
+    const vid = videoIdOf(p), from = lastT, to = t.currentTime, first = vid !== lastTVid;
+    lastT = to;
+    lastTVid = vid;
+    if (first || from < 3 || Date.now() < ourSeekUntil || Date.now() - seekGesture > 1500) return;
+    if (Math.abs(to - from) >= BACK_MIN && Date.now() - backShownAt > 1500) showBack(from); // one chip per drag, pointing at where it began
+  }, true);
+  document.addEventListener('pointerdown', (e) => { if (menuOpen && rc && !rc.menu.contains(e.target) && !rc.btn.contains(e.target)) closeResumeMenu(false); }, true);
+  document.addEventListener('keydown', (e) => { if (menuOpen && e.key === 'Escape' && rc && !rc.menu.contains(e.target)) closeResumeMenu(true); }, true);
   window.addEventListener('pagehide', () => saveSpot(true));
   function awayChanged() {
     tabRefresh();
@@ -1822,6 +2128,7 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
     if (ui.open) positionMenu();
     hideTip();
     ensureMast(); // wide <-> narrow top bar
+    layoutResume();
   });
   window.addEventListener('resize', relayout);
   document.addEventListener('fullscreenchange', relayout);
@@ -2144,7 +2451,73 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
 .yqx-resume.yqx-on .yqx-resume-drain{animation:yqx-drain 6s linear forwards}
 @keyframes yqx-drain{from{transform:scaleX(1)}to{transform:scaleX(0)}}
 #movie_player.ytp-big-mode .yqx-resume{bottom:110px;font-size:16px}
+
+/* ---------- resume: progress-bar controls ---------- */
+#movie_player .yqx-rlayer{position:absolute;left:0;top:0;width:100%;height:100%;z-index:70;pointer-events:none;transition:opacity .25s var(--yqx-ease)}
+#movie_player.ytp-autohide .yqx-rlayer{opacity:0}
+#movie_player.ad-showing .yqx-rlayer,#movie_player .yqx-rlayer.yqx-gone{display:none}
+.yqx-ghost{position:absolute;height:3px;margin-top:-1.5px;border-radius:2px;background:rgba(255,255,255,.55);box-shadow:2px 0 0 rgba(255,255,255,.95);opacity:0;
+  transition:opacity .5s var(--yqx-ease),height .15s var(--yqx-ease),margin .15s var(--yqx-ease)}
+.yqx-ghost.yqx-on{opacity:1}
+#movie_player.yqx-passed .yqx-ghost.yqx-on{opacity:.35}
+.yqx-rlayer.yqx-hover .yqx-ghost{height:5px;margin-top:-2.5px}
+.yqx-mkr{position:absolute;width:0;height:0;pointer-events:none}
+.yqx-mk{position:absolute;left:0;top:-8px;width:3px;height:16px;margin-left:-1.5px;border-radius:2px;background:#fff;box-shadow:0 0 0 2px rgba(255,43,74,.9);
+  transform:scaleY(0);transition:transform .5s var(--yqx-spring)}
+.yqx-mtip{position:absolute;left:0;bottom:14px;display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px 0 8px;border:0;border-radius:999px;white-space:nowrap;cursor:pointer;
+  font:500 12.5px/1 "YouTube Sans","Roboto",Arial,sans-serif;font-variant-numeric:tabular-nums;color:var(--yqx-on-surface);background:var(--yqx-surface);
+  -webkit-backdrop-filter:blur(16px) saturate(1.6);backdrop-filter:blur(16px) saturate(1.6);box-shadow:inset 0 0 0 1px var(--yqx-glass-edge);text-shadow:none;
+  transform:translate(var(--yqx-tx,-50%),6px) scale(.85);transform-origin:bottom center;opacity:0;pointer-events:none;
+  transition:transform .5s var(--yqx-spring),opacity .2s var(--yqx-ease),border-radius .35s var(--yqx-spring-fast)}
+.yqx-mtip:hover{border-radius:12px}
+.yqx-mtip:focus-visible{outline:3px solid var(--yqx-primary);outline-offset:2px}
+.yqx-mtip svg{width:16px;height:16px;flex:none;color:#ff8a9a}
+.yqx-mdrain{position:absolute;left:12px;right:12px;bottom:0;height:2px;border-radius:2px;background:#ff8a9a;transform-origin:left;transform:scaleX(0)}
+.yqx-fm.yqx-on .yqx-mk{transform:scaleY(1)}
+.yqx-rlayer.yqx-hover .yqx-fm.yqx-on .yqx-mtip,.yqx-fm.yqx-on .yqx-mtip:focus-visible{opacity:1;pointer-events:auto;transform:translate(var(--yqx-tx,-50%),0) scale(1)}
+@media (hover:none){.yqx-fm.yqx-on .yqx-mtip{opacity:1;pointer-events:auto;transform:translate(var(--yqx-tx,-50%),0) scale(1)}}
+#movie_player.yqx-pilled .yqx-fm .yqx-mtip,#movie_player.yqx-bmnear .yqx-fm .yqx-mtip{opacity:0!important;pointer-events:none!important;transform:translate(var(--yqx-tx,-50%),6px) scale(.85)!important}
+.yqx-bm.yqx-on .yqx-mk{transform:scaleY(1);background:var(--yqx-on-primary-container)}
+.yqx-bm.yqx-on .yqx-mtip{opacity:1;pointer-events:auto;transform:translate(var(--yqx-tx,-50%),0) scale(1)}
+.yqx-bm.yqx-on .yqx-mdrain{animation:yqx-drain8 8s linear forwards}
+@keyframes yqx-drain8{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+#movie_player .yqx-rbutton{width:auto!important;min-width:0;padding:0 4px!important;display:inline-flex!important;align-items:center;justify-content:center;vertical-align:top;color:#fff;cursor:pointer;opacity:1}
+#movie_player .yqx-rbutton[hidden]{display:none!important}
+#movie_player .yqx-rbutton:focus-visible{outline:none;box-shadow:none}
+.yqx-rpill{position:relative;display:inline-flex;align-items:center;gap:6px;height:26px;box-sizing:border-box;padding:0 11px 0 8px;border-radius:999px;background:var(--yqx-primary);color:var(--yqx-on-primary);
+  font:600 12px/1 "YouTube Sans","Roboto",Arial,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.2px;white-space:nowrap;text-shadow:none;
+  transition:background-color .2s var(--yqx-ease),border-radius .35s var(--yqx-spring-fast),transform .35s var(--yqx-spring-fast),opacity .2s var(--yqx-ease)}
+.yqx-rpill svg{width:15px;height:15px;flex:none}
+.yqx-rpill.yqx-bare{padding:0 7px}
+.yqx-rpill.yqx-nospot{opacity:.65}
+.yqx-rbutton:hover .yqx-rpill{background:color-mix(in srgb,#fff 22%,var(--yqx-primary))}
+.yqx-rbutton:active .yqx-rpill{transform:scale(.92)}
+.yqx-rbutton[aria-expanded="true"] .yqx-rpill{background:var(--yqx-inverse-surface);color:var(--yqx-inverse-on-surface);border-radius:9px}
+.yqx-rbutton:focus-visible .yqx-rpill{outline:3px solid var(--yqx-primary);outline-offset:2px}
+.yqx-rpill::after{content:"";position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;box-sizing:border-box;background:#ff2b4a;box-shadow:0 0 0 1.5px rgba(15,15,15,.75);transition:background-color .2s var(--yqx-ease)}
+.yqx-rpill.yqx-nosave::after{background:#1f1f25;border:2px solid #fff;box-shadow:none}
+#movie_player.ytp-big-mode .yqx-rpill{height:32px;padding:0 14px 0 10px;font-size:15px}
+#movie_player.ytp-big-mode .yqx-rpill.yqx-bare{padding:0 9px}
+#movie_player .yqx-rmenu{position:absolute;z-index:72;box-sizing:border-box;min-width:246px;display:flex;flex-direction:column;gap:2px;padding:6px;border-radius:22px;color:var(--yqx-on-surface);
+  background:var(--yqx-surface);-webkit-backdrop-filter:blur(20px) saturate(1.7);backdrop-filter:blur(20px) saturate(1.7);box-shadow:inset 0 0 0 1px var(--yqx-glass-edge),0 8px 24px rgba(0,0,0,.3);
+  font:500 13px/1.2 "YouTube Sans","Roboto",Arial,sans-serif;text-shadow:none;user-select:none;-webkit-user-select:none;
+  opacity:0;transform:translateY(10px) scale(.94);transform-origin:bottom left;pointer-events:none;visibility:hidden;
+  transition:opacity .2s var(--yqx-ease),transform .5s var(--yqx-spring),visibility 0s .5s}
+#movie_player .yqx-rmenu.yqx-on{opacity:1;transform:none;pointer-events:auto;visibility:visible;transition-delay:0s}
+.yqx-mh{display:flex;flex-direction:column;gap:9px;padding:10px 12px 8px}
+.yqx-mh b{display:block;font-weight:500;font-size:14px;font-variant-numeric:tabular-nums}
+.yqx-mh small{display:block;margin-top:2px;font-weight:400;font-size:12px;opacity:.72}
+.yqx-mt{position:relative;height:4px;border-radius:2px;background:rgba(255,255,255,.25)}
+.yqx-mt i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:#ff2b4a}
+.yqx-mt u{position:absolute;top:50%;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px #ff2b4a}
+.yqx-rmenu hr{border:0;height:1px;margin:2px 8px;background:rgba(255,255,255,.12)}
+.yqx-rrow{display:flex;align-items:center;gap:10px;width:100%;height:40px;padding:0 14px 0 10px;border:0;border-radius:12px;background:transparent;color:inherit;text-align:left;cursor:pointer;font:inherit;
+  transition:background-color .2s var(--yqx-ease),border-radius .35s var(--yqx-spring-fast)}
+.yqx-rrow svg{width:18px;height:18px;flex:none;color:var(--yqx-primary)}
+.yqx-rrow:hover:not(:disabled),.yqx-rrow:focus-visible{background:var(--yqx-surface-highest);border-radius:16px;outline:none}
+.yqx-rrow:disabled{opacity:.4;cursor:default}
+#movie_player.ytp-big-mode .yqx-rmenu{font-size:15px;min-width:290px}
 @media (prefers-reduced-motion: reduce){
-  .yqx-menu,.yqx-resume,.yqx-resume-ico,.yqx-resume-btn,.yqx-resume-drain,.yqx-pill,.yqx-pill::after,.yqx-check,.yqx-iconbox,.yqx-tip,.yqx-item,.yqx-now{transition:none!important;animation:none!important}
+  .yqx-menu,.yqx-resume,.yqx-rmenu,.yqx-rpill,.yqx-mtip,.yqx-mk,.yqx-ghost,.yqx-mdrain,.yqx-rlayer,.yqx-rrow,.yqx-resume-ico,.yqx-resume-btn,.yqx-resume-drain,.yqx-pill,.yqx-pill::after,.yqx-check,.yqx-iconbox,.yqx-tip,.yqx-item,.yqx-now{transition:none!important;animation:none!important}
 }`;
 })();

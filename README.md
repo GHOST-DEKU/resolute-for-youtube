@@ -45,6 +45,7 @@
 | 🫥 **Hide top bar** *(optional)* | YouTube's top bar slides away while the video plays, so you see more of the video. Pause or point at the top and it comes back. |
 | 🎬 **Cinema mode** *(optional)* | Videos open in theater mode and fill your window, without stretching or cutting anything. |
 | 🍃 **Background saver** *(optional)* | Listening to music in a tab you are not looking at? The quality goes down to use less data, and comes back when you return. |
+| ⏯️ **Pick up where you stopped** | YouTube sometimes forgets. Resolute remembers the spot and jumps back when you open the video, with a small "Resumed at 12:29 · Start over" note. |
 | ⏱️ **Time left at your speed** | Next to the clock you see how long the video really takes at your speed. If you are in another tab, the tab name shows the time left too. |
 | 🔒 **Private** | It has no servers, no tracking and no internet requests. Your settings stay in your browser. |
 
@@ -231,6 +232,19 @@ When you open a live stream, a premiere or a stream replay, Resolute closes the 
 
 ---
 
+<a id="resume"></a>
+## ⏯️ Pick up where you stopped
+
+On by default. Resolute saves where you are while you watch. Next time you open that video, it jumps back to that spot. A small note shows **"Resumed at 12:29"** with a **Start over** button. The note fades after 6 seconds.
+
+In the popup, on the **Playing** tab:
+- **Rewind a little:** *Exact* goes to the very second. *5 seconds* goes back 5 seconds. *Smart* (default) goes back 2 seconds if you were away less than an hour, 5 seconds if less than a week, and 10 seconds after that.
+- **What counts as progress:** live streams are included, the first 10 seconds are not saved, the last 30 seconds count as finished (the video starts fresh next time), and videos under 3 minutes are skipped. Each of these is a switch. **Shorts are never saved.**
+
+Resolute does not jump if the link already has a time in it, or if YouTube already resumed the video itself. The spots stay on your device (the 1,000 most recent videos).
+
+---
+
 <a id="saver"></a>
 ## 🍃 Background saver
 
@@ -271,7 +285,7 @@ The popup card also shows about how much data you saved **this week (Sunday to S
 
 The popup has three pages, so you never have to scroll a long list:
 - **Quality**: default quality, channel defaults, remembered videos.
-- **Playing**: the switches for start paused, hide chat, hide top bar, Cinema mode, and the time-left icons.
+- **Playing**: the switches for start paused, hide chat, hide top bar, Cinema mode, the time-left icons, and the resume settings (rewind a little, what counts as progress).
 - **Saver**: the background saver and its weekly estimate.
 
 Tap a tab, press the left or right arrow key while a tab is selected (Home and End work too), or swipe on a touch screen.
@@ -355,7 +369,7 @@ Firefox removes it when you close it, so load it again next time.
 <details>
 <summary><b>Does it send my data anywhere?</b></summary>
 
-No. Resolute has no code that uses the internet. Your settings (default quality, the autoplay switches, hide live chat, hide top bar, Cinema mode, tab icons and the saver) are saved in your browser's own extension storage and sync with your browser account if you use sync. Remembered videos, channel defaults, the channels Cinema mode leaves normal, and the saver's daily numbers stay on this device only. You can read all the details in the [privacy policy](PRIVACY.md).
+No. Resolute has no code that uses the internet. Your settings (default quality, the autoplay switches, hide live chat, hide top bar, Cinema mode, tab icons and the saver) are saved in your browser's own extension storage and sync with your browser account if you use sync. Remembered videos, the spots where you stopped watching, channel defaults, the channels Cinema mode leaves normal, and the saver's daily numbers stay on this device only. You can read all the details in the [privacy policy](PRIVACY.md).
 </details>
 
 <details>

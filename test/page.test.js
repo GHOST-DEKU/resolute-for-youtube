@@ -737,6 +737,85 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   await wait(400);
   assert.ok(document.querySelector('.yqx-button').classList.contains('yqx-floating'), 'floating fallback');
 
+  // ---- resume: go back to where you stopped ----
+  {
+    let curT = 0, dur = 600, live = false;
+    const seeks = [];
+    Object.assign(p, {
+      getCurrentTime: () => curT, getDuration: () => dur,
+      seekTo: (t) => { seeks.push(t); curT = t; },
+      getVideoData: () => ({ video_id: videoId, isLive: live })
+    });
+    const spotsSent = () => sent.filter((m) => m.type === 'spot');
+    const pill = () => document.getElementById('yqx-resume');
+    const open = async (id, at = 0) => { // a new video starts
+      document.dispatchEvent(new window.Event('yt-navigate-start'));
+      videoId = id; curT = at; seeks.length = 0; sent.length = 0;
+      videoEl.dispatchEvent(new window.Event('playing'));
+      await wait(560);
+    };
+    const tickTime = async (t) => { curT = t; videoEl.dispatchEvent(new window.Event('timeupdate')); await wait(5); };
+    const hourAgo = Date.now() - 30 * 60e3; // under an hour: smart rewind = 2 s
+    toPage('resumeRules', { includeLive: true, skipStart: true, endFinished: true, skipShort: true });
+    toPage('resumeRewind', 'smart');
+    toPage('spots', { resume0001: { t: 300, at: hourAgo }, shortvid01: { t: 100, at: hourAgo }, livevid001: { t: 500, at: hourAgo }, doneVid001: { t: 400, at: hourAgo } });
+    await wait(20);
+
+    await open('resume0001');
+    assert.deepStrictEqual(seeks, [298], 'jumps to the saved spot, 2 s back (smart, away under an hour)');
+    assert.ok(pill() && pill().textContent.includes('Resumed at 4:58') && pill().querySelector('button'), 'shows the pill with Start over');
+    await tickTime(298.5); await tickTime(299.5);
+    assert.strictEqual(spotsSent().length, 0, 'the jump itself is not saved over your spot');
+    await tickTime(310);
+    assert.strictEqual(spotsSent().length, 1, 'real progress is saved');
+    await tickTime(312);
+    assert.strictEqual(spotsSent().length, 1, 'but not more than every 5 seconds');
+    pill().querySelector('button').click(); await wait(10);
+    assert.strictEqual(seeks[seeks.length - 1], 0, 'Start over goes to 0:00');
+    assert.ok(pill().textContent.includes('Back at the start') && !pill().querySelector('button'), 'confirms, no button');
+    await wait(1500);
+    assert.ok(!pill() || !pill().classList.contains('yqx-on'), 'pill fades away');
+
+    // rewind modes (the spot above moved on with your progress; put it back)
+    toPage('spots', { resume0001: { t: 300, at: hourAgo } });
+    toPage('resumeRewind', 'off'); await open('resume0001'); assert.deepStrictEqual(seeks, [300], 'Exact: no rewind');
+    toPage('resumeRewind', '5'); await open('resume0001'); assert.deepStrictEqual(seeks, [295], '5 seconds');
+    toPage('resumeRewind', 'smart');
+    toPage('spots', { resume0001: { t: 300, at: Date.now() - 3 * 86400e3 } }); await open('resume0001'); assert.deepStrictEqual(seeks, [295], 'smart: days away = 5 s');
+    toPage('spots', { resume0001: { t: 300, at: Date.now() - 30 * 86400e3 } }); await open('resume0001'); assert.deepStrictEqual(seeks, [290], 'smart: weeks away = 10 s');
+
+    // reasons to leave it alone
+    toPage('spots', { resume0001: { t: 300, at: hourAgo }, shortvid01: { t: 100, at: hourAgo }, livevid001: { t: 500, at: hourAgo } });
+    dur = 120; await open('shortvid01'); assert.deepStrictEqual(seeks, [], 'videos under 3 min are left alone'); dur = 600;
+    toPage('resumeRules', { skipShort: false }); dur = 120; await open('shortvid01'); assert.deepStrictEqual(seeks, [98], 'short videos resume when that switch is off'); dur = 600;
+    toPage('resumeRules', { includeLive: false }); live = true; await open('livevid001'); assert.deepStrictEqual(seeks, [], 'live streams skipped when the switch is off');
+    toPage('resumeRules', { includeLive: true }); await open('livevid001'); assert.deepStrictEqual(seeks, [498], 'live streams resume when on'); live = false;
+    await open('resume0001', 298); assert.deepStrictEqual(seeks, [], 'YouTube already resumed it: no second jump');
+    window.history.pushState({}, '', '/watch?v=resume0001&t=45'); await open('resume0001'); assert.deepStrictEqual(seeks, [], 'a link with its own time wins');
+    window.history.pushState({}, '', '/shorts/resume0001'); await open('resume0001'); assert.deepStrictEqual(seeks, [], 'Shorts never resume');
+    await tickTime(50); await tickTime(60); assert.strictEqual(spotsSent().length, 0, 'Shorts are never saved');
+    window.history.pushState({}, '', '/watch?v=vid1');
+    p.classList.add('ad-showing'); await open('resume0001'); assert.deepStrictEqual(seeks, [], 'waits out ads'); p.classList.remove('ad-showing');
+
+    // saving rules
+    toPage('resumeRules', { skipStart: true, endFinished: true, skipShort: true, includeLive: true });
+    await open('fresh000001');
+    await tickTime(4); assert.strictEqual(spotsSent().length, 0, 'first 10 seconds are not saved');
+    await tickTime(30); assert.strictEqual(spotsSent().length, 1, 'then it is');
+    sent.length = 0; await tickTime(585);
+    assert.ok(sent.some((m) => m.type === 'spotClear' && m.videoId === 'fresh000001'), 'last 30 seconds = finished, spot cleared');
+    sent.length = 0; videoEl.dispatchEvent(new window.Event('pause')); assert.strictEqual(spotsSent().length, 0, 'finished video is not saved again on pause');
+    await open('fresh000002'); await tickTime(100); sent.length = 0; curT = 130;
+    videoEl.dispatchEvent(new window.Event('pause')); assert.strictEqual(spotsSent().length, 1, 'pausing saves at once');
+    sent.length = 0; videoEl.dispatchEvent(new window.Event('ended')); assert.ok(sent.some((m) => m.type === 'spotClear' && m.videoId === 'fresh000002'), 'a video that ends starts fresh next time');
+    await open('fresh000003'); toPage('resumeRules', { skipStart: false }); await tickTime(3); assert.strictEqual(spotsSent().length, 1, 'ignore-first-10-s off: saves right away');
+    toPage('resumeRules', { skipStart: true });
+    await open('fresh000004'); document.dispatchEvent(new window.Event('visibilitychange')); // still visible: nothing
+    await tickTime(40); sent.length = 0; curT = 75; vis = 'hidden'; document.dispatchEvent(new window.Event('visibilitychange')); vis = 'visible'; document.dispatchEvent(new window.Event('visibilitychange'));
+    assert.strictEqual(spotsSent().length, 1, 'leaving the tab saves');
+    document.getElementById('yqx-resume')?.remove();
+  }
+
   console.log('All checks passed');
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

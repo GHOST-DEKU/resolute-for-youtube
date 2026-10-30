@@ -17,6 +17,9 @@
  *  - sync  "bgSaver":           { on, after: 15|30|60 seconds, to: "tiny"|"large" } background saver
  *  - local "saverStats":        { "YYYY-MM-DD": estimated MB saved } for the last 21 days
  *  - local "saverLast":         { at, from, to, secs, mb } the most recent run, or { at, skipped: reason }
+ *  - local "resumeSpots":       { videoId: { t: seconds, at: time saved } } where you stopped watching
+ *  - sync  "resumeRewind":      "off" | "5" | "smart" how far back a video starts when it resumes (smart unless changed)
+ *  - sync  "resumeRules":       { includeLive, skipStart, endFinished, skipShort } what counts as progress (all on unless turned off)
  *  - local "videoOverrides":    { videoId: quality } for videos the user chose to remember
  *  - local "channelPrefs":      { UCchannelId: { q: quality, name } } channel defaults
  *    (name is only for showing the list; the id is the key, so renames don't matter)
@@ -48,6 +51,44 @@
   const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
   const isPair = (v) => v && typeof v === 'object' && typeof v.opened === 'boolean' && typeof v.next === 'boolean';
   const OVERRIDES = 'videoOverrides';
+  const SPOTS = 'resumeSpots';
+  const REWIND = 'resumeRewind';
+  const RULES = 'resumeRules';
+  const MAX_SPOTS = 1000; // shortcut: drops the oldest beyond this; raise if users hit it
+  const RULE_KEYS = ['includeLive', 'skipStart', 'endFinished', 'skipShort'];
+  const cleanRewind = (v) => (v === 'off' || v === '5' ? v : 'smart');
+  const cleanRules = (v) => Object.fromEntries(RULE_KEYS.map((k) => [k, !(v && v[k] === false)]));
+  /** Only well-formed spots survive; corrupted data is dropped, never applied. */
+  function cleanSpots(map) {
+    const out = {};
+    if (map && typeof map === 'object') {
+      for (const [id, v] of Object.entries(map)) {
+        if (VIDEO_ID.test(id) && v && Number.isFinite(v.t) && v.t >= 0 && v.t <= 86400 * 2 && Number.isFinite(v.at)) out[id] = { t: Math.floor(v.t), at: v.at };
+      }
+    }
+    return out;
+  }
+  async function readSpots() {
+    try {
+      return cleanSpots((await api.storage.local.get(SPOTS))[SPOTS]);
+    } catch {
+      return {};
+    }
+  }
+  async function readRewind() {
+    try {
+      return cleanRewind((await api.storage.sync.get(REWIND))[REWIND]);
+    } catch {
+      return 'smart';
+    }
+  }
+  async function readRules() {
+    try {
+      return cleanRules((await api.storage.sync.get(RULES))[RULES]);
+    } catch {
+      return cleanRules(null);
+    }
+  }
   const CHANNELS = 'channelPrefs';
   const MAX_CHANNELS = 2000; // shortcut: drops the oldest beyond this; raise if users hit it
   const CHANNEL_ID = /^UC[\w-]{22}$/;
@@ -122,6 +163,9 @@
     send({ type: 'tabicons', value: await readTabIcons() });
     send({ type: 'cinemaSkip', value: await readSkip() }); // before 'cinema', so a skipped channel is known when cinema starts
     send({ type: 'cinema', value: await readCinema() });
+    send({ type: 'spots', value: await readSpots() });
+    send({ type: 'resumeRewind', value: await readRewind() });
+    send({ type: 'resumeRules', value: await readRules() });
     // Is this the selected tab of its window? (Vivaldi never marks background tabs "hidden", so ask the browser.)
     try {
       const active = await api.runtime.sendMessage({ type: 'amActive' });
@@ -217,6 +261,19 @@
         const ids = Object.keys(map);
         for (const id of ids.slice(0, Math.max(0, ids.length - MAX_REMEMBERED))) delete map[id];
         await api.storage.local.set({ [OVERRIDES]: map });
+      } else if (msg.type === 'spot' && VIDEO_ID.test(msg.videoId) && Number.isFinite(msg.t) && msg.t >= 0 && msg.t <= 86400 * 2) {
+        const map = await readSpots();
+        delete map[msg.videoId]; // re-adding moves it to the newest position
+        map[msg.videoId] = { t: Math.floor(msg.t), at: Date.now() };
+        const ids = Object.keys(map);
+        for (const id of ids.slice(0, Math.max(0, ids.length - MAX_SPOTS))) delete map[id];
+        await api.storage.local.set({ [SPOTS]: map });
+      } else if (msg.type === 'spotClear' && VIDEO_ID.test(msg.videoId)) {
+        const map = await readSpots();
+        if (msg.videoId in map) {
+          delete map[msg.videoId];
+          await api.storage.local.set({ [SPOTS]: map });
+        }
       } else if (msg.type === 'cinemaSkip' && CHANNEL_ID.test(msg.channelId) && typeof msg.on === 'boolean') {
         const map = await readSkip();
         delete map[msg.channelId]; // re-adding moves it to the newest position
@@ -264,6 +321,15 @@
       }
       if (area === 'sync' && changes[SAVER]) {
         send({ type: 'saver', value: cleanSaver(changes[SAVER].newValue) });
+      }
+      if (area === 'local' && changes[SPOTS]) {
+        send({ type: 'spots', value: cleanSpots(changes[SPOTS].newValue) });
+      }
+      if (area === 'sync' && changes[REWIND]) {
+        send({ type: 'resumeRewind', value: cleanRewind(changes[REWIND].newValue) });
+      }
+      if (area === 'sync' && changes[RULES]) {
+        send({ type: 'resumeRules', value: cleanRules(changes[RULES].newValue) });
       }
       if (area === 'local' && changes[OVERRIDES]) {
         send({ type: 'overrides', value: changes[OVERRIDES].newValue || {} });

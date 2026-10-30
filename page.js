@@ -37,6 +37,10 @@
  *
  * Optional cinema mode: a video opens in theater (YouTube's own theater button, once per video), the top
  * bar hides while it plays, and the video fills the window at its own shape (never stretched or cropped).
+ * Resume: while a video plays its spot is saved every few seconds. Open it again and the player jumps back
+ * (a little before the spot, as set in the popup) with a pill: "Resumed at 12:29 · Start over". If YouTube
+ * already resumed it, or the link has its own time (t=), nothing happens. Shorts are never saved; live
+ * streams, the first 10 s, the last 30 s and videos under 3 minutes follow the switches in the popup.
  * Leaving theater yourself teaches it: that channel's videos stay normal next time; going back into
  * theater there undoes that. Your own clicks and the T key count; Resolute's own click never does.
  */
@@ -827,6 +831,7 @@
     pin: 'M16 9V4h1a1 1 0 0 0 0-2H7a1 1 0 0 0 0 2h1v5a3 3 0 0 1-3 3v2h5.97v7l1 1 1-1v-7H19v-2a3 3 0 0 1-3-3z',
     star: 'M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z',
     channel: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z',
+    history: 'M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z',
     close: 'M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'
   };
   function icon(name, className) {
@@ -1375,6 +1380,20 @@
       updateBar();
       checkCinema();
       return;
+    } else if (msg.type === 'spots' && msg.value && typeof msg.value === 'object') {
+      spots = {};
+      for (const [id, v] of Object.entries(msg.value)) {
+        if (/^[\w-]{6,20}$/.test(id) && v && Number.isFinite(v.t) && Number.isFinite(v.at)) spots[id] = { t: v.t, at: v.at };
+      }
+      spotsKnown = true;
+      scheduleResume(300); // a video that started before this arrived still gets its turn
+      return;
+    } else if (msg.type === 'resumeRewind' && ['off', '5', 'smart'].includes(msg.value)) {
+      resumeRewind = msg.value;
+      return;
+    } else if (msg.type === 'resumeRules' && msg.value && typeof msg.value === 'object') {
+      for (const k of Object.keys(resumeRules)) resumeRules[k] = msg.value[k] !== false;
+      return;
     } else if (msg.type === 'tabicons' && typeof msg.value === 'boolean') {
       tabIcons = msg.value;
       tabRefresh();
@@ -1599,6 +1618,125 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
     learnTheater();
   }, true);
 
+  // ---------- resume: go back to where you stopped ----------
+  let spots = {};                 // { videoId: { t: seconds, at: time saved } }
+  let spotsKnown = false;
+  let resumeRewind = 'smart';     // "off" | "5" | "smart"
+  const resumeRules = { includeLive: true, skipStart: true, endFinished: true, skipShort: true };
+  let resumeVid = '';             // video whose resume was already decided (saving waits for that, so a fresh 0:00 never overwrites the old spot)
+  let resumeTimer = 0;
+  let spotSent = { vid: '', t: -99 };
+  let skipWin = { vid: '', from: 0, to: 0 }; // the few seconds between where a resume landed and your old spot: not progress, so they never move the spot back
+  let pillTimer = 0;
+  const SPOT_EVERY = 5, START_SKIP = 10, END_SKIP = 30, SHORT_UNDER = 180, PILL_MS = 6000;
+
+  /** How far before your spot the video starts. Smart: 2 s after under an hour away, 5 s under a week, else 10 s. */
+  function rewindSecs(spot) {
+    if (resumeRewind === 'off') return 0;
+    if (resumeRewind === '5') return 5;
+    const away = Date.now() - spot.at;
+    return away < 3600e3 ? 2 : away < 7 * 86400e3 ? 5 : 10;
+  }
+  /** What kind of video this is, and why it should be left alone ('' = it counts). */
+  function resumeInfo(p, v) {
+    const data = call(p, 'getVideoData');
+    const live = !!(data && data.isLive);
+    const d = call(p, 'getDuration') || v.duration;
+    const dur = Number.isFinite(d) && d > 0 ? d : 0;
+    let skip = '';
+    if (location.pathname.startsWith('/shorts/')) skip = 'shorts'; // never saved, no switch for it
+    else if (live && !resumeRules.includeLive) skip = 'live';
+    else if (!live && resumeRules.skipShort && dur > 0 && dur < SHORT_UNDER) skip = 'short';
+    return { live, dur, skip };
+  }
+  function clearSpot(vid) {
+    if (!vid || !spots[vid]) return;
+    delete spots[vid];
+    spotSent = { vid: '', t: -99 };
+    postToExt({ type: 'spotClear', videoId: vid });
+  }
+  /** Remember where you are. Called as the video plays, and once more when you pause, leave or close the tab. */
+  function saveSpot(final) {
+    if (!IS_TOP || !spotsKnown) return;
+    const p = getPlayer();
+    const v = p && p.querySelector('video');
+    if (!v || p.classList.contains('ad-showing')) return; // ad time is not your video's time
+    const vid = videoIdOf(p);
+    if (!vid || vid !== resumeVid) return;
+    const info = resumeInfo(p, v);
+    if (info.skip) return;
+    const raw = call(p, 'getCurrentTime');
+    const t = Number.isFinite(raw) ? raw : v.currentTime;
+    if (!Number.isFinite(t) || t < 0) return;
+    if (!info.live && resumeRules.endFinished && info.dur > 0 && info.dur - t <= END_SKIP) { clearSpot(vid); return; } // finished
+    if (resumeRules.skipStart && t < START_SKIP) return;
+    if (skipWin.vid === vid && t >= skipWin.from && t < skipWin.to) return;
+    if (spotSent.vid === vid && Math.abs(t - spotSent.t) < (final ? 1 : SPOT_EVERY)) return;
+    spotSent = { vid, t };
+    spots[vid] = { t: Math.floor(t), at: Date.now() };
+    postToExt({ type: 'spot', videoId: vid, t });
+  }
+
+  function hideResumePill() {
+    clearTimeout(pillTimer);
+    const box = document.getElementById('yqx-resume');
+    if (!box) return;
+    box.classList.remove('yqx-on');
+    setTimeout(() => { if (!box.classList.contains('yqx-on')) box.remove(); }, 600);
+  }
+  function showResumePill(p, text, withButton) {
+    clearTimeout(pillTimer);
+    document.getElementById('yqx-resume')?.remove();
+    const box = el('div', 'yqx-resume', { id: 'yqx-resume', role: 'status', 'aria-live': 'polite' });
+    const ico = el('span', 'yqx-resume-ico', { 'aria-hidden': 'true' });
+    ico.append(icon('history', ''));
+    const txt = el('span', 'yqx-resume-txt');
+    txt.textContent = text;
+    box.append(ico, txt);
+    if (withButton) {
+      const btn = el('button', 'yqx-resume-btn', { type: 'button' });
+      btn.textContent = 'Start over';
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation(); // don't pause the video
+        const pl = getPlayer();
+        if (pl) call(pl, 'seekTo', 0, true);
+        skipWin = { vid: '', from: 0, to: 0 }; // from here on, every second you watch counts
+        showResumePill(p, 'Back at the start', false);
+      });
+      box.append(btn);
+      box.append(el('span', 'yqx-resume-drain', { 'aria-hidden': 'true' }));
+    }
+    box.addEventListener('pointerdown', (e) => e.stopPropagation());
+    p.append(box);
+    void box.offsetWidth; // so the first frame is the hidden one and the entrance animates
+    box.classList.add('yqx-on');
+    pillTimer = setTimeout(hideResumePill, withButton ? PILL_MS : 1400);
+  }
+  /** Once per video, shortly after it starts: jump to the saved spot unless there is a reason not to. */
+  function tryResume() {
+    resumeTimer = 0;
+    if (!IS_TOP || !spotsKnown) return;
+    const p = getPlayer();
+    const v = p && p.querySelector('video');
+    if (!v || p.classList.contains('ad-showing')) return; // ads: wait for the real video
+    const vid = videoIdOf(p);
+    if (!vid || vid === resumeVid) return;
+    resumeVid = vid; // one decision per video
+    const spot = spots[vid];
+    if (!spot || /[?&](t|start)=/.test(location.search)) return; // nothing saved, or the link has its own time
+    const info = resumeInfo(p, v);
+    if (info.skip) return;
+    const target = Math.max(0, spot.t - rewindSecs(spot));
+    const raw = call(p, 'getCurrentTime');
+    const cur = Number.isFinite(raw) ? raw : v.currentTime;
+    if (!(cur < target - 3)) return; // already there (YouTube resumed it) or you moved on
+    if (info.live && v.seekable && v.seekable.length && target > v.seekable.end(v.seekable.length - 1)) return; // the stream no longer holds that moment
+    call(p, 'seekTo', target, true);
+    skipWin = { vid, from: target, to: spot.t };
+    showResumePill(p, `Resumed at ${clock(target)}`, true);
+  }
+  const scheduleResume = (ms) => { clearTimeout(resumeTimer); resumeTimer = setTimeout(tryResume, ms); };
+
   // ---------- lifecycle ----------
   let ensureQueued = false;
   function queueEnsure() {
@@ -1614,7 +1752,7 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
     }, 150);
   }
 
-  document.addEventListener('yt-navigate-start', () => { closeMenu(false); clearHeld(); });
+  document.addEventListener('yt-navigate-start', () => { saveSpot(true); hideResumePill(); resumeVid = ''; closeMenu(false); clearHeld(); });
   document.addEventListener('yt-navigate-finish', () => { updateBar(); checkCinema(); });
   for (const type of ['yt-navigate-finish', 'yt-player-updated', 'yt-page-data-updated']) {
     document.addEventListener(type, () => {
@@ -1629,6 +1767,7 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
       const p = getPlayer();
       if (p && e.target instanceof HTMLVideoElement && p.contains(e.target)) {
         checkVideoChange();
+        scheduleResume(e.type === 'playing' ? 500 : 2500);
         if (e.type === 'playing') {
           saverPlaying(true);
           if (!holdIfAutoplayed() && mast.held) releaseHeld(); // a later start = someone pressed play
@@ -1636,13 +1775,16 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
       }
     }, true);
   }
-  document.addEventListener('pause', (e) => { if (e.target instanceof HTMLVideoElement) saverPlaying(false); }, true);
+  document.addEventListener('pause', (e) => { if (e.target instanceof HTMLVideoElement) { saverPlaying(false); saveSpot(true); } }, true);
+  document.addEventListener('timeupdate', (e) => { if (e.target instanceof HTMLVideoElement) saveSpot(false); }, true);
+  window.addEventListener('pagehide', () => saveSpot(true));
   function awayChanged() {
     tabRefresh();
     if (away()) { if (!saverTimer && !saverActive) armSaver(); return; } // both signals may fire: keep one timer
     if (saverTimer && saver.on && !saverActive) saverSkip('back-early'); // you returned before the delay
     endSaver();
   }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveSpot(true); });
   document.addEventListener('visibilitychange', awayChanged);
   document.addEventListener('enterpictureinpicture', () => endSaver(), true); // never lower a video you're watching in PiP
   // A video that plays to its end: the next one to start without any input from you counts as "next".
@@ -1651,6 +1793,7 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
     if (p && e.target instanceof HTMLVideoElement && p.contains(e.target) && !p.classList.contains('ad-showing')) {
       endedAt = Date.now();
       endedVid = videoIdOf(p);
+      clearSpot(endedVid); // watched to the end: next time starts fresh
     }
   }, true);
   // Remember when the user asks for playback, so their own play is never paused.
@@ -1977,7 +2120,31 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
 @media (prefers-reduced-motion: reduce){.yqx-au *,.yqx-apm,.yqx-apm *{transition:none!important;animation:none!important}}
 /* @yqx-ap-css-end */
 
+/* ---------- resume pill ---------- */
+#movie_player .yqx-resume{position:absolute;left:20px;bottom:76px;z-index:71;box-sizing:border-box;display:flex;align-items:center;gap:10px;min-height:44px;
+  padding:7px 8px;border-radius:22px;overflow:hidden;color:var(--yqx-on-surface);background:var(--yqx-surface);
+  -webkit-backdrop-filter:blur(20px) saturate(1.7);backdrop-filter:blur(20px) saturate(1.7);
+  box-shadow:inset 0 0 0 1px var(--yqx-glass-edge),0 8px 24px rgba(0,0,0,.3);
+  font:500 13.5px/1.2 "YouTube Sans","Roboto",Arial,sans-serif;text-shadow:none;user-select:none;-webkit-user-select:none;
+  opacity:0;transform:translateY(10px) scale(.94);transform-origin:left bottom;pointer-events:none;
+  transition:opacity .2s var(--yqx-ease),transform .5s var(--yqx-spring)}
+#movie_player .yqx-resume.yqx-on{opacity:1;transform:none;pointer-events:auto}
+.yqx-resume-ico{width:30px;height:30px;flex:none;display:grid;place-items:center;border-radius:50%;
+  background:var(--yqx-primary-container);color:var(--yqx-on-primary-container);transition:border-radius .5s var(--yqx-spring)}
+.yqx-resume.yqx-on .yqx-resume-ico{border-radius:10px}
+.yqx-resume-ico svg{width:17px;height:17px}
+.yqx-resume-txt{white-space:nowrap;font-variant-numeric:tabular-nums;padding-right:2px}
+.yqx-resume-btn{flex:none;border:0;cursor:pointer;height:30px;padding:0 12px;border-radius:999px;font:500 12.5px/1 "YouTube Sans","Roboto",Arial,sans-serif;
+  color:var(--yqx-primary);background:var(--yqx-surface-high);
+  transition:background-color .2s var(--yqx-ease),border-radius .35s var(--yqx-spring-fast),transform .35s var(--yqx-spring-fast)}
+.yqx-resume-btn:hover{background:var(--yqx-surface-highest);border-radius:12px}
+.yqx-resume-btn:active{transform:scale(.95)}
+.yqx-resume-btn:focus-visible{outline:3px solid var(--yqx-primary);outline-offset:2px}
+.yqx-resume-drain{position:absolute;left:0;bottom:0;width:100%;height:2px;background:var(--yqx-primary);transform-origin:left;transform:scaleX(0)}
+.yqx-resume.yqx-on .yqx-resume-drain{animation:yqx-drain 6s linear forwards}
+@keyframes yqx-drain{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+#movie_player.ytp-big-mode .yqx-resume{bottom:110px;font-size:16px}
 @media (prefers-reduced-motion: reduce){
-  .yqx-menu,.yqx-pill,.yqx-pill::after,.yqx-check,.yqx-iconbox,.yqx-tip,.yqx-item,.yqx-now{transition:none!important;animation:none!important}
+  .yqx-menu,.yqx-resume,.yqx-resume-ico,.yqx-resume-btn,.yqx-resume-drain,.yqx-pill,.yqx-pill::after,.yqx-check,.yqx-iconbox,.yqx-tip,.yqx-item,.yqx-now{transition:none!important;animation:none!important}
 }`;
 })();

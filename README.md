@@ -11,9 +11,9 @@
 </p>
 
 <p align="center">
-  <b>YouTube often picks a lower quality than you want, and starts videos before you're ready.</b><br>
-  Resolute puts a quality button right in the player, remembers what you like per video and per channel,<br>
-  and, if you want, makes every video wait for <i>you</i> to press play, hides live chat and the top bar, opens videos in a full-window cinema view, and saves data in tabs you aren't watching.
+  <b>Does YouTube play your videos in low quality? Does it start playing before you are ready?</b><br>
+  Resolute fixes that. It adds a quality button inside the video player and remembers your choice for each video and each channel.<br>
+  If you want, it can also stop videos from starting by themselves, hide the live chat and the top bar, open videos in a big cinema view, show the real time left, and save your data when you are on another tab.
 </p>
 
 <p align="center">
@@ -34,19 +34,19 @@
 
 ## ✨ What you get
 
-| Feature | What it does |
+| Feature | What it does, in simple words |
 |:---|:---|
-| 🎚️ **Quality button in the player** | Next to the ⚙ gear. Auto, Highest, or 144p to 4K, in one click. Works in fullscreen too. |
-| 📌 **Per-video memory** | "Remember for this video" and it always opens at that quality. |
-| 👤 **Per-channel defaults** | 4K for one creator, 720p for another. Recognised by channel ID, so renames don't break it. |
-| ⭐ **One global default** | For everything else. |
-| ⏸️ **No more autoplay** *(optional)* | Two separate switches: videos you open, and the next video in a queue or playlist, can each start paused until you press play. |
-| 💬 **Hide live chat** *(optional)* | The chat beside a live stream (or a stream replay) closes when it opens, using YouTube's own close button. **Show chat** brings it back, and it stays open for that video. |
-| 🫥 **Hide top bar** *(optional)* | On a watch page, YouTube's top bar slides away while the video plays and the page moves up. Pause, point at the top edge, or press **/** and it is back. |
-| 🎬 **Cinema mode** *(optional)* | Watch pages open in theater mode, the top bar hides while the video plays, and the video fills the window without stretching or cropping. If you leave theater on a channel, that channel stays normal next time (undo by turning theater back on, or **Forget all** in the popup). |
-| 🍃 **Background saver** *(optional)* | Playing music in a tab you're not looking at? Quality drops to save data and comes back when you return. Never touches picture-in-picture. |
-| ⏱️ **Time left at your speed** | Next to YouTube's clock: `· 5:38 left 1.5×`, the real time left at the speed you are watching. While you are in another tab, the tab title starts with `⏱ 6m` (and works together with the background saver: `144p · ⏱ 6m · …`). |
-| 🔒 **Private by design** | No servers, no analytics, no network requests. Settings stay in your browser. |
+| 🎚️ **Quality button in the player** | A small button next to the ⚙ gear. Pick Auto, Highest, or any quality from 144p to 4K with one click. It works in fullscreen too. |
+| 📌 **Remember per video** | Press "Remember for this video" and that video always opens in the quality you chose. |
+| 👤 **Remember per channel** | Like 4K for one creator and 720p for another. It follows the channel even if the channel changes its name. |
+| ⭐ **One default for everything else** | Pick one quality that is used for all other videos. |
+| ⏸️ **No more autoplay** *(optional)* | Two separate switches: one for videos you open, one for the next video in a playlist. Videos wait until you press play. |
+| 💬 **Hide live chat** *(optional)* | The chat next to a live stream closes by itself. Press **Show chat** if you want it back. |
+| 🫥 **Hide top bar** *(optional)* | YouTube's top bar slides away while the video plays, so you see more of the video. Pause or point at the top and it comes back. |
+| 🎬 **Cinema mode** *(optional)* | Videos open in theater mode and fill your window, without stretching or cutting anything. |
+| 🍃 **Background saver** *(optional)* | Listening to music in a tab you are not looking at? The quality goes down to use less data, and comes back when you return. |
+| ⏱️ **Time left at your speed** | Next to the clock you see how long the video really takes at your speed. If you are in another tab, the tab name shows the time left too. |
+| 🔒 **Private** | It has no servers, no tracking and no internet requests. Your settings stay in your browser. |
 
 ---
 
@@ -58,81 +58,81 @@
   <sub>The real in-player menu, rendered from the extension's own code on a stand-in player. The video behind it and "Example Channel" are placeholders.</sub>
 </p>
 
-A pick in the menu changes **only the video you're watching**. Saving is always a deliberate extra click:
+When you pick a quality in the menu, it changes **only the video you are watching**. Saving is always an extra click that you choose:
 
 | You click | What happens |
 |:---|:---|
-| A quality in the menu | Changes **this video only**. Nothing is saved; the next video goes back to normal. |
-| 📌 **Remember for this video** | Saved. This video always opens at that quality. Click again to forget. |
-| 👤 **Set as default for this channel** | Saved. Every video from this channel uses it. Click again to remove; pick another quality to **Update** it. |
-| ★ **Make default for all videos** | Saved. Every video uses it, unless the video or its channel has its own setting. |
+| A quality in the menu | Changes **this video only**. Nothing is saved. The next video goes back to normal. |
+| 📌 **Remember for this video** | Saved. This video always opens in that quality. Click again to forget it. |
+| 👤 **Set as default for this channel** | Saved. Every video from this channel uses it. Click again to remove it. |
+| ★ **Make default for all videos** | Saved. Every video uses it, unless the video or its channel has its own choice. |
 
-**Which setting wins when a video loads:**
+**Which choice wins when a video opens?** Resolute checks these in order and uses the first one it finds:
 
 ```mermaid
 flowchart LR
     A["Picked just now<br>(this video, not saved)"] --> B["📌 Remembered<br>for this video"] --> C["👤 Channel<br>default"] --> D["⭐ Global<br>default"]
 ```
 
-The first one that exists is used. "Auto" means YouTube decides.
+"Auto" means YouTube decides.
 
-**Little things that help:**
-- The dot on the button tells you where the quality comes from: none = global default, hollow ring = this video only, dusty pink = remembered, gold = channel default.
-- If a video doesn't have your quality, it uses the best one below it, and the menu says so ("Using 720p").
-- Qualities a video doesn't offer are dimmed as "Not available".
-- Keyboard: Tab to the button, ↑/↓ to open and move, Enter to pick, Esc to close.
+**Small things that help:**
+- The little dot on the button shows where the quality came from: no dot = your default for everything, hollow ring = this video only, pink = remembered video, gold = channel default.
+- If a video does not have your quality, Resolute uses the best one below it and the menu tells you (for example "Using 720p").
+- Qualities that a video does not have are greyed out ("Not available").
+- With the keyboard: press Tab to reach the button, ↑ or ↓ to open the menu and move, Enter to pick, Esc to close.
 
 ---
 
 <a id="autoplay"></a>
 ## ⏸️ No more autoplay
 
-Two settings, each off by default and independent of the other:
+There are two settings. Both are off at first, and each one works on its own:
 
-| Setting | When it's on |
+| Setting | When it is on |
 |:---|:---|
-| ▶ **Videos I open** | A video you click, follow a link to, or open in a new tab starts **paused** |
-| ⏭ **Next in queue or playlist** | When a video ends and the next one starts by itself (autoplay, playlist, queue), that one starts **paused** |
+| ▶ **Videos I open** | A video you click, open from a link, or open in a new tab starts **paused**. |
+| ⏭ **Next in queue or playlist** | When a video ends and YouTube starts the next one by itself, the next one starts **paused**. |
 
-What that means in practice:
+What this means in real life:
 
-| When it's on and… | What happens |
+| When it is on and... | What happens |
 |:---|:---|
-| You open a video (link, thumbnail, new tab) | Opens **paused** |
-| A video ends and YouTube starts the next one | The next one opens **paused** |
-| You press play (click/tap the player, **K**, **Space**, or a media key) | **Plays.** Your own play is never undone. |
-| The browser blocked autoplay and you pressed play | **Plays** (your press counts) |
-| An ad plays first | The ad is left alone; the real video after it opens **paused** |
-| You type a space in the search box, or use the quality menu | Doesn't count as "play" |
+| You open a video (link, thumbnail, new tab) | It opens **paused**. |
+| A video ends and YouTube starts the next one | The next one opens **paused**. |
+| You press play (click the player, **K**, **Space**, or a media key) | It **plays**. Resolute never undoes your own play. |
+| Your browser blocked autoplay and you press play | It **plays**. |
+| An ad comes first | The ad is left alone. The real video after it opens **paused**. |
+| You type a space in the search box, or use the quality menu | This does not count as pressing play. |
 
 ### The button next to YouTube's search box
 
-At rest it's one small shape beside the mic button, and the shape *is* the state:
+When you are not pointing at it, it is one small shape next to the mic button. The shape itself tells you what is on:
 
 <p align="center">
   <img src="docs/autoplay-button.png" alt="The autoplay button in its four states, in YouTube's light and dark themes" width="100%"><br>
   <sub>Rendered from the extension's own code on a stand-in for YouTube's top bar.</sub>
 </p>
 
-- **▶ or ⏸ in the middle** = Videos I open (⏸ means they wait for you).
-- **The wavy ring** is YouTube's "up next" countdown. It unwinds when next videos wait.
-- **The shape and tint** show how much is on: grey circle = nothing, soft scalloped "cookie" = one setting, solid rounded square = both.
+- **▶ or ⏸ in the middle** means "Videos I open" (⏸ means they wait for you).
+- **The wavy ring** is like YouTube's "up next" countdown. It unwinds when next videos wait.
+- **The shape and colour** show how much is on: grey circle = nothing, soft wavy "cookie" = one setting, solid rounded square = both.
 
-Point at it and it **unfolds into a split button** (it floats over empty space, so YouTube's layout never moves):
+Point at it and it **opens up into a split button**. It floats over empty space, so YouTube's page never shifts:
 
 <p align="center">
   <img src="docs/autoplay-unfold.png" alt="The button unfolded into a split button with a label and a chevron" width="80%">
 </p>
 
-- Click the **shape or the words** to switch both settings at once ("No autoplay" ↔ "Autoplay").
-- Click the **chevron** for a menu with a switch for each setting. Like the quality menu, it's frosted glass: whatever is behind it shows through, blurred.
+- Click the **shape or the words** to switch both settings together ("No autoplay" or "Autoplay").
+- Click the **arrow** to open a small menu with one switch for each setting. The menu looks like frosted glass: you can see the page behind it, a little blurred.
 
 <p align="center">
   <img src="docs/autoplay-menu.png" alt="The frosted menu with switches for Videos I open and Next in queue or playlist" width="100%"><br>
   <sub>The colourful tiles are placeholder thumbnails, there to show the blur. Everything else is the extension's real code.</sub>
 </p>
 
-Keyboard: Tab to the button (it unfolds), Enter toggles both, ↓ opens the menu, Space switches, Esc closes. In narrow windows YouTube hides the search box, so the button moves next to the right-hand icons and a tap opens the menu. The popup has the same two switches; all of them stay in sync.
+With the keyboard: press Tab to reach the button (it opens), Enter switches both, ↓ opens the menu, Space switches one setting, Esc closes. On a narrow window YouTube hides its search box, so the button moves next to the icons on the right, and a tap opens the menu. The popup has the same two switches, and they always match.
 
 ### When Resolute holds a video, the button tells you
 
@@ -141,10 +141,9 @@ Keyboard: Tab to the button (it unfolds), Enter toggles both, ↓ opens the menu
   <sub>Rendered from the extension's own code on a stand-in for YouTube's top bar.</sub>
 </p>
 
-1. The button unfolds on its own: **"Video waiting"** and a red **▶ Play**. The cause and the fix sit in one place.
-2. After 5 seconds it folds back, leaving a **red dot** until the video plays.
-3. Play it **any way you like**: the button's Play, the player's ▶, a click on the video, **Space**, **K** or a media key. The button says **"Playing"** once and steps aside. If you pause it yourself later, the button stays quiet, because Resolute didn't pause it.
-
+1. The button opens by itself and says **"Video waiting"** with a red **▶ Play**. So you see the reason and the fix in one place.
+2. After 5 seconds it closes again and leaves a **red dot** until the video plays.
+3. Play the video **any way you like**: the button's Play, the player's ▶, a click on the video, **Space**, **K**, or a media key. The button says **"Playing"** once and steps aside. If you pause the video yourself later, the button stays quiet, because Resolute did not pause it.
 
 ---
 
@@ -153,20 +152,20 @@ Keyboard: Tab to the button (it unfolds), Enter toggles both, ↓ opens the menu
 
 Off by default. Switch it on in the toolbar popup.
 
-On a watch page, YouTube's top bar (logo, search, icons) moves away while the video **plays**, and the page moves up to use the space. Everywhere else the bar stays as it is.
+On a video page, YouTube's top bar (the logo, search box and icons) moves away while the video **plays**, and the page moves up to use the space. On every other page the bar stays as it is.
 
-| Situation | What happens |
+| What happens | What you see |
 |:---|:---|
-| The video plays | The bar slides up and softens away |
-| You pause | The bar comes back |
-| You point at the top edge or the bar | The bar comes back, and leaves 0.6 s after the pointer does |
-| You press **/** (YouTube's own search key) or click the search box | The bar comes back and stays while the search box is in use. **Esc** sends it away again, even if the pointer is resting on it |
-| An account, notification or Resolute menu is open | The bar stays |
-| You type in a comment or live chat | Nothing changes; letters are never taken |
-| Fullscreen | Left to YouTube, which already hides its bar |
-| Reduce Motion is on in your system | The bar fades instead of sliding |
+| The video plays | The bar slides up and fades away. |
+| You pause | The bar comes back. |
+| You point at the top edge or the bar | The bar comes back, and leaves a moment after your pointer does. |
+| You press **/** (YouTube's search key) or click the search box | The bar comes back and stays while you use search. **Esc** sends it away again. |
+| An account, notification or Resolute menu is open | The bar stays. |
+| You type in a comment or live chat | Nothing changes. Your letters are never taken. |
+| Fullscreen | Left to YouTube, which already hides its bar. |
+| "Reduce motion" is on in your computer | The bar fades instead of sliding. |
 
-It only moves YouTube's own bar with CSS. Nothing is removed or clicked.
+It only moves YouTube's own bar. Nothing is deleted or clicked.
 
 ---
 
@@ -180,24 +179,24 @@ Off by default. Switch it on in the toolbar popup.
   <sub>Drawn on a stand-in for a YouTube watch page, using the same rules the extension uses.</sub>
 </p>
 
-Opening a video puts it in theater mode, hides the top bar while it plays (same rules as **Hide top bar**), and makes the video fill the window **without stretching or cropping**. Black bars show only if the video's shape differs from your window.
+When you open a video, it goes into theater mode, the top bar hides while it plays (same as **Hide top bar**), and the video fills your window **without stretching or cutting**. You see black bars only if the video's shape is different from your window's shape.
 
-| Situation | What happens |
+| What happens | What you see |
 |:---|:---|
-| You open a video | Theater mode starts once for that video |
-| You leave theater mode (button or **T**) on a channel | That channel stays normal next time |
-| You turn theater back on for it | The channel is back to opening in theater |
-| Fullscreen | Left to YouTube (a page cannot start fullscreen by itself) |
-| **Forget all** in the popup | Every left-out channel is cleared |
+| You open a video | Theater mode turns on once for that video. |
+| You leave theater mode (with the button or the **T** key) on a channel | That channel stays normal next time. |
+| You turn theater back on for that channel | The channel opens in theater again. |
+| Fullscreen | Left to YouTube (a page cannot start fullscreen on its own). |
+| **Forget all** in the popup | Every channel you left out is cleared. |
 
-Only your own click or key press counts as "leaving"; the extension's own actions never do. Left-out channels are stored on this device only (newest 2,000).
+Only your own click or key press counts as "leaving" theater. The extension's own actions never do. The channels you left out are saved on this device only.
 
 ---
 
 <a id="time-left"></a>
 ## ⏱️ Time left at your speed
 
-Always on. YouTube shows the length of the video, but at 1.5× it really takes a lot less. Resolute adds the real time left next to YouTube's clock, and counts it down in the browser tab while you are in another tab.
+This is always on. YouTube shows the full length of a video, but at 1.5× speed it really takes much less time. Resolute shows the **real time left** next to YouTube's clock. When you are in another tab, it also shows the time left in the tab name.
 
 <p align="center">
   <img src="docs/time-left.png" alt="The player clock with 5:38 left at 1.5×, the tab title with a clock and 6m, and the same together with the background saver" width="100%"><br>
@@ -206,12 +205,12 @@ Always on. YouTube shows the length of the video, but at 1.5× it really takes a
 
 | Where | What you see |
 |:---|:---|
-| **Player** | `· 5:38 left 1.5×` after YouTube's clock. At normal speed just `· 8:27 left`. Hidden during ads, on live streams and in small players. |
-| **Browser tab** | While another tab is selected, the title starts with `⏱ 6m`. It rounds up to whole minutes (seconds in the last minute, `1h 20m` for long videos) and follows speed changes and seeking. |
-| **With the background saver** | `144p · ⏱ 6m · title`, with the saver's leaf icon. Both go away when you come back. |
-| **Icons switch** | Popup, **Playing** page, **Time left**. On: ⏱ while playing, ⏸ when paused. Off: just the time. |
+| **In the player** | `· 5:38 left 1.5×` after YouTube's clock. At normal speed it shows just `· 8:27 left`. It is hidden during ads, on live streams, and when the player is small. |
+| **In the browser tab** | When you are in another tab, the tab name starts with `⏱ 6m`. It rounds up to whole minutes, shows seconds in the last minute, and shows `1h 20m` for long videos. It follows speed changes and skipping ahead. |
+| **With the Background saver** | `144p · ⏱ 6m · title`, with the saver's leaf icon. Both go away when you come back. |
+| **Icon switch** | In the popup: **Playing** page, **Time left**. On = ⏱ while playing and ⏸ when paused. Off = just the time. |
 
-Nothing is sent anywhere; the numbers come from the video element on the page.
+Nothing is sent anywhere. The numbers come from the video on your page.
 
 ---
 
@@ -220,15 +219,15 @@ Nothing is sent anywhere; the numbers come from the video element on the page.
 
 Off by default. Switch it on in the toolbar popup.
 
-When you open a live stream, a premiere or a stream replay, Resolute closes the chat panel beside the video. It uses **YouTube's own close button**, so nothing on the page is broken or hidden in a way YouTube doesn't know about.
+When you open a live stream, a premiere or a stream replay, Resolute closes the chat next to the video. It presses **YouTube's own close button**, so nothing on the page breaks.
 
-| Situation | What happens |
+| What happens | What you see |
 |:---|:---|
-| You open a stream that has chat | The chat closes as soon as it has loaded |
-| You click YouTube's **Show chat** | The chat opens and **stays open** for that video |
-| You open the next stream | Its chat closes again |
-| A normal video (no chat) | Nothing happens |
-| The creator turned chat off | Nothing happens; Resolute stops looking after about a minute |
+| You open a stream that has chat | The chat closes as soon as it has loaded. |
+| You click YouTube's **Show chat** | The chat opens and **stays open** for that video. |
+| You open the next stream | Its chat closes again. |
+| A normal video (no chat) | Nothing happens. |
+| The creator turned chat off | Nothing happens. Resolute stops looking after about a minute. |
 
 ---
 
@@ -237,28 +236,28 @@ When you open a live stream, a premiere or a stream replay, Resolute closes the 
 
 Off by default. Switch it on in the toolbar popup.
 
-When a video keeps playing in a tab you aren't looking at (music, a podcast, a long stream), Resolute drops it to the **lowest quality** (or **480p**, your choice) after **15 s, 30 s or 1 min**, and puts your quality back the moment you return. Expect a short pause each time: YouTube reloads the video whenever an extension changes its quality, both when it drops and when you come back. (Tested: YouTube ignores a min/max range, so there's no smoother way to switch.)
+Sometimes a video keeps playing in a tab you are not looking at (music, a podcast, a long stream). Resolute lowers it to the **lowest quality** (or **480p**, your choice) after **15 seconds, 30 seconds or 1 minute**. When you come back, your quality returns right away. You will see a short pause each time, because YouTube reloads the video whenever its quality changes, both when it goes down and when it comes back. In tests, YouTube ignored a quality range, so there is no smoother way.
 
-| Situation | What happens |
+| What is happening | What Resolute does |
 |:---|:---|
-| Tab hidden, video playing | After the delay: lowest quality (or 480p) |
-| While it's saving | The **tab** shows it: the title starts with **"144p ·"** and the tab icon becomes Resolute's gold leaf. The tab is the only part of YouTube you can see while you're away. |
-| You come back | Your quality returns, the tab goes back to normal, and the popup adds what was saved to **this week** |
-| The next video in a playlist starts while you're away | It stays low too |
-| Video **tiled or split side by side** with the tab you're using | **Never lowered**: it's still being drawn on your screen (Chrome split view, Vivaldi tab tiling) |
-| Video in **picture-in-picture** | **Never lowered**, and nothing is shown or counted. Entering PiP while saving restores your quality at once. |
-| Video paused, or an ad playing | Left alone (a paused video uses no data) |
+| Tab hidden, video playing | After the delay, it goes to the lowest quality (or 480p). |
+| While it is saving | The **tab** shows it. The tab name starts with **"144p ·"** and the tab icon becomes Resolute's gold leaf. The tab is the only part of YouTube you can see while you are away. |
+| You come back | Your quality returns, the tab goes back to normal, and the popup adds what was saved to **this week**. |
+| The next video in a playlist starts while you are away | It stays low too. |
+| The video is **side by side** with the tab you are using (Chrome split view, Vivaldi tiling) | **Never lowered**, because you can still see it on your screen. |
+| The video is in **picture-in-picture** | **Never lowered**, and nothing is shown or counted. If you open picture-in-picture while it is saving, your quality comes back at once. |
+| The video is paused, or an ad is playing | Left alone. A paused video uses no data. |
 
-**How do I know it worked?** You can't see it on the video, because your quality is back the moment you return. Three places tell you:
-- **The moment it starts:** a notification, *"Background saver: 144p"*. It disappears by itself when you go back to the tab; clicking it takes you there.
-- **While you're away:** the YouTube tab's title starts with **"144p ·"** (hover over the tab to see the full title).
-- **After you're back:** the popup card's **"Last time"** line, for example *"Last time: 1080p → 144p for 2 min 10 s · about 16 MB · 3 min ago"*. If it didn't lower the video, the line says why (you came back before the delay, the video was paused, it was muted so the browser paused it, it was in picture-in-picture, or it was already that low).
+**How do I know it worked?** You cannot see it on the video, because your quality is back as soon as you return. There are three places to check:
+- **When it starts:** you get a notification, *"Background saver: 144p"*. It goes away by itself when you go back to the tab, and clicking it takes you there.
+- **While you are away:** the tab name starts with **"144p ·"** (point at the tab to see the full name).
+- **After you are back:** the popup's **"Last time"** line, for example *"Last time: 1080p → 144p for 2 min 10 s · about 16 MB · 3 min ago"*. If it did not lower the video, the line tells you why (you came back too early, the video was paused, it was muted so the browser paused it, it was in picture-in-picture, or it was already that low).
 
-> **Muted videos:** Chromium browsers (Chrome, Edge, Vivaldi) pause a *muted* video in a background tab by themselves, so there's nothing to save. Vivaldi's **Tab Muting** setting can mute background tabs for you; set it to **Play All Audio** if you want videos to keep playing in other tabs.
+> **Muted videos:** Chrome, Edge and Vivaldi pause a *muted* video in a background tab on their own, so there is nothing to save. In Vivaldi, the **Tab Muting** setting can mute background tabs for you. Set it to **Play All Audio** if you want videos to keep playing in other tabs.
 
-The popup card also shows roughly how much data it saved **this week (Sunday to Saturday)**, as a rolling number and one bar per day (today in red). It's an **estimate**: YouTube doesn't report data use, so Resolute multiplies typical bitrates by the minutes the video actually played while lowered.
+The popup card also shows about how much data you saved **this week (Sunday to Saturday)**, as one number and one bar for each day (today is red). It is an **estimate**. YouTube does not tell us how much data was used, so Resolute multiplies typical video speeds by the minutes the video really played at the lower quality.
 
-**Needs:** Chrome, Edge, or **Firefox 153+**. These browsers tell an extension when a video is in picture-in-picture; on older Firefox versions the saver stays off (the switch is greyed out with a note), so it can never lower a video you're watching.
+**Works on:** Chrome, Edge, or **Firefox 153 and newer**. These browsers tell the extension when a video is in picture-in-picture. On older Firefox, the saver stays off (the switch is greyed out with a note), so it can never lower a video you are watching.
 
 ---
 
@@ -270,25 +269,31 @@ The popup card also shows roughly how much data it saved **this week (Sunday to 
   <sub>The real popup's three pages in dark (top) and light (bottom), rendered from the extension's code. The channels and counts are example data.</sub>
 </p>
 
-The popup has three pages, so it is never one long scroll: **Quality** (default quality, channel defaults, remembered videos), **Playing** (the switches: start paused, hide chat, hide top bar, Cinema mode, the time-left icons) and **Saver** (the background saver and its weekly estimate). Tap a tab, press the left or right arrow key while a tab is focused (Home and End work too), or swipe on a touch screen.
+The popup has three pages, so you never have to scroll a long list:
+- **Quality**: default quality, channel defaults, remembered videos.
+- **Playing**: the switches for start paused, hide chat, hide top bar, Cinema mode, and the time-left icons.
+- **Saver**: the background saver and its weekly estimate.
 
-- Set the **global default** quality.
+Tap a tab, press the left or right arrow key while a tab is selected (Home and End work too), or swipe on a touch screen.
+
+What you can do in the popup:
+- Set the **default quality** for all videos.
 - Switch **Videos I open** and **Next in queue or playlist** to start paused.
-- Switch **Hide live chat** on or off.
-- Switch **Hide top bar** on or off.
-- Switch **Cinema mode** on or off, and forget the channels you left out.
-- Switch the **icons in the tab countdown** (⏱ / ⏸) on or off.
-- Switch the **Background saver** on or off, choose when it starts and how low it goes, and see this week's estimate.
-- See every **channel default**: change its quality, remove it (×), or **Remove all**.
+- Turn **Hide live chat** on or off.
+- Turn **Hide top bar** on or off.
+- Turn **Cinema mode** on or off, and forget the channels you left out.
+- Turn the **icons in the tab countdown** (⏱ and ⏸) on or off.
+- Turn the **Background saver** on or off, choose when it starts and how low it goes, and see this week's estimate.
+- See every **channel default**: change its quality, remove it with ×, or use **Remove all**.
 - Clear remembered videos with **Forget all**.
-- Pick the popup theme: **System / Light / Dark**.
+- Pick the popup theme: **System, Light or Dark**.
 
 ---
 
 <a id="install"></a>
 ## 📦 Install
 
-Pick your browser. Each way takes about a minute.
+Choose your browser below. It takes about a minute.
 
 | Your browser | Easiest way | Updates itself? |
 |:---|:---|:---:|
@@ -296,7 +301,7 @@ Pick your browser. Each way takes about a minute.
 | 🟢 **Chrome** | Load the folder yourself (below) | ❌ No |
 | 🔷 **Edge, Brave, Opera, Vivaldi** | Same steps as Chrome | ❌ No |
 
-Safari and mobile browsers are not supported.
+Safari and phone browsers are not supported.
 
 ### 🦊 Firefox (recommended)
 
@@ -308,10 +313,10 @@ It updates by itself. If the button does not appear, open `about:addons`, click 
 
 ### 🟢 Chrome (and other Chromium browsers)
 
-Resolute is not on the Chrome Web Store, so you load it from a folder. You do this once.
+Resolute is not on the Chrome Web Store, so you add it from a folder on your computer. You only do this once.
 
 1. On this page click the green **Code** button, then **Download ZIP**.
-2. **Unzip it** and move the folder somewhere it can stay (for example `Documents`). Chrome reads the extension from this folder every time it starts, so do not delete it.
+2. **Unzip it** and move the folder somewhere it can stay (for example `Documents`). Chrome keeps using the files in this folder, so do not delete or move it later.
 3. Open `chrome://extensions` (Edge: `edge://extensions`, Brave: `brave://extensions`).
 4. Turn on **Developer mode** (top right).
 5. Click **Load unpacked** and choose the folder that **contains `manifest.json`**. Inside the unzipped folder there may be one more folder with the same name: open it until you can see `manifest.json`, then select that.
@@ -325,13 +330,13 @@ Chrome may show a "Disable developer mode extensions" notice when it starts. Cli
 
 ### 🛠️ Firefox, for testing a new version
 
-Only needed if you want a version that is not on Mozilla Add-ons yet. Do **not** use GitHub's "Download ZIP" here: Firefox cannot read it.
+You only need this if you want to try a version that is not on Mozilla Add-ons yet. Do **not** use GitHub's "Download ZIP" here, because Firefox cannot read it.
 
 1. Run `python3 scripts/build.py firefox`. It makes `dist/resolute-firefox-v<version>.zip`.
 2. Open `about:debugging#/runtime/this-firefox`.
 3. Click **Load Temporary Add-on** and pick that ZIP file (no need to unzip it).
 
-It is removed when Firefox closes. Load it again next time.
+Firefox removes it when you close it, so load it again next time.
 
 ### Something went wrong?
 
@@ -350,80 +355,82 @@ It is removed when Firefox closes. Load it again next time.
 <details>
 <summary><b>Does it send my data anywhere?</b></summary>
 
-No. There's no code that makes network requests. Your global default, the two autoplay settings, the hide-live-chat setting, the hide-top-bar setting, the Cinema mode setting, the tab-countdown icons setting and the saver setting are kept in your browser's synced extension storage; remembered videos, channel defaults, the channels Cinema mode leaves normal and the saver's daily estimates stay on this device only. Full details in the [privacy policy](PRIVACY.md).
+No. Resolute has no code that uses the internet. Your settings (default quality, the autoplay switches, hide live chat, hide top bar, Cinema mode, tab icons and the saver) are saved in your browser's own extension storage and sync with your browser account if you use sync. Remembered videos, channel defaults, the channels Cinema mode leaves normal, and the saver's daily numbers stay on this device only. You can read all the details in the [privacy policy](PRIVACY.md).
 </details>
 
 <details>
-<summary><b>Why does a video sometimes play 720p when I picked 1080p?</b></summary>
+<summary><b>Why does a video sometimes play in 720p when I picked 1080p?</b></summary>
 
-That video doesn't offer 1080p, so Resolute uses the best quality below it. The menu shows "Using 720p" so you always know.
+That video does not have 1080p, so Resolute uses the best quality below it. The menu shows "Using 720p" so you always know.
 </details>
 
 <details>
 <summary><b>How does it know which channel a video is from?</b></summary>
 
-From the permanent channel ID (`UC…`) in YouTube's own player data for the video that's playing, never from the display name, so renamed channels keep their setting. The ID is only trusted when the data is for the same video that's playing, so one channel's setting never leaks onto another's video. If no ID shows up within about 2 seconds, the video uses your global default and the menu says "Channel not detected".
+It reads the channel's permanent ID (it starts with `UC`) from YouTube's own player data. It never uses the channel's name, so a channel that changes its name keeps its setting. Resolute only trusts the ID when it belongs to the video that is playing, so one channel's setting never lands on another channel's video. If no ID shows up within about 2 seconds, the video uses your default for all videos, and the menu says "Channel not detected".
 </details>
 
 <details>
-<summary><b>Will it break if YouTube changes its layout?</b></summary>
+<summary><b>What if YouTube changes how its page looks?</b></summary>
 
-Playback is never affected. If YouTube moves its controls, the quality button falls back to a small floating control above the progress bar. If YouTube redesigns its top bar, the autoplay button may not appear, but the popup switch keeps working. If YouTube changes its live chat panel, the chat simply stays open. If YouTube changes its theater button, Cinema mode simply doesn't switch theater on; nothing else is affected.
+Your videos will still play normally. If YouTube moves its controls, the quality button becomes a small floating button above the progress bar. If YouTube changes its top bar, the autoplay button may not show, but the switch in the popup still works. If YouTube changes its chat, the chat just stays open. If YouTube changes its theater button, Cinema mode simply does not turn theater on. Nothing else is affected.
 </details>
 
 <details>
-<summary><b>Does it work on Shorts or the mobile site?</b></summary>
+<summary><b>Does it work on Shorts or on the phone website?</b></summary>
 
-No. Shorts and m.youtube.com use a different player. The autoplay settings also leave Shorts and the muted hover previews on the home page alone.
+No. Shorts and m.youtube.com use a different player. The autoplay switches also leave Shorts and the small muted previews on the home page alone.
 </details>
 
 ---
 
-## ⚠️ Known limits
+## ⚠️ Good to know
 
-- The background saver's "MB/GB saved" is an estimate from typical YouTube bitrates, not a measurement.
-- **Vivaldi** never tells a page it's in the background, so the saver also asks the browser which tab is selected in each window. When another tab is selected, the page also checks whether it's still being **drawn** (Vivaldi stops drawing tabs you can't see). So a tab **split or tiled** next to the one you're using keeps its quality. Starting takes about 1.5 s longer there, which doesn't matter next to the 15 s+ delay.
-- While the saver is on, the tab title starts with "144p ·". If you bookmark or share the page during that time, the title would include it.
-- Firefox's own picture-in-picture button is expected to count as picture-in-picture from Firefox 153 (it's the same signal the browser reports), but test it on your Firefox before relying on it.
-- The autoplay settings work by pausing a video right as it starts, so on a slow device you may hear a split second of sound first. YouTube offers no clean "don't autoplay" switch an extension can use.
-- "Next in queue or playlist" means the previous video played to its end and you didn't click or type before the next one started. If you click something in that moment, the next video counts as one you opened.
-- Material 3 Expressive spring motion uses CSS `linear()` easing (Chrome 113+, Firefox 112+). On Chrome 111–112 the button works the same, just without animation.
-- Channel defaults need the channel ID from YouTube's player data (`getPlayerResponse`). If YouTube stops providing it, videos fall back to the global default ("Channel not detected"). Nothing wrong is applied.
-- **Hide top bar** moves YouTube's `#masthead-container` and the page's top margin with CSS. If YouTube renames those, the bar simply stays where it is until Resolute is updated. The hidden bar stays focusable so **/** and Tab still reach search.
-- **Cinema mode** clicks YouTube's own theater button once per video, then uses CSS so the video fills the window (`object-fit: contain`, so nothing is cropped). If YouTube renames the button, theater simply isn't switched on. It only counts a real click or **T** from you as "leaving" theater; its own click never does.
-- **Hide live chat** clicks the close button inside YouTube's chat panel. If YouTube renames that button, the chat just stays open until Resolute is updated. Chat that loads more than about a minute after the page opens is left open.
-- **Time left** is hidden during ads, on live streams, and in small players. It adds one small label inside YouTube's time display; if YouTube renames that element the label is simply not shown. The tab countdown rounds up to whole minutes ("54s" in the last minute) and the ⏱ sign in front can be switched off on the popup's **Playing** page.
-- Remembered videos and channel defaults stay on the device where you saved them (not synced).
-- "Auto" after a forced quality uses `setPlaybackQualityRange('auto')`; verify on a real video.
+- The "MB or GB saved" number is an **estimate**. It is worked out from typical YouTube video speeds, not measured.
+- **Vivaldi** never tells a page that it is in the background. So the saver also asks the browser which tab you are on, and checks if the page is still being drawn on screen. That is why a tab **side by side** with your current tab keeps its quality. Starting takes about 1.5 seconds longer there, which does not matter next to the 15 second or longer delay.
+- While the saver is working, the tab name starts with "144p ·". If you bookmark or share the page at that moment, the name will include it. The same is true for the time-left sign.
+- Firefox's own picture-in-picture button should count as picture-in-picture from Firefox 153, because it is the same signal the browser gives. Please test it on your Firefox before you rely on it.
+- The autoplay switches work by pausing a video right when it starts. On a slow computer you may hear a tiny bit of sound first. YouTube has no clean "do not autoplay" setting that an extension can use.
+- "Next in queue or playlist" means the earlier video played to its end and you did not click or type before the next one started. If you click something at that moment, the next video counts as one you opened.
+- The smooth spring animations need Chrome 113 or newer (Firefox 112 or newer). On Chrome 111 and 112 everything works the same, just without the animation.
+- Channel defaults need the channel ID from YouTube's player data. If YouTube stops giving it, videos use your default for all videos ("Channel not detected"), and nothing wrong is applied.
+- **Hide top bar** moves YouTube's top bar with CSS. If YouTube renames those parts, the bar just stays where it is until Resolute is updated. The hidden bar can still be reached with **/** and Tab, so search keeps working.
+- **Cinema mode** clicks YouTube's own theater button once for each video, then makes the video fill the window without cutting it. If YouTube renames the button, theater just does not turn on. Only your own click or the **T** key counts as leaving theater.
+- **Hide live chat** presses the close button inside YouTube's chat. If YouTube renames that button, the chat stays open until Resolute is updated. A chat that loads more than about a minute after the page opens is left open.
+- **Time left** is hidden during ads, on live streams, and in small players. It adds one small label inside YouTube's clock. If YouTube renames that part, the label is simply not shown. The tab countdown rounds up to whole minutes (seconds in the last minute), and you can switch off the ⏱ sign on the popup's **Playing** page.
+- Remembered videos and channel defaults stay on the device where you saved them. They are not synced to your other devices.
+- After a forced quality, "Auto" uses YouTube's own automatic mode. This has not been checked on every kind of video, so please try it on a real one.
 
 ---
 
 ## 🛠️ For developers
 
+You do not need this part to use Resolute. It is for people who want to look inside or help.
+
 <details>
-<summary><b>How it's built</b></summary>
+<summary><b>How it is built</b></summary>
 
-| File | Job |
+| File | What it does |
 |:---|:---|
-| `page.js` | Runs in YouTube's page (the "MAIN" world) so it can use the player's own methods. Adds the quality button + menu, applies the quality on every new video, waits for ads. Adds the autoplay button beside the search box and, per your two autoplay settings, pauses a video the first time it starts by itself (telling "opened" apart from "next in queue"). Shows "Video waiting" on that button while a video is held, closes the live chat panel once per video, slides the top bar away while a video plays and (Cinema mode) switches theater on and lets the video fill the window, if you asked for any of these, and runs the background saver (tab hidden, not in picture-in-picture), including the tab title and icon. |
-| `background.js` | Tells each YouTube tab whether it's the selected tab of its window (Vivaldi keeps background tabs "visible" to pages; the page then checks it's no longer drawn), and shows the "Background saver: 144p" notification while a tab is lowered, cleared when you return. |
-| `content.js` | Bridge to extension storage: the global default, the two autoplay settings, the hide-live-chat setting, the hide-top-bar setting, the Cinema mode setting, the tab-countdown icons setting and the saver setting (all synced), the saver's daily estimates (this device, last 21 days), remembered videos (this device, newest 1,000) and channel defaults (this device, newest 2,000) and the channels Cinema mode leaves normal (this device, newest 2,000). Validates every message and drops corrupted entries. |
-| `popup.*` | The toolbar popup, in three pages (Quality, Playing, Saver) with a sliding tab bar and swipe: global default, the two autoplay switches, hide live chat, hide top bar, Cinema mode and its left-out channels, the tab-countdown icons, the background saver and its weekly estimate, channel defaults, remembered videos, theme, and a fix for switched-off YouTube access. |
+| `page.js` | Runs inside the YouTube page itself, so it can use the player's own functions. It adds the quality button and menu and sets the quality on every new video (it waits for ads to finish). It also adds the autoplay button next to the search box and pauses a video the first time it starts by itself (it can tell "opened by you" from "next in the queue"). It shows "Video waiting" while a video is held, closes the live chat once per video, slides the top bar away while a video plays, and (Cinema mode) turns theater on and makes the video fill the window. It also shows the time left, and runs the background saver (tab hidden, not in picture-in-picture) with its tab name and icon. Each of these only works if you switched it on. |
+| `background.js` | Tells each YouTube tab if it is the selected tab of its window (Vivaldi keeps background tabs "visible" to pages, so the page also checks that it is no longer being drawn). It also shows the "Background saver: 144p" notification while a tab is lowered, and removes it when you return. |
+| `content.js` | The bridge to the extension's storage. It holds the default quality, the autoplay switches, the hide-chat, hide-top-bar, Cinema mode, tab-icons and saver settings (all synced), and, on this device only: the saver's daily numbers (last 21 days), remembered videos (newest 1,000), channel defaults (newest 2,000) and the channels Cinema mode leaves normal (newest 2,000). It checks every message and throws away damaged entries. |
+| `popup.*` | The toolbar popup, with three pages (Quality, Playing, Saver), a sliding tab bar and swipe. It has every setting above, the channel defaults, remembered videos, the theme, and a fix for when YouTube access is switched off. |
 
-The two scripts talk through `window.postMessage`. No build step, no bundler, no libraries.
+`page.js` and `content.js` talk to each other through `window.postMessage`. There is no build step, no bundler and no libraries.
 </details>
 
 <details>
 <summary><b>Design</b></summary>
 
-The popup, the in-player menu and the autoplay button are **inspired by Material 3 Expressive** (not an official Material implementation):
-- **Shapes:** pill buttons and chips, connected button groups, and a selected item that morphs from a pill to a rounded square.
-- **Colour roles (from a red seed):** primary red = global default, dusty pink = this video, gold = channel.
-- **Shapes that morph:** the autoplay button changes shape (circle, cookie, rounded square) and has a wavy ring like M3 Expressive's wavy progress indicator.
-- **Motion:** spring-like, and switched off when the system's "reduce motion" setting is on.
-- **Popup layout:** built like the autoplay menu: small group titles, joined glass rows with an icon at the start, a red-filled row for each setting that's on, and a short note under each group, on three pages with a sliding tab bar. A channel's quality opens the same kind of frosted menu.
-- **Surfaces:** real frosted glass (`backdrop-filter`). In the player the video shows through the quality menu; on the page, the content shows through the autoplay menu. Browsers without blur get solid surfaces instead.
-- **Theme:** the popup has System / Light / Dark. The in-player menu is always dark, like YouTube's own controls. The autoplay button and its menu follow YouTube's light or dark theme.
+The popup, the in-player menu and the autoplay button are **inspired by Material 3 Expressive** (they are not an official Material version):
+- **Shapes:** pill buttons and chips, joined button groups, and a chosen item that changes from a pill into a rounded square.
+- **Colours (from a red starting colour):** red = default for all videos, dusty pink = this video, gold = channel.
+- **Moving shapes:** the autoplay button changes its shape (circle, cookie, rounded square) and has a wavy ring, like Material's wavy progress bar.
+- **Motion:** springy and smooth. It is switched off when your system's "reduce motion" setting is on.
+- **Popup layout:** it follows the autoplay menu: small group titles, joined glass rows with an icon at the start, a red row for every setting that is on, and a short note under each group, on three pages with a sliding tab bar. A channel's quality opens the same kind of frosted menu.
+- **Glass look:** real frosted glass (`backdrop-filter`). In the player you can see the video through the quality menu, and on the page you can see the page through the autoplay menu. Browsers that cannot blur get plain solid surfaces.
+- **Theme:** the popup can be System, Light or Dark. The in-player menu is always dark, like YouTube's own controls. The autoplay button and its menu follow YouTube's light or dark theme.
 </details>
 
 <details>
@@ -435,7 +442,7 @@ node test/page.test.js
 node test/content.test.js
 node test/background.test.js
 ```
-Runs the scripts against a fake YouTube player and fake storage. They cover:
+The tests run the scripts against a fake YouTube player and fake storage. They check these things:
 
 - **Quality:** placement, the menu, this-video picks, remember/forget, the global default, the floating fallback, ads, no duplicate buttons, keyboard.
 - **Channel defaults:** switching channels, missing or stale channel IDs, renamed channels, corrupted data.

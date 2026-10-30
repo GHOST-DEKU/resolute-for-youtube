@@ -288,27 +288,59 @@ The popup has three pages, so it is never one long scroll: **Quality** (default 
 <a id="install"></a>
 ## 📦 Install
 
-> Resolute isn't in any store yet. Firefox: [publishing guide](docs/PUBLISHING-FIREFOX.md) (planned for addons.mozilla.org, not yet submitted). Chrome: [manual install guide](docs/PUBLISHING.md) (not on the Chrome Web Store, because its registration fee isn't being paid).
+Pick your browser. Each way takes about a minute.
 
-### Chrome (Developer mode)
+| Your browser | Easiest way | Updates itself? |
+|:---|:---|:---:|
+| 🦊 **Firefox 140+** | [**Add it from Mozilla Add-ons**](https://addons.mozilla.org/en-US/firefox/addon/resolute-video-quality-control/) | ✅ Yes |
+| 🟢 **Chrome** | Load the folder yourself (below) | ❌ No |
+| 🔷 **Edge, Brave, Opera, Vivaldi** | Same steps as Chrome | ❌ No |
 
-1. Download this repo (**Code → Download ZIP**) and unzip it somewhere permanent.
-2. Open `chrome://extensions` and turn on **Developer mode**.
-3. Click **Load unpacked** and pick the folder that contains `manifest.json`.
+Safari and mobile browsers are not supported.
 
-It won't update by itself. A downloaded ZIP or `.crx` can't be installed by just opening it in Chrome on Windows or macOS.
+### 🦊 Firefox (recommended)
 
-### Firefox 140+
+1. Open the [Resolute page on Mozilla Add-ons](https://addons.mozilla.org/en-US/firefox/addon/resolute-video-quality-control/) in Firefox.
+2. Click **Add to Firefox**, then **Add** in the box that appears.
+3. Open any YouTube video. The quality button is in the player, next to the gear.
 
-- **Once it's listed** on Mozilla Add-ons: one click, automatic updates. Not available yet.
-- **For testing now:**
-  1. Open `about:debugging#/runtime/this-firefox`.
-  2. Build it with `python3 scripts/build.py firefox`, click **Load Temporary Add-on** and pick `dist/resolute-firefox-v1.1.0.zip` (the repo's own `manifest.json` is set up for Chrome). It's removed when Firefox closes.
-  3. If the button doesn't appear, open `about:addons` → Resolute → **Permissions** and allow YouTube.
+It updates by itself. If the button does not appear, open `about:addons`, click **Resolute**, go to **Permissions**, and allow YouTube.
 
-### Edge, Brave and other Chromium browsers
+### 🟢 Chrome (and other Chromium browsers)
 
-Each has its own rules; see the [Chrome guide, section 5](docs/PUBLISHING.md#5-legitimate-alternatives-for-chromium-based-browsers).
+Resolute is not on the Chrome Web Store, so you load it from a folder. You do this once.
+
+1. On this page click the green **Code** button, then **Download ZIP**.
+2. **Unzip it** and move the folder somewhere it can stay (for example `Documents`). Chrome reads the extension from this folder every time it starts, so do not delete it.
+3. Open `chrome://extensions` (Edge: `edge://extensions`, Brave: `brave://extensions`).
+4. Turn on **Developer mode** (top right).
+5. Click **Load unpacked** and choose the folder that **contains `manifest.json`**. Inside the unzipped folder there may be one more folder with the same name: open it until you can see `manifest.json`, then select that.
+6. Open a YouTube video. The quality button is in the player, next to the gear.
+
+To make the button easy to reach, click the puzzle-piece icon in the toolbar and pin **Resolute**.
+
+**Updating:** download the new ZIP, unzip it over the old folder (replace the files), then open `chrome://extensions` and click the round **reload** arrow on Resolute. Refresh your YouTube tab.
+
+Chrome may show a "Disable developer mode extensions" notice when it starts. Click **Cancel** or the **X**; the extension keeps working.
+
+### 🛠️ Firefox, for testing a new version
+
+Only needed if you want a version that is not on Mozilla Add-ons yet. Do **not** use GitHub's "Download ZIP" here: Firefox cannot read it.
+
+1. Run `python3 scripts/build.py firefox`. It makes `dist/resolute-firefox-v<version>.zip`.
+2. Open `about:debugging#/runtime/this-firefox`.
+3. Click **Load Temporary Add-on** and pick that ZIP file (no need to unzip it).
+
+It is removed when Firefox closes. Load it again next time.
+
+### Something went wrong?
+
+| What you see | What it means |
+|:---|:---|
+| "manifest.json was not found" | You picked a folder or ZIP with another folder inside it. Pick the one that shows `manifest.json` straight away. |
+| No quality button on YouTube | Refresh the YouTube tab. Then check that Resolute is allowed on YouTube (Firefox: `about:addons` → Resolute → Permissions). |
+| Button is there but the popup shows a warning | Click **Allow on YouTube** in the popup. |
+| It stopped after a browser update (Chrome) | Open `chrome://extensions` and make sure Resolute is still switched on. |
 
 ---
 

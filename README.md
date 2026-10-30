@@ -269,6 +269,11 @@ Your spots stay on this device only (the 1,000 most recent videos). They are not
 
 ### On the progress bar
 
+<p align="center">
+  <img src="docs/resume-bar.png" alt="Three views of the player: the flag with its time, the menu by the clock, and the Back chip after a skip" width="80%"><br>
+  <sub>Rendered from the extension's own code on a stand-in player (not a real YouTube video). The time and the "Saved 2 days ago" line are example data.</sub>
+</p>
+
 For a video you have watched before, Resolute adds a few things where you can see them. Each one has its own switch in the popup, on the **Playing** page, under **On the progress bar**. All four are on by default.
 
 | Part | What you see | What you can do |
@@ -329,7 +334,12 @@ The popup card also shows about how much data you saved **this week (Sunday to S
 
 <p align="center">
   <img src="docs/popup.png" alt="The Resolute popup's three pages, Quality, Playing and Saver, in dark (top) and light (bottom) themes" width="100%"><br>
-  <sub>The real popup's three pages in dark (top) and light (bottom), rendered from the extension's code. The channels and counts are example data.</sub>
+  <sub>The real popup's three pages in dark (top) and light (bottom), rendered from the extension's code. The channels and counts are example data. This picture was taken before the resume settings were added, so see the picture below for those.</sub>
+</p>
+
+<p align="center">
+  <img src="docs/popup-resume.png" alt="The Playing page of the popup in dark (top) and light (bottom): the Rewind a little setting, what counts as progress, and the On the progress bar switches" width="80%"><br>
+  <sub>The new resume settings on the <b>Playing</b> page, in dark (top) and light (bottom), rendered from the real popup code.</sub>
 </p>
 
 The popup has three pages, so you never have to scroll a long list:

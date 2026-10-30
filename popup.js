@@ -169,6 +169,36 @@
     }
   });
 
+  // ---------- resume: how far back to go (the player reads this when a video resumes) ----------
+  const REWIND = 'resumeRewind';
+  const REWIND_NOTES = {
+    off: 'Resumes on the exact second you left.',
+    5: 'Always goes back 5 seconds.',
+    smart: 'Goes back 2 seconds after minutes away, 5 after a day, 10 after weeks.'
+  };
+  const cleanRewind = (v) => (v === 'off' || v === '5' ? v : 'smart');
+  let rewindSetting = 'smart';
+  function showRewind(v) {
+    rewindSetting = cleanRewind(v);
+    const r = document.querySelector(`input[name="rw"][value="${rewindSetting}"]`);
+    if (r) r.checked = true;
+    $('rw-note').textContent = REWIND_NOTES[rewindSetting];
+  }
+  for (const r of document.querySelectorAll('input[name="rw"]')) {
+    r.addEventListener('change', async () => {
+      const next = cleanRewind(r.value);
+      try {
+        await api.storage.sync.set({ [REWIND]: next });
+        showRewind(next);
+        flash(next === 'off' ? 'Resumes on the exact second' : next === '5' ? 'Rewinds 5 seconds' : 'Smart rewind on');
+      } catch {
+        showRewind(rewindSetting); // show what is really saved
+        flash('Could not save. Please try again.');
+      }
+    });
+  }
+  api.storage.sync.get(REWIND).then((r) => showRewind(r[REWIND])).catch(() => showRewind(null));
+
   // ---------- background saver: setting + this week's estimate (Sunday to Saturday) ----------
   const SAVER = 'bgSaver';
   const STATS = 'saverStats';

@@ -18,14 +18,14 @@
 
 <p align="center">
   <a href="#install">Install</a> ·
-  <a href="#quality">Quality button</a> ·
-  <a href="#autoplay">No autoplay</a> ·
-  <a href="#chat">Hide live chat</a> ·
-  <a href="#topbar">Hide top bar</a> ·
-  <a href="#cinema">Cinema mode</a> ·
-  <a href="#time-left">Time left</a> ·
-  <a href="#resume">Pick up where you stopped</a> ·
-  <a href="#saver">Background saver</a> ·
+  <a href="#quality">Quality</a> ·
+  <a href="#autoplay">Autoplay</a> ·
+  <a href="#topbar">Top&nbsp;bar</a> ·
+  <a href="#cinema">Cinema</a> ·
+  <a href="#time-left">Time&nbsp;left</a> ·
+  <a href="#chat">Live&nbsp;chat</a> ·
+  <a href="#resume">Resume</a> ·
+  <a href="#saver">Saver</a> ·
   <a href="#popup">Popup</a> ·
   <a href="#faq">FAQ</a> ·
   <a href="PRIVACY.md">Privacy</a>

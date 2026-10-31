@@ -22,6 +22,8 @@
  *  - sync  "resumeRules":       { includeLive, skipStart, endFinished, skipShort } what counts as progress (all on unless turned off)
  *  - sync  "resumeBar":         { flag, back, ghost, button } what shows on the progress bar (all on unless turned off)
  *  - local "resumeOff":         { videoId: true } videos you chose not to save
+ *  - local "resumeChOff":       { UCchannelId: name } channels you chose not to save (their spots are deleted, nothing new is saved)
+ *    (each spot may also carry "c": its channel id, so switching a channel off can delete its spots)
  *  - local "videoOverrides":    { videoId: quality } for videos the user chose to remember
  *  - local "channelPrefs":      { UCchannelId: { q: quality, name } } channel defaults
  *    (name is only for showing the list; the id is the key, so renames don't matter)
@@ -58,6 +60,7 @@
   const RULES = 'resumeRules';
   const BAR = 'resumeBar';        // sync: which extras show on the player's progress bar
   const OFF = 'resumeOff';        // local: videos you told Resolute not to save { videoId: true }
+  const CHOFF = 'resumeChOff';    // local: channels you told Resolute not to save { UCid: name }
   const MAX_SPOTS = 1000; // shortcut: drops the oldest beyond this; raise if users hit it
   const RULE_KEYS = ['includeLive', 'skipStart', 'endFinished', 'skipShort'];
   const cleanRewind = (v) => (v === 'off' || v === '5' ? v : 'smart');
@@ -70,7 +73,10 @@
     const out = {};
     if (map && typeof map === 'object') {
       for (const [id, v] of Object.entries(map)) {
-        if (VIDEO_ID.test(id) && v && Number.isFinite(v.t) && v.t >= 0 && v.t <= 86400 * 2 && Number.isFinite(v.at)) out[id] = { t: Math.floor(v.t), at: v.at };
+        if (VIDEO_ID.test(id) && v && Number.isFinite(v.t) && v.t >= 0 && v.t <= 86400 * 2 && Number.isFinite(v.at)) {
+          out[id] = { t: Math.floor(v.t), at: v.at };
+          if (CHANNEL_ID.test(v.c)) out[id].c = v.c;
+        }
       }
     }
     return out;
@@ -94,6 +100,13 @@
       return cleanBar((await api.storage.sync.get(BAR))[BAR]);
     } catch {
       return cleanBar(null);
+    }
+  }
+  async function readChOff() {
+    try {
+      return cleanSkip((await api.storage.local.get(CHOFF))[CHOFF]); // same shape as cinemaSkip: { UCid: name }
+    } catch {
+      return {};
     }
   }
   async function readOff() {
@@ -189,6 +202,7 @@
     send({ type: 'resumeRules', value: await readRules() });
     send({ type: 'resumeBar', value: await readBar() });
     send({ type: 'spotsOff', value: await readOff() });
+    send({ type: 'chOff', value: await readChOff() });
     // Is this the selected tab of its window? (Vivaldi never marks background tabs "hidden", so ask the browser.)
     try {
       const active = await api.runtime.sendMessage({ type: 'amActive' });
@@ -285,9 +299,11 @@
         for (const id of ids.slice(0, Math.max(0, ids.length - MAX_REMEMBERED))) delete map[id];
         await api.storage.local.set({ [OVERRIDES]: map });
       } else if (msg.type === 'spot' && VIDEO_ID.test(msg.videoId) && Number.isFinite(msg.t) && msg.t >= 0 && msg.t <= 86400 * 2) {
+        if (CHANNEL_ID.test(msg.channelId) && msg.channelId in await readChOff()) return; // you switched this channel off: save nothing
         const map = await readSpots();
         delete map[msg.videoId]; // re-adding moves it to the newest position
         map[msg.videoId] = { t: Math.floor(msg.t), at: Date.now() };
+        if (CHANNEL_ID.test(msg.channelId)) map[msg.videoId].c = msg.channelId;
         const ids = Object.keys(map);
         for (const id of ids.slice(0, Math.max(0, ids.length - MAX_SPOTS))) delete map[id];
         await api.storage.local.set({ [SPOTS]: map });
@@ -304,6 +320,19 @@
         const ids = Object.keys(map);
         for (const id of ids.slice(0, Math.max(0, ids.length - MAX_SPOTS))) delete map[id];
         await api.storage.local.set({ [OFF]: map });
+      } else if (msg.type === 'spotChOff' && CHANNEL_ID.test(msg.channelId) && typeof msg.off === 'boolean') {
+        const chs = await readChOff();
+        delete chs[msg.channelId]; // re-adding moves it to the newest position
+        if (msg.off) chs[msg.channelId] = typeof msg.name === 'string' ? msg.name.trim().slice(0, 100) : '';
+        const cids = Object.keys(chs);
+        for (const id of cids.slice(0, Math.max(0, cids.length - MAX_SKIP))) delete chs[id];
+        await api.storage.local.set({ [CHOFF]: chs });
+        if (msg.off) { // forget the spots of this channel (and the one on screen, which may be from before spots knew their channel)
+          const map = await readSpots();
+          let changed = false;
+          for (const [id, sp] of Object.entries(map)) if (sp.c === msg.channelId || id === msg.videoId) { delete map[id]; changed = true; }
+          if (changed) await api.storage.local.set({ [SPOTS]: map });
+        }
       } else if (msg.type === 'cinemaSkip' && CHANNEL_ID.test(msg.channelId) && typeof msg.on === 'boolean') {
         const map = await readSkip();
         delete map[msg.channelId]; // re-adding moves it to the newest position
@@ -363,6 +392,9 @@
       }
       if (area === 'local' && changes[OFF]) {
         send({ type: 'spotsOff', value: cleanOff(changes[OFF].newValue) });
+      }
+      if (area === 'local' && changes[CHOFF]) {
+        send({ type: 'chOff', value: cleanSkip(changes[CHOFF].newValue) });
       }
       if (area === 'sync' && changes[RULES]) {
         send({ type: 'resumeRules', value: cleanRules(changes[RULES].newValue) });

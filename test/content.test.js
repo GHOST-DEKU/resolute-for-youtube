@@ -25,7 +25,7 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
 
 (async () => {
   await tick();
-  assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides', 'channels', 'autoplay', 'saver', 'chat', 'topbar', 'tabicons', 'cinemaSkip', 'cinema', 'spots', 'resumeRewind', 'resumeRules', 'resumeBar', 'spotsOff', 'tabActive'], 'sends default, remembered videos, channel defaults, autoplay, saver, chat, top bar, tab icons, cinema and resume settings');
+  assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides', 'channels', 'autoplay', 'saver', 'chat', 'topbar', 'tabicons', 'cinemaSkip', 'cinema', 'spots', 'resumeRewind', 'resumeRules', 'resumeBar', 'spotsOff', 'chOff', 'tabActive'], 'sends default, remembered videos, channel defaults, autoplay, saver, chat, top bar, tab icons, cinema and resume settings');
   assert.strictEqual(posted[7].value, true, 'tab countdown icons are on by default');
   assert.strictEqual(posted[5].value, false, 'live chat stays visible by default');
   assert.strictEqual(posted[6].value, false, 'top bar stays visible by default');
@@ -33,7 +33,8 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
   assert.strictEqual(posted[0].value, 'hd1080');
   assert.strictEqual(JSON.stringify(posted[8].value), '{}', 'no channels left out by default');
   assert.strictEqual(posted[9].value, false, 'cinema mode is off by default');
-  assert.strictEqual(posted[15].value, false, 'tells the page whether its tab is selected');
+  assert.strictEqual(posted[16].value, false, 'tells the page whether its tab is selected');
+  assert.strictEqual(JSON.stringify(posted[15].value), '{}', 'no channels switched off by default');
   assert.strictEqual(JSON.stringify(posted[13].value), '{"flag":true,"back":true,"ghost":true,"button":true}', 'every bar extra is on by default');
   assert.strictEqual(JSON.stringify(posted[14].value), '{}', 'no videos left out by default');
   bgListener({ type: 'tabActive', on: true }, { id: 'me' });
@@ -173,6 +174,30 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
   changeListener({ resumeBar: { newValue: { ghost: false, flag: 'no' } } }, 'sync');
   assert.strictEqual(Object.keys(posted[0].value).join(), 'good1234567', 'only well-formed ids reach the page');
   assert.strictEqual(JSON.stringify(posted[1].value), '{"flag":true,"back":true,"ghost":false,"button":true}', 'an extra is off only when exactly false');
+
+  // ---- resume: "don't save this channel" ----
+  const UCa = `UC${'a'.repeat(22)}`, UCb = `UC${'b'.repeat(22)}`;
+  await fromPage({ type: 'spot', videoId: 'a1a1a1a1a1a', t: 120, channelId: UCa });
+  await fromPage({ type: 'spot', videoId: 'a2a2a2a2a2a', t: 130, channelId: UCa });
+  await fromPage({ type: 'spot', videoId: 'b1b1b1b1b1b', t: 140, channelId: UCb });
+  await fromPage({ type: 'spot', videoId: 'old00000001', t: 150 });
+  assert.strictEqual(store.local.resumeSpots.a1a1a1a1a1a.c, UCa, 'a spot remembers its channel');
+  assert.ok(!('c' in store.local.resumeSpots.old00000001), 'no channel id given: none stored');
+  await fromPage({ type: 'spotChOff', channelId: 'nope', off: true });
+  await fromPage({ type: 'spotChOff', channelId: UCa, off: 'yes' });
+  assert.ok(!store.local.resumeChOff, 'bad channel id or value: nothing saved');
+  await fromPage({ type: 'spotChOff', channelId: UCa, name: '  Alpha  ', off: true, videoId: 'old00000001' });
+  assert.strictEqual(JSON.stringify(store.local.resumeChOff), JSON.stringify({ [UCa]: 'Alpha' }), 'the channel is saved with a trimmed name');
+  const left = () => Object.keys(store.local.resumeSpots).filter((id) => /^[ab]\d/.test(id) || id.startsWith('old')).join();
+  assert.strictEqual(left(), 'b1b1b1b1b1b', 'its spots and the video on screen are deleted, other channels stay');
+  await fromPage({ type: 'spot', videoId: 'a3a3a3a3a3a', t: 90, channelId: UCa });
+  assert.ok(!('a3a3a3a3a3a' in store.local.resumeSpots), 'a stale player cannot save a spot for a switched-off channel');
+  await fromPage({ type: 'spotChOff', channelId: UCa, off: false });
+  assert.deepStrictEqual(Object.keys(store.local.resumeChOff), [], 'saving again removes it');
+  assert.strictEqual(left(), 'b1b1b1b1b1b', 'and brings no spots back');
+  posted.length = 0;
+  changeListener({ resumeChOff: { newValue: { [UCb]: 'Beta', bad: 'x' } } }, 'local');
+  assert.strictEqual(posted[0].type + JSON.stringify(posted[0].value), 'chOff' + JSON.stringify({ [UCb]: 'Beta' }), 'only well-formed channel ids reach the page');
 
   console.log('All checks passed');
 })().catch((e) => { console.error(e); process.exit(1); });

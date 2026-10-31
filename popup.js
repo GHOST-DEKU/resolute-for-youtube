@@ -588,6 +588,64 @@
     }
   });
 
+  // ---------- channels you chose not to save (resume) ----------
+  const CHOFF = 'resumeChOff';
+  const coList = $('co-list');
+  const coCount = $('co-count');
+  const coEmpty = $('co-empty');
+  const coClear = $('co-clear');
+  let coMap = {};
+  const saveCo = () => api.storage.local.set({ [CHOFF]: coMap });
+  function showCo(map) {
+    coMap = {};
+    if (map && typeof map === 'object') for (const [id, name] of Object.entries(map)) if (CHANNEL_ID.test(id)) coMap[id] = typeof name === 'string' ? name : '';
+    const ids = Object.keys(coMap);
+    coCount.textContent = ids.length ? `${ids.length} channel${ids.length === 1 ? '' : 's'} not saved` : 'None yet';
+    coClear.hidden = ids.length === 0;
+    coEmpty.hidden = ids.length > 0;
+    coList.replaceChildren(...ids.map((id) => {
+      const name = coMap[id] || id;
+      const li = document.createElement('li');
+      li.className = 'channel';
+      const avatar = document.createElement('span');
+      avatar.className = 'avatar';
+      avatar.setAttribute('aria-hidden', 'true');
+      avatar.textContent = (coMap[id] || '?').trim().charAt(0).toUpperCase() || '?';
+      const link = document.createElement('a');
+      link.href = `https://www.youtube.com/channel/${id}`;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = name;
+      link.title = `${name} (${id})`;
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'icon-btn remove';
+      remove.append(svg(CLOSE));
+      remove.setAttribute('aria-label', `Save ${name} again`);
+      remove.title = 'Save this channel again';
+      remove.addEventListener('click', () => {
+        const next = li.nextElementSibling || li.previousElementSibling;
+        delete coMap[id];
+        saveCo().then(() => {
+          flash(`Saving ${name} again`);
+          (next ? next.querySelector('.icon-btn') : coClear).focus(); // keep keyboard users in place
+        }).catch(() => flash('Could not save. Please try again.'));
+      });
+      li.append(avatar, link, remove);
+      return li;
+    }));
+  }
+  api.storage.local.get(CHOFF).then((r) => showCo(r[CHOFF])).catch(() => showCo({}));
+  coClear.addEventListener('click', async () => {
+    const n = Object.keys(coMap).length;
+    const ok = await confirmAction(`Save ${n} channel${n === 1 ? '' : 's'} again?`,
+      'Resume will save your spot on their videos again. Spots deleted earlier do not come back.', 'Forget all');
+    if (!ok) return coClear.focus();
+    coMap = {};
+    saveCo().then(() => flash('Saving these channels again'))
+      .catch(() => flash('Could not save. Please try again.'));
+  });
+
   // ---------- hide the top bar while a video plays ----------
   const HIDE_BAR = 'hideTopBar';
   const tbOn = $('tb-on');
@@ -679,6 +737,7 @@
     if (area === 'sync' && changes[HIDE_BAR]) showHideBar(changes[HIDE_BAR].newValue);
     if (area === 'sync' && changes[CINEMA]) showCinema(changes[CINEMA].newValue);
     if (area === 'local' && changes[SKIP]) showSkip(changes[SKIP].newValue);
+    if (area === 'local' && changes[CHOFF]) showCo(changes[CHOFF].newValue);
     if (area === 'local' && changes[STATS]) showStats(changes[STATS].newValue);
     if (area === 'local' && changes[LAST]) showLast(changes[LAST].newValue);
     if (area === 'sync' && changes[THEME]) applyTheme(changes[THEME].newValue);

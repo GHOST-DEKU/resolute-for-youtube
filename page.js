@@ -1401,6 +1401,11 @@
       for (const k of Object.keys(barOpts)) barOpts[k] = msg.value[k] !== false;
       updateResumeUI();
       return;
+    } else if (msg.type === 'chOff' && msg.value && typeof msg.value === 'object') {
+      chOff = {};
+      for (const id of Object.keys(msg.value)) if (CHANNEL_ID.test(id)) chOff[id] = String(msg.value[id] || '');
+      updateResumeUI();
+      return;
     } else if (msg.type === 'spotsOff' && msg.value && typeof msg.value === 'object') {
       spotsOff = {};
       for (const id of Object.keys(msg.value)) if (/^[\w-]{6,20}$/.test(id)) spotsOff[id] = true;
@@ -1678,7 +1683,7 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
     const v = p && p.querySelector('video');
     if (!v || p.classList.contains('ad-showing')) return; // ad time is not your video's time
     const vid = videoIdOf(p);
-    if (!vid || vid !== resumeVid || spotsOff[vid]) return;
+    if (!vid || vid !== resumeVid || spotsOff[vid] || chOffNow(vid)) return;
     const info = resumeInfo(p, v);
     if (info.skip) return;
     const raw = call(p, 'getCurrentTime');
@@ -1690,7 +1695,8 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
     if (spotSent.vid === vid && Math.abs(t - spotSent.t) < (final ? 1 : SPOT_EVERY)) return;
     spotSent = { vid, t };
     spots[vid] = { t: Math.floor(t), at: Date.now() };
-    postToExt({ type: 'spot', videoId: vid, t });
+    const ch = channelFor(p, vid);
+    postToExt({ type: 'spot', videoId: vid, t, channelId: ch ? ch.id : undefined });
   }
 
   function hideResumePill() {
@@ -1743,7 +1749,7 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
     const spot = spots[vid];
     anchor = spot ? { vid, t: spot.t, at: spot.at } : null; // where you left off before this viewing; the bar controls use it
     updateResumeUI();
-    if (!spot || spotsOff[vid] || /[?&](t|start)=/.test(location.search)) return; // nothing saved, you said not to save it, or the link has its own time
+    if (!spot || spotsOff[vid] || chOffNow(vid) || /[?&](t|start)=/.test(location.search)) return; // nothing saved, you said not to save the video or its channel, or the link has its own time
     const info = resumeInfo(p, v);
     if (info.skip) return;
     const target = Math.max(0, spot.t - rewindSecs(spot));
@@ -1764,6 +1770,8 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
   // move while you watch (the saved spot does).
   const barOpts = { flag: true, back: true, ghost: true, button: true };
   let spotsOff = {};              // videos you chose not to save { videoId: true }
+  let chOff = {};                 // channels you chose not to save { UCchannelId: name }
+  const chOffNow = (vid) => { const c = channelFor(getPlayer(), vid); return c && c.id in chOff ? c : null; }; // null when the channel is unknown: then nothing is blocked
   let anchor = null;              // { vid, t, at }
   let rc = null;                  // the controls, built on first use
   let menuOpen = false;
@@ -1800,7 +1808,7 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
     if (!v || !vid) return null;
     const info = resumeInfo(p, v);
     if (info.skip) return null;
-    return { p, v, vid, info, a: anchor && anchor.vid === vid ? anchor : null, off: !!spotsOff[vid] };
+    return { p, v, vid, info, a: anchor && anchor.vid === vid ? anchor : null, off: !!spotsOff[vid], chn: chOffNow(vid) };
   }
 
   function makeMarker(cls, iconName, onClick) {
@@ -1879,7 +1887,7 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
     const ctx = resumeCtx();
     if (!ctx) { if (rc) { rc.btn.hidden = true; rc.layer.classList.add('yqx-gone'); closeResumeMenu(false); hideBack(); } return; }
     if (!rc) buildResumeUI();
-    const { p, v, info, a, off } = ctx;
+    const { p, v, info, a, off, chn } = ctx;
     rc.p = p;
     // the button sits just after the clock
     const left = p.querySelector('.ytp-left-controls');
@@ -1887,15 +1895,15 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
     if (left && rc.btn.parentElement !== left) (clockEl ? clockEl.after(rc.btn) : left.append(rc.btn));
     else if (clockEl && rc.btn.previousElementSibling !== clockEl) clockEl.after(rc.btn);
     rc.btn.hidden = !(left && barOpts.button);
-    const key = `${a ? a.t : -1}|${off}`;
+    const key = `${a ? a.t : -1}|${off}|${chn ? 1 : 0}`;
     if (key !== rc.pillKey) {
       rc.pillKey = key;
-      rc.pill.replaceChildren(icon('history', ''));
+      rc.pill.replaceChildren(icon(chn ? 'block' : 'history', '')); // a channel you switched off gets a slashed icon
       if (a) { const t = el('span'); t.textContent = clock(a.t); rc.pill.append(t); }
       rc.pill.classList.toggle('yqx-bare', !a);
       rc.pill.classList.toggle('yqx-nospot', !a);
-      rc.pill.classList.toggle('yqx-nosave', off);
-      rc.btn.setAttribute('aria-label', a ? `Resume options. Left off at ${clock(a.t)}${off ? '. Not saving this video' : ''}` : 'Resume options. Nothing saved before');
+      rc.pill.classList.toggle('yqx-nosave', off || !!chn);
+      rc.btn.setAttribute('aria-label', (a ? `Resume options. Left off at ${clock(a.t)}` : 'Resume options. Nothing saved before') + (chn ? '. Not saving this channel' : off ? '. Not saving this video' : ''));
     }
     // the bar
     if (rc.layer.parentElement !== p) p.append(rc.layer);
@@ -1948,7 +1956,7 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
   function openResumeMenu() {
     const ctx = resumeCtx();
     if (!ctx || !rc || rc.btn.hidden) return;
-    const { p, vid, a, off, info } = ctx;
+    const { p, vid, a, off, chn, info } = ctx;
     const m = rc.menu;
     const head = el('div', 'yqx-mh');
     const top = el('div');
@@ -1961,6 +1969,7 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
       b.textContent = 'Nothing saved before';
       small.textContent = off ? 'This video is not being saved' : 'Your spot is saved as you watch';
     }
+    if (chn) small.textContent = `Not saved: ${chn.name || 'this channel'}`;
     top.append(b, small);
     head.append(top);
     if (a && !info.live && info.dur > 0) {
@@ -1971,17 +1980,22 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
       track.append(fill, dot);
       head.append(track);
     }
-    const row = (act, ic, text, disabled) => {
-      const r = el('button', 'yqx-rrow', { type: 'button', role: 'menuitem', 'data-act': act });
+    const row = (act, ic, text, disabled, sub) => {
+      const r = el('button', sub ? 'yqx-rrow yqx-two' : 'yqx-rrow', { type: 'button', role: 'menuitem', 'data-act': act });
       r.disabled = !!disabled;
-      const t = el('span'); t.textContent = text;
+      const t = el('span', 'yqx-tx');
+      const l1 = el('span'); l1.textContent = text;
+      t.append(l1);
+      if (sub) { const s = el('small'); s.textContent = sub; t.append(s); }
       r.append(icon(ic, ''), t);
       return r;
     };
+    const ch = channelFor(p, vid);
     m.replaceChildren(head, el('hr'),
       row('jump', 'history', a ? `Jump to ${clock(a.t)}` : 'Jump to your spot', !a),
       row('start', 'start', 'Start over', false),
       row('pause', off ? 'check' : 'block', off ? 'Save this video again' : 'Don’t save this video', false),
+      row('chan', chn ? 'check' : 'channel', chn ? 'Save this channel again' : 'Don’t save this channel', !ch, ch ? ch.name || 'Unnamed channel' : 'Channel not detected'),
       row('forget', 'trash', 'Forget this spot', !a && !spots[vid]));
     const pr = p.getBoundingClientRect(), br = rc.btn.getBoundingClientRect(), w = m.offsetWidth || 246;
     m.style.left = `${Math.max(8, Math.min(pr.width - w - 8, br.left - pr.left))}px`;
@@ -2010,6 +2024,13 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
       if (off) spotsOff[vid] = true; else delete spotsOff[vid];
       postToExt({ type: 'spotOff', videoId: vid, off });
       showResumePill(p, off ? 'This video won’t be saved' : 'Saving this video again', false);
+    } else if (act === 'chan') {
+      const c = channelFor(p, vid);
+      if (!c) return;
+      const off = !(c.id in chOff);
+      if (off) { chOff[c.id] = c.name; delete spots[vid]; } else delete chOff[c.id];
+      postToExt({ type: 'spotChOff', channelId: c.id, name: c.name, off, videoId: vid });
+      showResumePill(p, off ? 'This channel won’t be saved' : 'Saving this channel again', false);
     } else if (act === 'forget') {
       clearSpot(vid);
       if (anchor && anchor.vid === vid) anchor = null;
@@ -2511,9 +2532,12 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
 .yqx-mt i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:#ff2b4a}
 .yqx-mt u{position:absolute;top:50%;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px #ff2b4a}
 .yqx-rmenu hr{border:0;height:1px;margin:2px 8px;background:rgba(255,255,255,.12)}
-.yqx-rrow{display:flex;align-items:center;gap:10px;width:100%;height:40px;padding:0 14px 0 10px;border:0;border-radius:12px;background:transparent;color:inherit;text-align:left;cursor:pointer;font:inherit;
+.yqx-rrow{display:flex;align-items:center;gap:10px;width:100%;min-height:40px;padding:0 14px 0 10px;border:0;border-radius:12px;background:transparent;color:inherit;text-align:left;cursor:pointer;font:inherit;
   transition:background-color .2s var(--yqx-ease),border-radius .35s var(--yqx-spring-fast)}
 .yqx-rrow svg{width:18px;height:18px;flex:none;color:var(--yqx-primary)}
+.yqx-rrow.yqx-two{padding-block:6px}
+.yqx-rrow .yqx-tx{display:flex;flex-direction:column;gap:2px;min-width:0}
+.yqx-rrow .yqx-tx small{font-weight:400;font-size:11.5px;opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .yqx-rrow:hover:not(:disabled),.yqx-rrow:focus-visible{background:var(--yqx-surface-highest);border-radius:16px;outline:none}
 .yqx-rrow:disabled{opacity:.4;cursor:default}
 #movie_player.ytp-big-mode .yqx-rmenu{font-size:15px;min-width:290px}

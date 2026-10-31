@@ -855,7 +855,8 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
     rbtn().click();
     assert.ok(menu().classList.contains('yqx-on') && rbtn().getAttribute('aria-expanded') === 'true', 'the menu opens');
     assert.ok(menu().textContent.includes('Left off at 5:00') && menu().textContent.includes('Saved 30 min ago · of 10:00'), 'with where you left off, how long ago, and the length');
-    assert.strictEqual(menu().querySelectorAll('button').length, 4, 'four actions');
+    assert.strictEqual(menu().querySelectorAll('button').length, 5, 'five actions');
+    assert.ok(row('chan').textContent.includes('Don’t save this channel') && row('chan').textContent.includes('Other'), 'one of them is the channel, with its name'); 
     menu().dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     assert.ok(!menu().classList.contains('yqx-on'), 'Escape closes it');
     rbtn().click(); row('pause').click();
@@ -873,6 +874,35 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
     assert.ok(!document.querySelector('.yqx-bm').classList.contains('yqx-on'), 'and goes away');
     seeks.length = 0; rbtn().click(); row('start').click();
     assert.deepStrictEqual(seeks, [0], 'Start over goes to 0:00');
+
+    // don't save this channel: no saving, no jump, a slashed icon, and its spots are deleted
+    channelOf.resume0011 = { id: UC('r'), name: 'Resume Channel' }; channelOf.resume0012 = { id: UC('r'), name: 'Resume Channel' };
+    toPage('spots', { resume0011: { t: 300, at: hourAgo }, resume0012: { t: 200, at: hourAgo } }); await wait(20);
+    await reopen('resume0011');
+    rbtn().click(); row('chan').click();
+    assert.ok(sent.some((m) => m.type === 'spotChOff' && m.channelId === UC('r') && m.name === 'Resume Channel' && m.off === true && m.videoId === 'resume0011'), 'the extension is told, with the video on screen');
+    assert.ok(rbtn().querySelector('.yqx-nosave'), 'the dot turns hollow');
+    sent.length = 0; curT = 250; videoEl.dispatchEvent(new window.Event('timeupdate')); await wait(5);
+    assert.strictEqual(sent.filter((m) => m.type === 'spot').length, 0, 'nothing is saved for that channel');
+    rbtn().click(); assert.ok(menu().textContent.includes('Not saved: Resume Channel'), 'the menu says so'); assert.ok(row('chan').textContent.includes('Save this channel again'));
+    menu().dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    toPage('spots', { resume0012: { t: 200, at: hourAgo } });
+    await reopen('resume0012');
+    assert.deepStrictEqual(seeks, [], 'another video of that channel does not jump back');
+    assert.ok(rbtn().querySelector('.yqx-nosave'), 'and its button shows the channel is off');
+    channelOf.resume0013 = { id: UC('s'), name: 'Other One' }; toPage('spots', { resume0013: { t: 200, at: hourAgo } });
+    await reopen('resume0013');
+    assert.deepStrictEqual(seeks, [200], 'a different channel still jumps back');
+    toPage('chOff', {}); toPage('spots', { resume0012: { t: 200, at: hourAgo } }); await wait(5); await reopen('resume0012');
+    assert.deepStrictEqual(seeks, [200], 'switched on again: the channel resumes');
+    toPage('chOff', { [UC('r')]: 'Resume Channel' });
+    rbtn().click(); row('chan').click();
+    assert.ok(sent.some((m) => m.type === 'spotChOff' && m.off === false), 'saving this channel again');
+    toPage('chOff', {});
+    channelOf.nochan0001 = { id: null }; await reopen('nochan0001'); rbtn().click();
+    assert.ok(row('chan').disabled && row('chan').textContent.includes('Channel not detected'), 'no channel id from YouTube: the row is greyed out');
+    menu().dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    toPage('spots', { resume0001: { t: 300, at: hourAgo } }); await reopen('resume0001');
 
     // a long jump you make yourself offers a way back; one YouTube makes does not
     await wait(1600);

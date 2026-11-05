@@ -11,6 +11,7 @@
  *    (older versions stored one "stopAutoplay" switch; it counts as both until either is set)
  *  - sync  "hideChat":          true = close YouTube's live chat panel when a stream opens (off unless turned on)
  *  - sync  "cinemaMode":      true = videos open in theater, the top bar hides while they play, the video fills the window (off unless turned on)
+ *  - sync  "ambientGlow":     true = the picture's colours glow around the player and fill its black bars (off unless turned on)
  *  - local "cinemaSkip":      { UCchannelId: name } channels where you left theater; cinema mode leaves them alone
  *  - sync  "tabIcons":          false = the tab countdown shows just the time; otherwise ⏱ comes first (on unless turned off)
  *  - sync  "hideTopBar":       true = YouTube's top bar hides while a video plays (off unless turned on)
@@ -48,6 +49,7 @@
   const HIDE_BAR = 'hideTopBar';
   const TAB_ICONS = 'tabIcons';
   const CINEMA = 'cinemaMode';
+  const GLOW = 'ambientGlow';
   const SKIP = 'cinemaSkip';
   const MAX_SKIP = 2000; // shortcut: drops the oldest beyond this; raise if users hit it
   const STATS = 'saverStats';
@@ -237,6 +239,7 @@
     send({ type: 'tabicons', value: await readTabIcons() });
     send({ type: 'cinemaSkip', value: await readSkip() }); // before 'cinema', so a skipped channel is known when cinema starts
     send({ type: 'cinema', value: await readCinema() });
+    send({ type: 'glow', value: await readFlag(GLOW) });
     send({ type: 'spots', value: await readSpots() });
     send({ type: 'resumeRewind', value: await readRewind() });
     send({ type: 'resumeRules', value: await readRules() });
@@ -257,6 +260,13 @@
   async function readHideChat() {
     try {
       return (await api.storage.sync.get(HIDE_CHAT))[HIDE_CHAT] === true;
+    } catch {
+      return false;
+    }
+  }
+  async function readFlag(key) {
+    try {
+      return (await api.storage.sync.get(key))[key] === true;
     } catch {
       return false;
     }
@@ -438,6 +448,9 @@
       }
       if (area === 'sync' && changes[CINEMA]) {
         send({ type: 'cinema', value: changes[CINEMA].newValue === true });
+      }
+      if (area === 'sync' && changes[GLOW]) {
+        send({ type: 'glow', value: changes[GLOW].newValue === true });
       }
       if (area === 'local' && changes[SKIP]) {
         send({ type: 'cinemaSkip', value: cleanSkip(changes[SKIP].newValue) });

@@ -25,9 +25,9 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
 
 (async () => {
   await tick();
-  assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides', 'channels', 'autoplay', 'saver', 'chat', 'topbar', 'tabicons', 'cinemaSkip', 'cinema', 'spots', 'resumeRewind', 'resumeRules', 'resumeBar', 'spotsOff', 'chOff', 'speedDefault', 'speedVideos', 'speedChannels', 'speedPicks', 'speedRules', 'tabActive'], 'sends default, remembered videos, channel defaults, autoplay, saver, chat, top bar, tab icons, cinema, resume and speed settings');
-  assert.strictEqual(posted[16].value, 1, 'speed is normal (1×) by default');
-  assert.strictEqual(JSON.stringify(posted.slice(17, 20).map((m) => m.value)), '[{},{},{}]', 'no saved speeds by default');
+  assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides', 'channels', 'autoplay', 'saver', 'chat', 'topbar', 'tabicons', 'cinemaSkip', 'cinema', 'glow', 'spots', 'resumeRewind', 'resumeRules', 'resumeBar', 'spotsOff', 'chOff', 'speedDefault', 'speedVideos', 'speedChannels', 'speedPicks', 'speedRules', 'tabActive'], 'sends default, remembered videos, channel defaults, autoplay, saver, chat, top bar, tab icons, cinema, glow, resume and speed settings');
+  assert.strictEqual(posted[17].value, 1, 'speed is normal (1×) by default');
+  assert.strictEqual(JSON.stringify(posted.slice(18, 21).map((m) => m.value)), '[{},{},{}]', 'no saved speeds by default');
   assert.strictEqual(posted[7].value, true, 'tab countdown icons are on by default');
   assert.strictEqual(posted[5].value, false, 'live chat stays visible by default');
   assert.strictEqual(posted[6].value, false, 'top bar stays visible by default');
@@ -35,11 +35,12 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
   assert.strictEqual(posted[0].value, 'hd1080');
   assert.strictEqual(JSON.stringify(posted[8].value), '{}', 'no channels left out by default');
   assert.strictEqual(posted[9].value, false, 'cinema mode is off by default');
-  assert.strictEqual(posted[21].value, false, 'tells the page whether its tab is selected');
-  assert.strictEqual(JSON.stringify(posted[20].value), '{"music":true,"live":true}', 'both speed rules are on by default');
-  assert.strictEqual(JSON.stringify(posted[15].value), '{}', 'no channels switched off by default');
-  assert.strictEqual(JSON.stringify(posted[13].value), '{"flag":true,"back":true,"ghost":true,"button":true}', 'every bar extra is on by default');
-  assert.strictEqual(JSON.stringify(posted[14].value), '{}', 'no videos left out by default');
+  assert.strictEqual(posted[10].value, false, 'ambient glow is off by default');
+  assert.strictEqual(posted[22].value, false, 'tells the page whether its tab is selected');
+  assert.strictEqual(JSON.stringify(posted[21].value), '{"music":true,"live":true}', 'both speed rules are on by default');
+  assert.strictEqual(JSON.stringify(posted[16].value), '{}', 'no channels switched off by default');
+  assert.strictEqual(JSON.stringify(posted[14].value), '{"flag":true,"back":true,"ghost":true,"button":true}', 'every bar extra is on by default');
+  assert.strictEqual(JSON.stringify(posted[15].value), '{}', 'no videos left out by default');
   bgListener({ type: 'tabActive', on: true }, { id: 'me' });
   bgListener({ type: 'tabActive', on: true }, { id: 'someone-else' });
   bgListener({ type: 'tabActive', on: 'yes' }, { id: 'me' });
@@ -134,9 +135,9 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
   assert.strictEqual(runtimeSent[0].title.length, 100, 'video title capped');
 
   // ---- resume: where you stopped ----
-  assert.strictEqual(JSON.stringify(posted[10].value), '{}', 'no saved spots by default');
-  assert.strictEqual(posted[11].value, 'smart', 'smart rewind by default');
-  assert.strictEqual(JSON.stringify(posted[12].value), '{"includeLive":true,"skipStart":true,"endFinished":true,"skipShort":true}', 'every rule on by default');
+  assert.strictEqual(JSON.stringify(posted[11].value), '{}', 'no saved spots by default');
+  assert.strictEqual(posted[12].value, 'smart', 'smart rewind by default');
+  assert.strictEqual(JSON.stringify(posted[13].value), '{"includeLive":true,"skipStart":true,"endFinished":true,"skipShort":true}', 'every rule on by default');
   await fromPage({ type: 'spot', videoId: 'dQw4w9WgXcQ', t: 754.9 });
   assert.strictEqual(store.local.resumeSpots.dQw4w9WgXcQ.t, 754, 'saves a spot in whole seconds');
   assert.ok(store.local.resumeSpots.dQw4w9WgXcQ.at > 0, 'with the time it was saved');

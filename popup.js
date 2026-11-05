@@ -987,8 +987,24 @@
   goPage(0);
 
   // ---------- stay in sync with changes made in the player or another window ----------
+  // ---------- ambient glow ----------
+  const GLOW = 'ambientGlow';
+  const gwOn = $('gw-on');
+  const showGlow = (v) => { gwOn.checked = v === true; };
+  api.storage.sync.get(GLOW).then((r) => showGlow(r[GLOW])).catch(() => {});
+  gwOn.addEventListener('change', async () => {
+    const on = gwOn.checked;
+    try {
+      await api.storage.sync.set({ [GLOW]: on });
+      flash(on ? 'Ambient glow on' : 'Ambient glow off');
+    } catch {
+      gwOn.checked = !on; // show the setting that is really saved
+      flash('Could not save. Please try again.');
+    }
+  });
   api.storage.onChanged.addListener((changes, area) => {
     if (area === 'sync' && changes[KEY]) select(changes[KEY].newValue);
+    if (area === 'sync' && changes[GLOW]) showGlow(changes[GLOW].newValue);
     if (area === 'sync' && (changes[HOLD.opened] || changes[HOLD.next] || changes[OLD_AUTOPLAY])) readHold();
     if (area === 'sync' && changes[SAVER]) showSaver(changes[SAVER].newValue);
     if (area === 'sync' && changes[HIDE_CHAT]) showHideChat(changes[HIDE_CHAT].newValue);

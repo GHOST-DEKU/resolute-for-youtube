@@ -33,7 +33,9 @@
   <a href="PRIVACY.md">Privacy</a>
 </p>
 
-> **🆕 New in 1.5:** **ambient glow**. The video's colours softly light up the page around the player, and black bars fill with a blur of the scene, in dark and light theme. Pick Candle, Lamp or Daylight in the popup, which takes on your video's colours too. [See how it works](#glow).
+> **🆕 New in 1.5.1:** the popup no longer shows a scrollbar on the Speed page. It still scrolls with the mouse wheel, touch and arrow keys.
+>
+> **Ambient glow (1.5):** The video's colours softly light up the page around the player, and black bars fill with a blur of the scene, in dark and light theme. Pick Candle, Lamp or Daylight in the popup, which takes on your video's colours too. [See how it works](#glow).
 >
 > **New in 1.4:** a **speed button** in the player (the left half of the quality pill), speeds remembered for each video and each channel, a smart helper that notices the speed you like for a channel and asks once, and a new **Speed** page in the popup. [See how it works](#speed).
 

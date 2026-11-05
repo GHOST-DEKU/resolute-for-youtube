@@ -256,7 +256,7 @@ fieldset.quality { margin: 0; padding: 0; border: 0; min-width: 0; display: flex
 
 /* ---------- channel list ---------- */
 .channel-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px;
-  max-height: 140px; overflow-y: auto; scrollbar-width: thin; }
+  max-height: 140px; overflow-y: auto; scrollbar-width: none; }
 .channel {
   display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 6px 6px 6px 14px;
   background: var(--item); border-radius: 6px;
@@ -404,7 +404,8 @@ dialog .actions { display: flex; justify-content: flex-end; gap: 8px; }
 .trk { display: flex; width: 400%; height: 100%; transform: translateX(calc(var(--page, 0) * -25%)); transition: transform 0.65s cubic-bezier(0.32, 0.72, 0, 1); }
 .trk.drag { transition: none; }
 .pg { width: 25%; height: 100%; overflow-y: auto; overflow-x: hidden; padding: 0 8px 14px; display: flex; flex-direction: column; gap: 4px;
-  scrollbar-width: thin; scrollbar-color: var(--outline-variant) transparent; }
+  scrollbar-width: none; } /* still scrolls with wheel, touch and keys, just without a bar */
+.pg::-webkit-scrollbar, .channel-list::-webkit-scrollbar { display: none; }
 .pg > .group { flex: none; }
 
 /* ---------- speed page ---------- */

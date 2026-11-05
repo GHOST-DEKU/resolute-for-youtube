@@ -33,7 +33,9 @@
   <a href="PRIVACY.md">Privacy</a>
 </p>
 
-> **🆕 New in 1.4:** a **speed button** in the player (the left half of the quality pill), speeds remembered for each video and each channel, a smart helper that notices the speed you like for a channel and asks once, and a new **Speed** page in the popup. [See how it works](#speed).
+> **🆕 New in 1.5:** **ambient glow**. The video's colours softly light up the page around the player, and black bars fill with a blur of the scene, in dark and light theme. [See how it works](#glow).
+>
+> **New in 1.4:** a **speed button** in the player (the left half of the quality pill), speeds remembered for each video and each channel, a smart helper that notices the speed you like for a channel and asks once, and a new **Speed** page in the popup. [See how it works](#speed).
 
 ---
 

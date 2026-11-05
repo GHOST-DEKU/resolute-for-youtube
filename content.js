@@ -26,6 +26,10 @@
  *    (each spot may also carry "c": its channel id, so switching a channel off can delete its spots)
  *  - local "videoOverrides":    { videoId: quality } for videos the user chose to remember
  *  - local "channelPrefs":      { UCchannelId: { q: quality, name } } channel defaults
+ *  - sync  "speedDefault":      playback speed for all videos (1 unless changed)
+ *  - local "speedVideos":       { videoId: speed } speeds picked for single videos
+ *  - local "speedChannels":     { UCchannelId: { r: speed, name } } channel speeds
+ *  - local "speedPicks":        { UCchannelId: { "1.75": [videoIds] | "no" } } what the "keep it for this channel?" offer learns from
  *    (name is only for showing the list; the id is the key, so renames don't matter)
  */
 (() => {
@@ -123,6 +127,36 @@
       return cleanRules(null);
     }
   }
+  const SP_DEF = 'speedDefault';
+  const SP_VIDS = 'speedVideos';
+  const SP_CHS = 'speedChannels';
+  const SP_PICKS = 'speedPicks';
+  const cleanRate = (r) => (typeof r === 'number' && r >= 0.25 - 1e-9 && r <= 3 + 1e-9 ? Math.round(r * 20) / 20 : null);
+  const cleanSpVids = (m) => Object.fromEntries(Object.entries(m && typeof m === 'object' ? m : {})
+    .filter(([id, r]) => VIDEO_ID.test(id) && cleanRate(r)).map(([id, r]) => [id, cleanRate(r)]));
+  const cleanSpChs = (m) => Object.fromEntries(Object.entries(m && typeof m === 'object' ? m : {})
+    .filter(([id, v]) => CHANNEL_ID.test(id) && v && cleanRate(v.r))
+    .map(([id, v]) => [id, { r: cleanRate(v.r), name: typeof v.name === 'string' ? v.name.slice(0, 100) : '' }]));
+  function cleanSpPicks(m) {
+    const out = {};
+    for (const [id, v] of Object.entries(m && typeof m === 'object' ? m : {})) {
+      if (!CHANNEL_ID.test(id) || !v || typeof v !== 'object') continue;
+      const one = {};
+      for (const [k, ids] of Object.entries(v)) {
+        if (cleanRate(Number(k)) === null) continue;
+        if (ids === 'no') one[k] = 'no';
+        else if (Array.isArray(ids)) one[k] = ids.filter((x) => VIDEO_ID.test(x)).slice(-3);
+      }
+      out[id] = one;
+    }
+    return out;
+  }
+  const readLocal = async (key, clean) => { try { return clean((await api.storage.local.get(key))[key]); } catch { return clean(null); } };
+  async function readSpDef() {
+    try { return cleanRate((await api.storage.sync.get(SP_DEF))[SP_DEF]) || 1; } catch { return 1; }
+  }
+  /** Keep a map to its newest `max` entries (re-added keys count as newest). */
+  const trim = (map, max) => { const ids = Object.keys(map); for (const id of ids.slice(0, Math.max(0, ids.length - max))) delete map[id]; return map; };
   const CHANNELS = 'channelPrefs';
   const MAX_CHANNELS = 2000; // shortcut: drops the oldest beyond this; raise if users hit it
   const CHANNEL_ID = /^UC[\w-]{22}$/;
@@ -203,6 +237,10 @@
     send({ type: 'resumeBar', value: await readBar() });
     send({ type: 'spotsOff', value: await readOff() });
     send({ type: 'chOff', value: await readChOff() });
+    send({ type: 'speedDefault', value: await readSpDef() });
+    send({ type: 'speedVideos', value: await readLocal(SP_VIDS, cleanSpVids) });
+    send({ type: 'speedChannels', value: await readLocal(SP_CHS, cleanSpChs) });
+    send({ type: 'speedPicks', value: await readLocal(SP_PICKS, cleanSpPicks) });
     // Is this the selected tab of its window? (Vivaldi never marks background tabs "hidden", so ask the browser.)
     try {
       const active = await api.runtime.sendMessage({ type: 'amActive' });
@@ -340,6 +378,31 @@
         const ids = Object.keys(map);
         for (const id of ids.slice(0, Math.max(0, ids.length - MAX_SKIP))) delete map[id];
         await api.storage.local.set({ [SKIP]: map });
+      } else if (msg.type === 'speedDefault' && cleanRate(msg.value)) {
+        await api.storage.sync.set({ [SP_DEF]: cleanRate(msg.value) });
+      } else if (msg.type === 'speedVid' && VIDEO_ID.test(msg.videoId)) {
+        const map = await readLocal(SP_VIDS, cleanSpVids);
+        delete map[msg.videoId]; // re-adding moves it to the newest position
+        if (cleanRate(msg.value)) map[msg.videoId] = cleanRate(msg.value);
+        await api.storage.local.set({ [SP_VIDS]: trim(map, MAX_REMEMBERED) });
+      } else if (msg.type === 'speedCh' && CHANNEL_ID.test(msg.channelId)) {
+        const map = await readLocal(SP_CHS, cleanSpChs);
+        delete map[msg.channelId];
+        if (cleanRate(msg.value)) map[msg.channelId] = { r: cleanRate(msg.value), name: typeof msg.name === 'string' ? msg.name.trim().slice(0, 100) : '' };
+        await api.storage.local.set({ [SP_CHS]: trim(map, MAX_CHANNELS) });
+      } else if (['speedPick', 'speedNo', 'speedPickClear'].includes(msg.type) && CHANNEL_ID.test(msg.channelId)) {
+        const map = await readLocal(SP_PICKS, cleanSpPicks);
+        const one = map[msg.channelId] || {};
+        delete map[msg.channelId];
+        const k = String(cleanRate(msg.rate));
+        if (msg.type === 'speedPick' && cleanRate(msg.rate) && VIDEO_ID.test(msg.videoId) && one[k] !== 'no') {
+          const ids = Array.isArray(one[k]) ? one[k].filter((x) => x !== msg.videoId) : [];
+          one[k] = [...ids, msg.videoId].slice(-3);
+        } else if (msg.type === 'speedNo' && cleanRate(msg.rate)) {
+          one[k] = 'no';
+        }
+        if (msg.type !== 'speedPickClear') map[msg.channelId] = one;
+        await api.storage.local.set({ [SP_PICKS]: trim(map, 500) });
       } else if (msg.type === 'channel' && CHANNEL_ID.test(msg.channelId)) {
         const map = await readChannels();
         delete map[msg.channelId]; // re-adding moves it to the newest position
@@ -402,6 +465,10 @@
       if (area === 'local' && changes[OVERRIDES]) {
         send({ type: 'overrides', value: changes[OVERRIDES].newValue || {} });
       }
+      if (area === 'sync' && changes[SP_DEF]) send({ type: 'speedDefault', value: cleanRate(changes[SP_DEF].newValue) || 1 });
+      if (area === 'local' && changes[SP_VIDS]) send({ type: 'speedVideos', value: cleanSpVids(changes[SP_VIDS].newValue) });
+      if (area === 'local' && changes[SP_CHS]) send({ type: 'speedChannels', value: cleanSpChs(changes[SP_CHS].newValue) });
+      if (area === 'local' && changes[SP_PICKS]) send({ type: 'speedPicks', value: cleanSpPicks(changes[SP_PICKS].newValue) });
       if (area === 'local' && changes[CHANNELS]) {
         send({ type: 'channels', value: cleanChannels(changes[CHANNELS].newValue) });
       }

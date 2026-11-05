@@ -41,6 +41,9 @@
  * (a little before the spot, as set in the popup) with a pill: "Resumed at 12:29 · Start over". If YouTube
  * already resumed it, or the link has its own time (t=), nothing happens. Shorts are never saved; live
  * streams, the first 10 s, the last 30 s and videos under 3 minutes follow the switches in the popup.
+ * Playback speed: the left half of the quality pill. A speed you pick (chips, slider, scroll on the pill, or
+ * YouTube's own controls) sticks to that video; the same speed on 3 videos of a channel offers to keep it for the
+ * channel. Order: this video, music at 1×, channel, default. Live goes back to 1× at live; Shorts are never touched.
  * Leaving theater yourself teaches it: that channel's videos stay normal next time; going back into
  * theater there undoes that. Your own clicks and the T key count; Resolute's own click never does.
  */
@@ -490,6 +493,469 @@
       if (p && e.target instanceof HTMLVideoElement && p.contains(e.target)) { leftUpdate(); tabRefresh(); }
     }, true);
   }
+
+  // ---------- playback speed: the left half of the quality pill ----------
+  // Which speed a video gets (first match wins): the speed saved for that video; music stays at 1×;
+  // the speed saved for its channel; your default (1× unless you change it).
+  // Any speed you pick (Resolute's chips, slider or scrolling on the pill, or YouTube's own gear menu and
+  // Shift + > / <) sticks to that video. Pick the same speed on 3 videos of a channel and the menu offers
+  // to keep it for the channel. A live stream goes back to 1× once it catches up to live. Shorts are never touched.
+  const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
+  const SP_MIN = 0.25, SP_MAX = 3, LEARN_AT = 3;
+  const cleanRate = (r) => (typeof r === 'number' && r >= SP_MIN - 1e-9 && r <= SP_MAX + 1e-9 ? Math.round(r * 20) / 20 : null);
+  const fmtRate = (r) => `${+r.toFixed(2)}×`;
+  let spDef = 1;
+  let spVids = {};   // { videoId: rate }
+  let spChs = {};    // { UCchannelId: { r, name } }
+  let spPicks = {};  // { UCchannelId: { "1.75": [videoIds] | "no" } } what the channel offer learns from
+  const spGot = new Set(); // which of the four stores have arrived
+  const sp = {
+    btn: null, pill: null, menu: null, now: null, chan: null, offer: null, live: null, fine: null, out: null,
+    chips: new Map(), rows: {}, open: false, keepAlive: 0, flashTimer: 0, saveTimer: 0, tipText: '',
+    vid: '', expect: 0, applied: 1, picked: false, liveDone: false, fights: 0, appliedAt: 0, down: false, gesture: 0
+  };
+  const spKnown = () => spGot.size === 4;
+  const spOwn = (t) => !!(sp.btn && t && t.nodeType === 1 && (sp.btn.contains(t) || sp.menu.contains(t)));
+
+  function spCtx() {
+    const p = getPlayer();
+    const v = p && p.querySelector('video');
+    if (!p || !v || location.pathname.startsWith('/shorts/') || p.classList.contains('ad-showing')) return null;
+    const vid = videoIdOf(p);
+    return vid ? { p, v, vid } : null;
+  }
+  function isMusic(p, vid) {
+    let r = null;
+    try { r = call(p, 'getPlayerResponse') || window.ytInitialPlayerResponse; } catch { r = null; }
+    const m = r && r.videoDetails && r.videoDetails.videoId === vid && r.microformat && r.microformat.playerMicroformatRenderer;
+    return !!(m && m.category === 'Music');
+  }
+  /** The speed this video should get, and where it comes from (skipVideo: what it would get without its own). */
+  function spChoice(c, skipVideo) {
+    const ch = channelFor(c.p, c.vid);
+    if (!skipVideo && spVids[c.vid] != null) return { r: spVids[c.vid], from: 'video', ch };
+    if (isMusic(c.p, c.vid)) return { r: 1, from: 'music', ch };
+    if (ch && spChs[ch.id]) return { r: spChs[ch.id].r, from: 'channel', ch };
+    return { r: spDef, from: 'default', ch };
+  }
+  function setRate(c, r) {
+    sp.expect = r;
+    if (r <= 2) call(c.p, 'setPlaybackRate', r); // YouTube's own call keeps its gear menu in step
+    try { if (Math.abs(c.v.playbackRate - r) > 0.001) c.v.playbackRate = r; } catch { /* read-only in odd players */ } // above 2× only the video takes it
+  }
+  function spApply() {
+    const c = spCtx();
+    if (c && spKnown()) {
+      if (c.vid !== sp.vid) Object.assign(sp, { vid: c.vid, picked: false, liveDone: false, fights: 0, appliedAt: Date.now() });
+      const r = sp.liveDone ? 1 : sp.picked ? sp.applied : spChoice(c).r;
+      const off = Math.abs(c.v.playbackRate - r) > 0.001;
+      if (r !== sp.expect || (off && sp.fights++ < 8)) setRate(c, r); // a few tries if YouTube puts its own back
+      sp.applied = r;
+    }
+    spUpdate();
+  }
+  /** A speed you chose: it sticks to this video (soon = wait for the scroll or slider to settle before saving). */
+  function spPick(r, soon) {
+    const c = spCtx();
+    if (!c || !spKnown()) return;
+    r = Math.min(SP_MAX, Math.max(SP_MIN, Math.round(r * 20) / 20));
+    if (c.vid !== sp.vid) spApply();
+    Object.assign(sp, { picked: true, applied: r, liveDone: false });
+    setRate(c, r);
+    const base = spChoice(c, true).r;
+    if (r === base) delete spVids[c.vid]; else spVids[c.vid] = r;
+    clearTimeout(sp.saveTimer);
+    const commit = () => {
+      postToExt({ type: 'speedVid', videoId: c.vid, value: spVids[c.vid] != null ? spVids[c.vid] : null });
+      if (r !== base) spLearn(c, r);
+      spUpdate();
+    };
+    if (soon) sp.saveTimer = setTimeout(commit, 700); else commit();
+    spUpdate();
+  }
+  function spLearn(c, r) {
+    const ch = channelFor(c.p, c.vid);
+    if (!ch || (spChs[ch.id] && spChs[ch.id].r === r)) return;
+    const k = String(r);
+    const m = spPicks[ch.id] || (spPicks[ch.id] = {});
+    if (m[k] === 'no') return;
+    const ids = Array.isArray(m[k]) ? m[k] : [];
+    if (ids.includes(c.vid)) return;
+    m[k] = [...ids, c.vid].slice(-LEARN_AT);
+    postToExt({ type: 'speedPick', channelId: ch.id, rate: r, videoId: c.vid });
+  }
+  /** A speed picked on 3 videos of this channel, not yet kept or refused. */
+  function spOffer(ch) {
+    const m = ch && spPicks[ch.id];
+    if (!m) return null;
+    for (const [k, ids] of Object.entries(m)) {
+      const r = Number(k);
+      if (Array.isArray(ids) && ids.length >= LEARN_AT && !(spChs[ch.id] && spChs[ch.id].r === r)) return r;
+    }
+    return null;
+  }
+  function spSetChannel(c, ch, r) {
+    spChs[ch.id] = { r, name: ch.name };
+    postToExt({ type: 'speedCh', channelId: ch.id, value: r, name: ch.name });
+    // videos of this channel saved at this same speed now simply follow the channel
+    const m = spPicks[ch.id] || {};
+    for (const id of new Set([c.vid, ...(Array.isArray(m[String(r)]) ? m[String(r)] : [])])) {
+      if (spVids[id] === r) { delete spVids[id]; postToExt({ type: 'speedVid', videoId: id, value: null }); }
+    }
+    delete spPicks[ch.id];
+    postToExt({ type: 'speedPickClear', channelId: ch.id });
+  }
+
+  function spRateChange() {
+    const c = spCtx();
+    if (!c || !spKnown()) return;
+    if (c.vid !== sp.vid) { spApply(); return; }
+    const r = c.v.playbackRate;
+    if (Math.abs(r - sp.expect) < 0.001 || sp.down) return; // ours, or YouTube's press-and-hold 2× (only while held)
+    // Right after your click or key press it's yours (YouTube's gear menu, Shift + > / <), but not while a video is just opening.
+    const yours = Date.now() - sp.gesture < 1500 && Date.now() - sp.appliedAt > 2000;
+    if (!yours) { spApply(); return; } // YouTube changed it by itself: put the right one back
+    const cr = cleanRate(r);
+    if (cr) spPick(cr, false);
+    else Object.assign(sp, { expect: r, applied: r, picked: true }); // outside Resolute's range: used, not saved
+  }
+  function spLiveCheck() {
+    const c = spCtx();
+    if (!c || sp.liveDone || !(c.v.playbackRate > 1)) return;
+    const d = call(c.p, 'getVideoData');
+    if (!d || !d.isLive) return;
+    const s = c.v.seekable;
+    const end = s && s.length ? s.end(s.length - 1) : 0;
+    if (end && end - c.v.currentTime < 8) { // shortcut: within 8 s of the newest part counts as live; tune if YouTube's delay differs
+      sp.liveDone = true;
+      setRate(c, 1);
+      sp.applied = 1;
+      spFlash('Caught up to live · back to 1×');
+      spUpdate();
+    }
+  }
+
+  // ---------- speed: button and menu ----------
+  function spBuild() {
+    const btn = el('button', 'ytp-button yqx-button yqs-button yqx-pending', {
+      id: 'yqs-button', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false',
+      'aria-controls': 'yqs-menu', 'aria-label': 'Playback speed'
+    });
+    const pill = el('span', 'yqx-pill', { 'aria-hidden': 'true' });
+    btn.append(pill);
+    btn.addEventListener('click', (e) => {
+      if (btn.classList.contains('yqx-floating')) e.stopPropagation(); // don't pause the video
+      const byKeyboard = e.detail === 0;
+      if (sp.open) spClose(byKeyboard); else spOpen(byKeyboard);
+      if (!byKeyboard) btn.blur(); // Space/K still pause the video
+    });
+    btn.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); spOpen(true); }
+      else if (e.key === 'Enter' || e.key === ' ') e.stopPropagation();
+      else if (e.key === 'Escape' && sp.open) { e.stopPropagation(); spClose(true); }
+    });
+    btn.addEventListener('keyup', (e) => { if (e.key === ' ' || e.key === 'Enter') e.stopPropagation(); });
+    // Scroll on the pill: 0.05 up or down.
+    btn.addEventListener('wheel', (e) => {
+      if (!spCtx()) return;
+      e.preventDefault();
+      e.stopPropagation();
+      spPick(sp.applied + (e.deltaY < 0 ? 0.05 : -0.05), true);
+    }, { passive: false });
+    btn.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') showTip(btn, sp.tipText); });
+    btn.addEventListener('pointerleave', hideTip);
+    btn.addEventListener('focus', () => { if (btn.matches(':focus-visible')) showTip(btn, sp.tipText); });
+    btn.addEventListener('blur', hideTip);
+
+    const menu = el('div', 'yqx-menu yqs-menu', { id: 'yqs-menu', role: 'menu', 'aria-label': 'Playback speed' });
+    const head = el('div', 'yqx-head');
+    const headRow = el('div', 'yqx-headrow', { 'aria-hidden': 'true' });
+    const title = el('span', 'yqx-title');
+    title.textContent = 'Speed';
+    const now = el('span', 'yqx-now');
+    headRow.append(title, now);
+    const chan = el('div', 'yqx-chan', { 'aria-hidden': 'true' });
+    const offer = el('div', 'yqs-offer', { role: 'group' });
+    offer.hidden = true;
+    const offerText = el('span', 'yqs-offer-text');
+    const keep = el('div', 'yqx-item yqs-keep', { role: 'menuitem', tabindex: '-1' });
+    keep.textContent = 'Keep';
+    const no = el('div', 'yqx-item yqs-no', { role: 'menuitem', tabindex: '-1' });
+    no.textContent = 'No';
+    offer.append(offerText, keep, no);
+    head.append(headRow, chan, offer);
+    const live = el('div', 'yqx-live', { role: 'status', 'aria-live': 'polite' });
+    const list = el('div', 'yqx-list');
+    const grid = el('div', 'yqx-grid', { role: 'group', 'aria-label': 'Speeds' });
+    for (const r of SPEEDS) {
+      const item = el('div', 'yqx-item yqx-chip', { role: 'menuitemradio', tabindex: '-1', 'aria-checked': 'false' });
+      item.dataset.r = String(r);
+      const label = el('span', 'yqx-label');
+      label.textContent = fmtRate(r);
+      item.append(label, el('span', 'yqx-note'));
+      item.addEventListener('click', () => spPick(r, false));
+      grid.append(item);
+      sp.chips.set(r, item);
+    }
+    const fineRow = el('label', 'yqs-fine');
+    const fine = el('input', '', { type: 'range', min: String(SP_MIN), max: String(SP_MAX), step: '0.05', 'aria-label': 'Fine speed' });
+    const out = el('output', '');
+    const lo = el('span', 'yqs-end', { 'aria-hidden': 'true' });
+    lo.textContent = fmtRate(SP_MIN);
+    const hi = el('span', 'yqs-end', { 'aria-hidden': 'true' });
+    hi.textContent = fmtRate(SP_MAX);
+    fine.addEventListener('input', () => spPick(Number(fine.value), true));
+    fineRow.append(lo, fine, hi, out);
+    list.append(grid, fineRow);
+    const foot = el('div', 'yqx-foot');
+    const row = (key, iconName, onClick) => {
+      const r = el('div', `yqx-item yqx-action yqs-${key}`, { role: 'menuitem', tabindex: '-1' });
+      const box = el('span', 'yqx-iconbox');
+      box.append(icon(iconName, 'yqx-icon'));
+      r.append(box, el('span', 'yqx-label'), el('span', 'yqx-note'));
+      r.addEventListener('click', () => { if (r.getAttribute('aria-disabled') !== 'true') onClick(); });
+      foot.append(r);
+      return r;
+    };
+    sp.rows.forget = row('forget', 'close', spForget);
+    sp.rows.channel = row('channel', 'channel', spToggleChannel);
+    sp.rows.def = row('default', 'star', spToggleDefault);
+    keep.addEventListener('click', () => spAnswer(true));
+    no.addEventListener('click', () => spAnswer(false));
+    menu.append(head, list, foot, live);
+
+    menu.addEventListener('pointermove', (e) => {
+      const item = e.target.closest('.yqx-item');
+      const active = document.activeElement;
+      if (item && active && active.classList.contains('yqx-item') && active !== item) item.focus({ preventScroll: true });
+    });
+    menu.addEventListener('keydown', spKey);
+    menu.addEventListener('keyup', (e) => e.stopPropagation());
+    for (const type of ['click', 'dblclick', 'mousedown', 'mouseup', 'pointerdown', 'pointerup',
+                        'touchstart', 'touchend', 'contextmenu', 'wheel']) {
+      menu.addEventListener(type, (e) => e.stopPropagation(), { passive: true });
+    }
+    Object.assign(sp, { btn, pill, menu, now, chan, offer, offerText, live, fine, out });
+  }
+  function spEnsure(p, floating) {
+    if (!sp.btn) spBuild();
+    if (sp.btn.parentElement !== ui.btn.parentElement) ui.btn.parentElement.insertBefore(sp.btn, ui.btn);
+    sp.btn.classList.toggle('yqx-floating', floating); // shortcut: hidden in the rare no-toolbar fallback; give it its own spot if that matters
+    if (sp.menu.parentElement !== p) p.append(sp.menu);
+    document.querySelectorAll('.yqs-button').forEach((b) => { if (b !== sp.btn) b.remove(); });
+    document.querySelectorAll('.yqs-menu').forEach((m) => { if (m !== sp.menu) m.remove(); });
+    spUpdate();
+  }
+  function spOpen(byKeyboard) {
+    if (sp.open || !spCtx() || !spKnown()) return;
+    closeMenu(false);
+    hideTip();
+    sp.open = true;
+    spUpdate();
+    positionMenu(sp.btn, sp.menu);
+    sp.menu.classList.add('yqx-open');
+    sp.btn.setAttribute('aria-expanded', 'true');
+    clearInterval(sp.keepAlive);
+    sp.keepAlive = setInterval(nudgeControls, 1500);
+    if (byKeyboard) (sp.menu.querySelector('.yqx-chip.yqx-checked') || sp.menu.querySelector('.yqx-chip')).focus({ preventScroll: true });
+  }
+  function spClose(returnFocus) {
+    if (!sp.open) return;
+    sp.open = false;
+    sp.menu.classList.remove('yqx-open');
+    sp.btn.setAttribute('aria-expanded', 'false');
+    clearInterval(sp.keepAlive);
+    if (returnFocus) sp.btn.focus({ preventScroll: true });
+    else if (sp.menu.contains(document.activeElement)) document.activeElement.blur();
+  }
+  function spKey(e) {
+    if (e.target === sp.fine && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) {
+      e.stopPropagation(); // the slider moves itself
+      return;
+    }
+    const items = [...sp.menu.querySelectorAll('.yqx-item, input')].filter((n) => !n.closest('[hidden]'));
+    const i = items.indexOf(document.activeElement);
+    let handled = true;
+    switch (e.key) {
+      case 'ArrowDown': case 'ArrowRight': items[(i + 1) % items.length].focus({ preventScroll: true }); break;
+      case 'ArrowUp': case 'ArrowLeft': items[(i - 1 + items.length) % items.length].focus({ preventScroll: true }); break;
+      case 'Home': items[0].focus({ preventScroll: true }); break;
+      case 'End': items[items.length - 1].focus({ preventScroll: true }); break;
+      case 'Enter': case ' ': if (i >= 0 && items[i] !== sp.fine) items[i].click(); break;
+      case 'Escape': case 'Tab': spClose(true); break;
+      default: handled = false;
+    }
+    if (handled) e.preventDefault();
+    e.stopPropagation(); // keep YouTube's shortcuts out while in the menu
+  }
+  function spFlash(message) {
+    if (!sp.now) return;
+    clearTimeout(sp.flashTimer);
+    sp.now.textContent = `✓ ${message}`;
+    sp.now.classList.add('yqx-flash');
+    sp.live.textContent = message;
+    sp.flashTimer = setTimeout(() => { sp.flashTimer = 0; sp.now.classList.remove('yqx-flash'); spUpdate(); }, 1800);
+  }
+  function spForget() {
+    const c = spCtx();
+    if (!c || spVids[c.vid] == null) return;
+    delete spVids[c.vid];
+    postToExt({ type: 'speedVid', videoId: c.vid, value: null });
+    sp.picked = false;
+    spApply();
+    spFlash('Forgotten for this video');
+    if (sp.menu.contains(document.activeElement) && document.activeElement.hidden) sp.rows.channel.focus({ preventScroll: true });
+  }
+  function spToggleChannel() {
+    const c = spCtx();
+    const ch = c && channelFor(c.p, c.vid);
+    if (!ch) return;
+    const r = sp.applied;
+    if (spChs[ch.id] && spChs[ch.id].r === r) {
+      delete spChs[ch.id];
+      postToExt({ type: 'speedCh', channelId: ch.id, value: null });
+      if (r !== spChoice(c, true).r) { spVids[c.vid] = r; postToExt({ type: 'speedVid', videoId: c.vid, value: r }); } // this video keeps playing at it
+      spFlash('Channel speed removed');
+    } else {
+      spSetChannel(c, ch, r);
+      spFlash(`${fmtRate(r)} for ${ch.name || 'this channel'}`);
+    }
+    spUpdate();
+  }
+  function spToggleDefault() {
+    const c = spCtx();
+    if (!c) return;
+    const r = sp.applied;
+    if (spDef === r) { // tapping it again goes back to normal; this video keeps its speed for now
+      if (r === 1) return;
+      spDef = 1;
+      sp.picked = true;
+      spFlash('Default is normal (1×) again');
+    } else {
+      spDef = r;
+      if (spVids[c.vid] === r) { delete spVids[c.vid]; postToExt({ type: 'speedVid', videoId: c.vid, value: null }); }
+      spFlash(`${fmtRate(r)} is your default`);
+    }
+    postToExt({ type: 'speedDefault', value: spDef });
+    spUpdate();
+  }
+  function spAnswer(yes) {
+    const c = spCtx();
+    const ch = c && channelFor(c.p, c.vid);
+    const r = spOffer(ch);
+    if (r == null) return;
+    if (yes) {
+      spSetChannel(c, ch, r);
+      spFlash(`${fmtRate(r)} for ${ch.name || 'this channel'}`);
+    } else {
+      spPicks[ch.id][String(r)] = 'no'; // never asked again for this speed here
+      postToExt({ type: 'speedNo', channelId: ch.id, rate: r });
+    }
+    spUpdate();
+    if (sp.open) sp.rows.channel.focus({ preventScroll: true });
+  }
+  const spGap = (s) => { s = Math.round(Math.abs(s)); return s >= 60 ? `${Math.round(s / 60)}m` : `${s}s`; };
+  function spSetRow(row, label, note, disabled, on) {
+    row.querySelector('.yqx-label').textContent = label;
+    row.querySelector('.yqx-note').textContent = note;
+    row.setAttribute('aria-label', note ? `${label}, ${note}` : label);
+    if (disabled) row.setAttribute('aria-disabled', 'true'); else row.removeAttribute('aria-disabled');
+    row.classList.toggle('yqx-on', !!on);
+  }
+  function spUpdate() {
+    if (!sp.btn) return;
+    const c = spCtx();
+    sp.btn.classList.toggle('yqx-pending', !spKnown() || !c);
+    if (ui.btn) ui.btn.classList.toggle('yqx-joined', !sp.btn.classList.contains('yqx-pending') && !sp.btn.classList.contains('yqx-floating') &&
+      sp.btn.nextElementSibling === ui.btn); // squared inner corners only when the two halves sit side by side
+    if (!c || !spKnown()) { if (sp.open) spClose(false); return; }
+    const r = Math.round(c.v.playbackRate * 100) / 100 || 1;
+    const choice = spChoice(c);
+    const ch = choice.ch;
+    const chName = (ch && ch.name) || 'this channel';
+    const from = sp.liveDone ? 'live' : sp.picked && r !== choice.r ? 'video' : choice.from;
+    const said = { video: 'this video', channel: `from ${chName}`, music: 'music stays at 1×', live: 'caught up to live',
+      default: spDef === 1 ? 'normal' : 'your default' }[from];
+    const text = fmtRate(r);
+    if (sp.pill.textContent !== text) {
+      const animate = sp.pill.textContent !== '';
+      sp.pill.textContent = text;
+      if (animate) { sp.pill.classList.remove('yqx-swap'); void sp.pill.offsetWidth; sp.pill.classList.add('yqx-swap'); }
+    }
+    sp.pill.dataset.from = from === 'video' ? 'remembered' : from === 'channel' ? 'channel' : '';
+    sp.tipText = `Speed: ${text} (${said}) · scroll to fine-tune`;
+    if (ui.tip && ui.tip.classList.contains('yqx-show') && sp.btn.matches(':hover, :focus-visible')) ui.tip.textContent = sp.tipText;
+    sp.btn.setAttribute('aria-label', `Playback speed: ${text}, ${said}`);
+    if (!sp.open) return;
+
+    if (!sp.flashTimer) sp.now.textContent = `${text} · ${said}`;
+    const chR = ch && spChs[ch.id] ? spChs[ch.id].r : null;
+    sp.chan.textContent = !ch ? 'Channel not detected' : chR != null ? `${chName} · always ${fmtRate(chR)}` : `${chName} · no channel speed`;
+    sp.chan.classList.toggle('yqx-chan-set', chR != null);
+    const offer = spOffer(ch);
+    sp.offer.hidden = offer == null;
+    if (offer != null) sp.offerText.textContent = `You picked ${fmtRate(offer)} on ${LEARN_AT} videos here. Keep it for ${chName}?`;
+    // time saved against normal speed (nothing to show for live streams or an unknown length)
+    const left = isFinite(c.v.duration) && c.v.duration > 0 ? Math.max(0, c.v.duration - c.v.currentTime) : 0;
+    for (const [s, item] of sp.chips) {
+      const on = Math.abs(s - r) < 0.001;
+      item.classList.toggle('yqx-checked', on);
+      item.setAttribute('aria-checked', String(on));
+      const d = left * (1 - 1 / s);
+      const note = !left ? '' : s === 1 ? 'normal' : Math.abs(d) < 1 ? '' : `${d > 0 ? '−' : '+'}${spGap(d)}`;
+      item.querySelector('.yqx-note').textContent = note;
+      item.setAttribute('aria-label', fmtRate(s) + (note && s !== 1 ? `, ${d > 0 ? 'saves' : 'adds'} ${spGap(d)}` : ''));
+    }
+    if (document.activeElement !== sp.fine) sp.fine.value = String(r);
+    sp.out.textContent = text;
+
+    const saved = spVids[c.vid];
+    sp.rows.forget.hidden = saved == null;
+    if (saved != null) spSetRow(sp.rows.forget, "Forget this video's speed", fmtRate(saved));
+    if (!ch) spSetRow(sp.rows.channel, 'Speed for this channel', 'Channel not detected', true);
+    else if (chR === r) spSetRow(sp.rows.channel, `Used for ${chName}`, 'Remove', false, true);
+    else spSetRow(sp.rows.channel, `Use ${text} for ${chName}`, chR != null ? `now ${fmtRate(chR)}` : '', false);
+    if (spDef === r) spSetRow(sp.rows.def, r === 1 ? 'Default is normal (1×)' : `Default is ${text}`, r === 1 ? '' : 'Back to 1×', r === 1, true);
+    else spSetRow(sp.rows.def, `Make ${text} the default`, spDef !== 1 ? `now ${fmtRate(spDef)}` : '', false);
+  }
+  /** Saved speeds from the extension; true when the message was one of them. */
+  function spMessage(msg) {
+    const v = msg.value;
+    if (msg.type === 'speedDefault') {
+      spDef = cleanRate(v) || 1;
+    } else if (msg.type === 'speedVideos' && v && typeof v === 'object') {
+      spVids = {};
+      for (const [id, r] of Object.entries(v)) if (/^[\w-]{6,20}$/.test(id) && cleanRate(r)) spVids[id] = cleanRate(r);
+    } else if (msg.type === 'speedChannels' && v && typeof v === 'object') {
+      spChs = {};
+      for (const [id, x] of Object.entries(v)) if (CHANNEL_ID.test(id) && x && cleanRate(x.r)) spChs[id] = { r: cleanRate(x.r), name: String(x.name || '') };
+    } else if (msg.type === 'speedPicks' && v && typeof v === 'object') {
+      spPicks = {};
+      for (const [id, m] of Object.entries(v)) if (CHANNEL_ID.test(id) && m && typeof m === 'object') spPicks[id] = { ...m };
+    } else {
+      return false;
+    }
+    spGot.add(msg.type);
+    spApply();
+    return true;
+  }
+  const spOurs = (t) => { const p = getPlayer(); return p && t instanceof HTMLVideoElement && p.contains(t); };
+  for (const type of ['loadedmetadata', 'playing', 'durationchange']) {
+    document.addEventListener(type, (e) => { if (spOurs(e.target)) spApply(); }, true);
+  }
+  document.addEventListener('ratechange', (e) => { if (spOurs(e.target)) { spRateChange(); spUpdate(); } }, true);
+  document.addEventListener('timeupdate', (e) => { if (spOurs(e.target)) { spLiveCheck(); if (sp.open) spUpdate(); } }, true);
+  document.addEventListener('pointerdown', (e) => {
+    sp.down = true;
+    if (!spOwn(e.target)) sp.gesture = Date.now();
+    if (sp.open && !spOwn(e.target)) spClose(false);
+  }, true);
+  for (const type of ['pointerup', 'pointercancel']) document.addEventListener(type, () => { sp.down = false; }, true);
+  window.addEventListener('blur', () => { sp.down = false; }); // a release outside the window never reaches us
+  document.addEventListener('keydown', (e) => {
+    if (!spOwn(e.target)) sp.gesture = Date.now();
+    if (sp.open && e.key === 'Escape' && !sp.menu.contains(e.target)) spClose(false);
+  }, true);
 
   // ---------- autoplay button next to YouTube's search box (top page only) ----------
   // Material 3 Expressive "unfolding split button". At rest it is one small shape beside the mic button:
@@ -1008,10 +1474,11 @@
     ui.btn.classList.toggle('yqx-floating', floating);
     if (ui.menu.parentElement !== p) p.append(ui.menu);
     if (ui.tip.parentElement !== p) p.append(ui.tip);
+    spEnsure(p, floating);
 
     // Remove any stray copies (should never happen, but keeps it to one button).
-    document.querySelectorAll('.yqx-button').forEach((b) => { if (b !== ui.btn) b.remove(); });
-    document.querySelectorAll('.yqx-menu').forEach((m) => { if (m !== ui.menu) m.remove(); });
+    document.querySelectorAll('.yqx-button:not(.yqs-button)').forEach((b) => { if (b !== ui.btn) b.remove(); });
+    document.querySelectorAll('.yqx-menu:not(.yqs-menu)').forEach((m) => { if (m !== ui.menu) m.remove(); });
 
     updateUI();
   }
@@ -1125,22 +1592,22 @@
   }
 
   // ---------- menu open / close / keyboard ----------
-  function positionMenu() {
+  function positionMenu(btn = ui.btn, menu = ui.menu) {
     const p = getPlayer();
-    if (!p || !ui.btn) return;
+    if (!p || !btn) return;
     const pr = p.getBoundingClientRect();
-    const br = ui.btn.getBoundingClientRect();
+    const br = btn.getBoundingClientRect();
     const bar = p.querySelector('.ytp-chrome-bottom');
-    const floating = ui.btn.classList.contains('yqx-floating');
+    const floating = btn.classList.contains('yqx-floating');
     const top = !floating && bar ? Math.min(bar.getBoundingClientRect().top, br.top) : br.top;
     const gap = 12;
     const bottom = Math.max(gap, pr.bottom - top + gap);
     let right = Math.max(gap, pr.right - br.right);
-    const width = ui.menu.offsetWidth;
+    const width = menu.offsetWidth;
     if (width && right + width > pr.width - gap) right = Math.max(gap, pr.width - width - gap);
-    ui.menu.style.bottom = `${bottom}px`;
-    ui.menu.style.right = `${right}px`;
-    ui.menu.style.maxHeight = `${Math.max(120, pr.height - bottom - gap)}px`;
+    menu.style.bottom = `${bottom}px`;
+    menu.style.right = `${right}px`;
+    menu.style.maxHeight = `${Math.max(120, pr.height - bottom - gap)}px`;
   }
 
   function nudgeControls() {
@@ -1155,6 +1622,7 @@
 
   function openMenu(byKeyboard) {
     if (ui.open || !getPlayer() || !ready()) return;
+    spClose(false);
     ensureUI();
     hideTip();
     ui.open = true;
@@ -1312,14 +1780,14 @@
   }
 
   // ---------- tooltip ----------
-  function showTip() {
+  function showTip(btn = ui.btn, text = ui.tipText) {
     const p = getPlayer();
-    if (ui.open || !p || !ready()) return;
-    ui.tip.textContent = ui.tipText;
+    if (ui.open || sp.open || !p || !ready() || !ui.tip) return;
+    ui.tip.textContent = text;
     const pr = p.getBoundingClientRect();
-    const br = ui.btn.getBoundingClientRect();
+    const br = btn.getBoundingClientRect();
     const bar = p.querySelector('.ytp-chrome-bottom');
-    const floating = ui.btn.classList.contains('yqx-floating');
+    const floating = btn.classList.contains('yqx-floating');
     const top = !floating && bar ? Math.min(bar.getBoundingClientRect().top, br.top) : br.top;
     ui.tip.style.bottom = `${pr.bottom - top + 8}px`;
     const w = ui.tip.offsetWidth;
@@ -1414,6 +1882,8 @@
     } else if (msg.type === 'resumeRules' && msg.value && typeof msg.value === 'object') {
       for (const k of Object.keys(resumeRules)) resumeRules[k] = msg.value[k] !== false;
       return;
+    } else if (spMessage(msg)) {
+      return;
     } else if (msg.type === 'tabicons' && typeof msg.value === 'boolean') {
       tabIcons = msg.value;
       tabRefresh();
@@ -1445,6 +1915,7 @@
       updateUI();
       scheduleApply(false);
     }
+    if (spGot.size < 4) { spGot.add('speedDefault').add('speedVideos').add('speedChannels').add('speedPicks'); spApply(); }
   }, 3000);
 
   // ---------- hide live chat: YouTube's own close button, once per video ----------
@@ -2055,7 +2526,7 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
     }, 150);
   }
 
-  document.addEventListener('yt-navigate-start', () => { saveSpot(true); hideResumePill(); hideBack(); closeResumeMenu(false); lastT = 0; resumeVid = ''; closeMenu(false); clearHeld(); });
+  document.addEventListener('yt-navigate-start', () => { saveSpot(true); hideResumePill(); hideBack(); closeResumeMenu(false); lastT = 0; resumeVid = ''; closeMenu(false); spClose(false); sp.vid = ''; clearHeld(); });
   document.addEventListener('yt-navigate-finish', () => { updateBar(); checkCinema(); });
   for (const type of ['yt-navigate-finish', 'yt-player-updated', 'yt-page-data-updated']) {
     document.addEventListener(type, () => {
@@ -2147,6 +2618,7 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
   }, true);
   const relayout = () => requestAnimationFrame(() => {
     if (ui.open) positionMenu();
+    if (sp.open) positionMenu(sp.btn, sp.menu);
     hideTip();
     ensureMast(); // wide <-> narrow top bar
     layoutResume();
@@ -2289,6 +2761,35 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
 .yqx-action[aria-disabled="true"]{cursor:default}
 .yqx-action[aria-disabled="true"]:hover{background:transparent}
 .yqx-action[aria-disabled="true"] .yqx-label,.yqx-action[aria-disabled="true"] .yqx-iconbox{opacity:.45}
+
+/* ---------- speed: the left half of one split pill (quality is the right half) ---------- */
+#movie_player .yqx-button.yqs-button{padding:0 1px 0 6px!important;min-width:0}
+#movie_player .yqx-button.yqs-button.yqx-floating{display:none!important}
+#movie_player .yqx-button.yqx-joined{padding-left:1px!important;min-width:0}
+.yqs-button .yqx-pill{min-width:36px;padding:0 8px 0 10px;border-radius:999px 6px 6px 999px;font-variant-numeric:tabular-nums}
+.yqx-joined .yqx-pill{padding:0 10px 0 8px;border-radius:6px 999px 999px 6px}
+.yqs-button .yqx-pill::after{right:auto;left:-3px} /* the dot sits on the outer corner, away from the joint */
+#movie_player.ytp-big-mode .yqs-button .yqx-pill{padding:0 10px 0 13px}
+#movie_player.ytp-big-mode .yqx-joined .yqx-pill{padding:0 13px 0 10px}
+.yqs-menu .yqx-chip{flex-direction:column;gap:2px;height:44px}
+.yqs-menu .yqx-chip .yqx-label{font-variant-numeric:tabular-nums}
+.yqs-menu .yqx-chip .yqx-note{display:block;font-size:10.5px;line-height:1;font-variant-numeric:tabular-nums}
+.yqs-menu .yqx-chip .yqx-note:empty{display:none}
+.yqs-fine{display:flex;align-items:center;gap:8px;height:40px;margin-top:8px;padding:0 14px;border-radius:20px;background:var(--yqx-surface-high);cursor:pointer}
+.yqs-fine input{flex:1;min-width:0;margin:0;accent-color:var(--yqx-primary);cursor:pointer}
+#movie_player .yqs-fine input:focus-visible{outline:2px solid var(--yqx-primary);outline-offset:4px;border-radius:4px}
+.yqs-end{font-size:11px;color:var(--yqx-on-surface-variant)}
+.yqs-fine output{min-width:38px;text-align:right;font-weight:500;font-variant-numeric:tabular-nums}
+.yqs-offer{display:flex;align-items:center;gap:6px;margin-top:8px;padding:5px 5px 5px 12px;border-radius:18px;
+  background:var(--yqx-tertiary-container);color:var(--yqx-on-tertiary-container);font-size:12px;line-height:1.3;animation:yqx-swap .45s var(--yqx-spring)}
+.yqs-offer[hidden]{display:none}
+.yqs-offer-text{flex:1}
+.yqs-offer .yqx-item{flex:none;height:30px;padding:0 12px;border-radius:15px;font-weight:500;color:inherit}
+.yqs-offer .yqs-keep{background:var(--yqx-tertiary);color:#3f2e04}
+.yqs-offer .yqs-keep:hover{background:color-mix(in srgb,#fff 14%,var(--yqx-tertiary))}
+.yqs-channel.yqx-on .yqx-iconbox{background:var(--yqx-tertiary-container);color:var(--yqx-on-tertiary-container);border-radius:10px}
+.yqs-default.yqx-on .yqx-iconbox{background:var(--yqx-primary-container);color:var(--yqx-on-primary-container);border-radius:10px}
+.yqs-forget .yqx-iconbox{background:transparent}
 
 /* fullscreen: larger targets */
 #movie_player.ytp-big-mode .yqx-menu{font-size:16px;min-width:360px;border-radius:32px}

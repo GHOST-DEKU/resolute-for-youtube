@@ -69,20 +69,20 @@ assert.notStrictEqual(patchedSrc, pageSrc, 'trust check found for the test');
 window.eval(patchedSrc);
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 let overridesBackup = {};
-const open = () => document.querySelector('.yqx-button').dispatchEvent(new window.MouseEvent('click', { bubbles: true, detail: 1 }));
+const open = () => document.querySelector('#yqx-button').dispatchEvent(new window.MouseEvent('click', { bubbles: true, detail: 1 }));
 
 (async () => {
   assert.deepStrictEqual(sent[0], { source: 'yqx-page', type: 'hello' }, 'asks extension for preference');
   fromExt('highest');
   await wait(400);
-  assert.ok(document.querySelector('.yqx-button').classList.contains('yqx-pending'), 'waits for remembered videos too');
+  assert.ok(document.querySelector('#yqx-button').classList.contains('yqx-pending'), 'waits for remembered videos too');
   toPage('overrides', { vidR: 'small' });
   await wait(400);
-  assert.ok(document.querySelector('.yqx-button').classList.contains('yqx-pending'), 'waits for channel defaults too');
+  assert.ok(document.querySelector('#yqx-button').classList.contains('yqx-pending'), 'waits for channel defaults too');
   toPage('channels', {});
   await wait(400);
 
-  const btn = document.querySelector('.yqx-button');
+  const btn = document.querySelector('#yqx-button');
   assert.ok(!btn.classList.contains('yqx-pending'), 'button shown once ready');
   assert.strictEqual(btn.nextElementSibling.className, 'ytp-settings-button', 'sits just before the gear');
   assert.strictEqual(btn.textContent, 'Max', 'label shows default');
@@ -166,7 +166,7 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   btn.remove();
   document.querySelector('.ytp-right-controls').append(document.createElement('span'));
   await wait(400);
-  assert.strictEqual(document.querySelectorAll('.yqx-button').length, 1, 'exactly one button after re-render');
+  assert.strictEqual(document.querySelectorAll('.yqx-button:not(.yqs-button)').length, 1, 'exactly one button after re-render');
 
   // Ads: wait, then apply
   fromExt('hd720'); await wait(50);
@@ -735,7 +735,7 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
   // No toolbar at all -> floating fallback
   document.querySelector('.ytp-chrome-bottom').remove();
   await wait(400);
-  assert.ok(document.querySelector('.yqx-button').classList.contains('yqx-floating'), 'floating fallback');
+  assert.ok(document.querySelector('#yqx-button').classList.contains('yqx-floating'), 'floating fallback');
 
   // ---- resume: go back to where you stopped ----
   {
@@ -932,6 +932,105 @@ const open = () => document.querySelector('.yqx-button').dispatchEvent(new windo
     window.history.pushState({}, '', '/watch?v=vid1');
     for (const n of document.querySelectorAll('.yqx-rlayer, .yqx-rmenu, .yqx-rbutton, .ytp-left-controls, .ytp-progress-bar-container')) n.remove();
     delete videoEl.currentTime;
+  }
+
+  // ---------- playback speed ----------
+  {
+    if (!p.querySelector('.ytp-right-controls .ytp-settings-button')) {
+      const bottom = document.createElement('div'); bottom.className = 'ytp-chrome-bottom';
+      bottom.innerHTML = '<div class="ytp-chrome-controls"><div class="ytp-right-controls"><button class="ytp-settings-button"></button></div></div>';
+      p.append(bottom);
+    }
+    let rate = 1, live = false, music = '', seekEnd = 0, cur = 30;
+    const setR = (r) => { if (r === rate) return; rate = r; setTimeout(() => videoEl.dispatchEvent(new window.Event('ratechange')), 0); };
+    Object.defineProperty(videoEl, 'playbackRate', { get: () => rate, set: setR, configurable: true });
+    Object.defineProperty(videoEl, 'duration', { get: () => 630, configurable: true });
+    Object.defineProperty(videoEl, 'currentTime', { get: () => cur, configurable: true });
+    Object.defineProperty(videoEl, 'seekable', { get: () => ({ length: seekEnd ? 1 : 0, end: () => seekEnd }), configurable: true });
+    p.setPlaybackRate = (r) => setR(r);
+    p.getVideoData = () => ({ video_id: videoId, isLive: live });
+    const baseResponse = p.getPlayerResponse;
+    p.getPlayerResponse = () => { const r = baseResponse(); if (music === videoId) r.microformat = { playerMicroformatRenderer: { category: 'Music' } }; return r; };
+    const open = async (id) => { videoId = id; videoEl.dispatchEvent(new window.Event('loadedmetadata')); await wait(20); };
+    const sbtn = () => document.getElementById('yqs-button');
+    const chip = (r) => document.querySelector(`.yqs-menu .yqx-chip[data-r="${r}"]`);
+    const sentOf = (type) => sent.filter((m) => m.type === type);
+    for (const id of ['sp1', 'sp2', 'sp3', 'sp4', 'sp5', 'sp6']) channelOf[id] = { id: CH_A, name: 'Alpha' };
+    document.dispatchEvent(new window.Event('pointerup')); // earlier checks leave a press without a release
+    for (const [t, v] of [['speedDefault', 1], ['speedVideos', {}], ['speedChannels', {}], ['speedPicks', {}]]) toPage(t, v);
+    await open('sp1');
+    document.dispatchEvent(new window.Event('yt-player-updated')); await wait(20);
+
+    assert.ok(sbtn() && sbtn().nextElementSibling === document.getElementById('yqx-button'), 'speed is the left half, right before the quality pill');
+    assert.ok(document.getElementById('yqx-button').classList.contains('yqx-joined'), 'the two halves join');
+    assert.strictEqual(sbtn().querySelector('.yqx-pill').textContent, '1×', 'normal speed by default');
+
+    // a pick sticks to the video
+    sbtn().click(); await wait(5);
+    assert.ok(document.querySelector('.yqs-menu').classList.contains('yqx-open'), 'the speed menu opens');
+    assert.strictEqual(chip(1.5).querySelector('.yqx-note').textContent, '−3m', 'chips show the time saved (600 s left: 1.5× saves 200 s)');
+    chip(1.5).click(); await wait(10);
+    assert.strictEqual(rate, 1.5, 'the video plays at the chip');
+    assert.ok(sentOf('speedVid').some((m) => m.videoId === 'sp1' && m.value === 1.5), 'saved for this video');
+    assert.strictEqual(sbtn().querySelector('.yqx-pill').dataset.from, 'remembered', 'the dot says: saved for this video');
+    document.querySelector('.yqs-fine input').value = '2.35'; document.querySelector('.yqs-fine input').dispatchEvent(new window.Event('input')); await wait(10);
+    assert.strictEqual(rate, 2.35, 'the slider sets any 0.05 step, above 2× too');
+    assert.ok(!sentOf('speedVid').some((m) => m.value === 2.35), 'not saved while the slider is still moving');
+    await wait(750);
+    assert.ok(sentOf('speedVid').some((m) => m.videoId === 'sp1' && m.value === 2.35), 'saved once it settles');
+    chip(1.5).click(); await wait(10);
+    document.body.click();
+
+    // next video of the same channel: back to normal; YouTube changing it by itself is undone
+    await open('sp2');
+    assert.strictEqual(rate, 1, 'another video starts at the default');
+    rate = 2; videoEl.dispatchEvent(new window.Event('ratechange')); await wait(10);
+    assert.strictEqual(rate, 1, 'YouTube changing the speed by itself is put back');
+    // YouTube's own speed control (gear menu, Shift + >) counts like a pick
+    await wait(2100);
+    document.dispatchEvent(new window.Event('keydown')); setR(1.5); await wait(20);
+    assert.ok(sentOf('speedVid').some((m) => m.videoId === 'sp2' && m.value === 1.5), "YouTube's own control is remembered too");
+    // press-and-hold 2×: only while held, never saved
+    const before = sent.length;
+    document.dispatchEvent(new window.Event('pointerdown')); setR(2); await wait(20);
+    assert.strictEqual(rate, 2, 'press and hold: YouTube keeps its 2× while held');
+    document.dispatchEvent(new window.Event('pointerup')); setR(1.5); await wait(20);
+    assert.ok(!sent.slice(before).some((m) => m.type === 'speedVid' && m.value === 2), 'and it is not saved');
+
+    // third video at the same speed: the menu offers to keep it for the channel
+    await open('sp3');
+    sbtn().click(); await wait(5);
+    assert.ok(document.querySelector('.yqs-offer').hidden, 'two videos: no offer yet');
+    chip(1.5).click(); await wait(10);
+    assert.strictEqual(sentOf('speedPick').filter((m) => m.channelId === CH_A && m.rate === 1.5).length, 3, 'learns from three videos');
+    assert.ok(!document.querySelector('.yqs-offer').hidden && /1\.5× on 3 videos here\. Keep it for Alpha\?/.test(document.querySelector('.yqs-offer').textContent), 'then asks to keep it for the channel');
+    document.querySelector('.yqs-keep').click(); await wait(10);
+    assert.ok(sentOf('speedCh').some((m) => m.channelId === CH_A && m.value === 1.5 && m.name === 'Alpha'), 'Keep saves the channel speed');
+    assert.ok(['sp1', 'sp2', 'sp3'].every((id) => sentOf('speedVid').some((m) => m.videoId === id && m.value === null)), 'those videos now just follow the channel');
+    assert.ok(document.querySelector('.yqs-offer').hidden && document.querySelector('.yqs-channel').classList.contains('yqx-on'), 'offer gone, channel row on');
+    document.body.click();
+    await open('sp4');
+    assert.strictEqual(rate, 1.5, 'a new video of the channel gets its speed');
+    assert.strictEqual(sbtn().querySelector('.yqx-pill').dataset.from, 'channel', 'the dot says: from the channel');
+
+    // music stays at 1×, live goes back to 1× at live, Shorts are never touched
+    music = 'sp5'; await open('sp5');
+    assert.strictEqual(rate, 1, 'music stays at 1× even on a sped-up channel');
+    live = true; await open('sp6');
+    assert.strictEqual(rate, 1.5, 'a live stream starts at the channel speed while behind');
+    seekEnd = 200; cur = 120; videoEl.dispatchEvent(new window.Event('timeupdate')); await wait(10);
+    assert.strictEqual(rate, 1.5, 'still behind live');
+    cur = 195; videoEl.dispatchEvent(new window.Event('timeupdate')); await wait(10);
+    assert.strictEqual(rate, 1, 'caught up to live: back to 1×');
+    live = false; seekEnd = 0; cur = 30;
+    window.history.pushState({}, '', '/shorts/sp7'); rate = 1; await open('sp7');
+    assert.strictEqual(rate, 1, 'Shorts: never changed');
+    assert.ok(sbtn().classList.contains('yqx-pending'), 'Shorts: no speed button');
+    window.history.pushState({}, '', '/watch?v=vid1');
+
+    for (const k of ['playbackRate', 'duration', 'currentTime', 'seekable']) delete videoEl[k];
+    p.getPlayerResponse = baseResponse; delete p.setPlaybackRate;
+    videoId = 'vid1'; await open('vid1');
   }
 
   console.log('All checks passed');

@@ -25,7 +25,9 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
 
 (async () => {
   await tick();
-  assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides', 'channels', 'autoplay', 'saver', 'chat', 'topbar', 'tabicons', 'cinemaSkip', 'cinema', 'spots', 'resumeRewind', 'resumeRules', 'resumeBar', 'spotsOff', 'chOff', 'tabActive'], 'sends default, remembered videos, channel defaults, autoplay, saver, chat, top bar, tab icons, cinema and resume settings');
+  assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides', 'channels', 'autoplay', 'saver', 'chat', 'topbar', 'tabicons', 'cinemaSkip', 'cinema', 'spots', 'resumeRewind', 'resumeRules', 'resumeBar', 'spotsOff', 'chOff', 'speedDefault', 'speedVideos', 'speedChannels', 'speedPicks', 'tabActive'], 'sends default, remembered videos, channel defaults, autoplay, saver, chat, top bar, tab icons, cinema, resume and speed settings');
+  assert.strictEqual(posted[16].value, 1, 'speed is normal (1×) by default');
+  assert.strictEqual(JSON.stringify(posted.slice(17, 20).map((m) => m.value)), '[{},{},{}]', 'no saved speeds by default');
   assert.strictEqual(posted[7].value, true, 'tab countdown icons are on by default');
   assert.strictEqual(posted[5].value, false, 'live chat stays visible by default');
   assert.strictEqual(posted[6].value, false, 'top bar stays visible by default');
@@ -33,7 +35,7 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
   assert.strictEqual(posted[0].value, 'hd1080');
   assert.strictEqual(JSON.stringify(posted[8].value), '{}', 'no channels left out by default');
   assert.strictEqual(posted[9].value, false, 'cinema mode is off by default');
-  assert.strictEqual(posted[16].value, false, 'tells the page whether its tab is selected');
+  assert.strictEqual(posted[20].value, false, 'tells the page whether its tab is selected');
   assert.strictEqual(JSON.stringify(posted[15].value), '{}', 'no channels switched off by default');
   assert.strictEqual(JSON.stringify(posted[13].value), '{"flag":true,"back":true,"ghost":true,"button":true}', 'every bar extra is on by default');
   assert.strictEqual(JSON.stringify(posted[14].value), '{}', 'no videos left out by default');
@@ -198,6 +200,34 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
   posted.length = 0;
   changeListener({ resumeChOff: { newValue: { [UCb]: 'Beta', bad: 'x' } } }, 'local');
   assert.strictEqual(posted[0].type + JSON.stringify(posted[0].value), 'chOff' + JSON.stringify({ [UCb]: 'Beta' }), 'only well-formed channel ids reach the page');
+
+  // ---- playback speed ----
+  await fromPage({ type: 'speedDefault', value: 1.5 });
+  await fromPage({ type: 'speedDefault', value: 9 });
+  await fromPage({ type: 'speedDefault', value: 'fast' });
+  assert.strictEqual(store.sync.speedDefault, 1.5, 'saves the default speed, rejects anything outside 0.25–3');
+  await fromPage({ type: 'speedVid', videoId: 'dQw4w9WgXcQ', value: 1.7499999 });
+  await fromPage({ type: 'speedVid', videoId: 'bad id!', value: 2 });
+  await fromPage({ type: 'speedVid', videoId: 'second12345', value: 0.1 });
+  assert.deepStrictEqual(store.local.speedVideos, { dQw4w9WgXcQ: 1.75 }, 'saves a video speed in 0.05 steps, rejects bad input');
+  await fromPage({ type: 'speedVid', videoId: 'dQw4w9WgXcQ', value: null });
+  assert.deepStrictEqual(store.local.speedVideos, {}, 'forgets a video speed');
+  await fromPage({ type: 'speedCh', channelId: UCa, value: 2, name: '  Alpha  ' });
+  await fromPage({ type: 'speedCh', channelId: 'nope', value: 2, name: 'x' });
+  assert.deepStrictEqual(store.local.speedChannels, { [UCa]: { r: 2, name: 'Alpha' } }, 'saves a channel speed');
+  await fromPage({ type: 'speedCh', channelId: UCa, value: null });
+  assert.deepStrictEqual(store.local.speedChannels, {}, 'removes a channel speed');
+  for (const v of ['a1a1a1a1a1a', 'a2a2a2a2a2a', 'a2a2a2a2a2a', 'a3a3a3a3a3a', 'a4a4a4a4a4a']) await fromPage({ type: 'speedPick', channelId: UCa, rate: 1.75, videoId: v });
+  assert.deepStrictEqual(store.local.speedPicks[UCa]['1.75'], ['a2a2a2a2a2a', 'a3a3a3a3a3a', 'a4a4a4a4a4a'], 'learns up to 3 different videos per speed');
+  await fromPage({ type: 'speedNo', channelId: UCa, rate: 1.75 });
+  await fromPage({ type: 'speedPick', channelId: UCa, rate: 1.75, videoId: 'a5a5a5a5a5a' });
+  assert.strictEqual(store.local.speedPicks[UCa]['1.75'], 'no', 'after "No" that speed is never offered again');
+  await fromPage({ type: 'speedPickClear', channelId: UCa });
+  assert.deepStrictEqual(store.local.speedPicks, {}, 'kept for the channel: learning starts over');
+  posted.length = 0;
+  changeListener({ speedVideos: { newValue: { good1234567: 2, bad: 2, worse123456: 7 } }, speedPicks: { newValue: { [UCb]: { '1.5': ['good1234567', 'bad!'], x: [] }, junk: {} } } }, 'local');
+  changeListener({ speedDefault: { newValue: 'nope' } }, 'sync');
+  assert.strictEqual(JSON.stringify(posted.map((m) => [m.type, m.value])), JSON.stringify([['speedVideos', { good1234567: 2 }], ['speedPicks', { [UCb]: { '1.5': ['good1234567'] } }], ['speedDefault', 1]]), 'only well-formed speeds reach the page');
 
   console.log('All checks passed');
 })().catch((e) => { console.error(e); process.exit(1); });

@@ -498,22 +498,27 @@
   // Which speed a video gets (first match wins): the speed saved for that video; music stays at 1×;
   // the speed saved for its channel; your default (1× unless you change it).
   // Any speed you pick (Resolute's chips, slider or scrolling on the pill, or YouTube's own gear menu and
-  // Shift + > / <) sticks to that video. Pick the same speed on 3 videos of a channel and the menu offers
-  // to keep it for the channel. A live stream goes back to 1× once it catches up to live. Shorts are never touched.
+  // Shift + > / <) sticks to that video. Learning: each video counts once, as the speed you watched it at longest,
+  // and only after 2 minutes at that speed. When 3 of your last 4 videos of a channel share one exact speed, the
+  // next video of that channel opens with a chip: "Orbit Lab at 1.5× again?" Keep / No. Once kept, 2 of your last
+  // 3 videos at another speed offer to change it. A live stream goes back to 1× once it catches up to live.
+  // Shorts are never touched.
   const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
-  const SP_MIN = 0.25, SP_MAX = 3, LEARN_AT = 3;
+  const SP_MIN = 0.25, SP_MAX = 3, LEARN_AT = 3, LEARN_OF = 4, CHANGE_AT = 2, CHANGE_OF = 3, WATCHED = 120;
   const cleanRate = (r) => (typeof r === 'number' && r >= SP_MIN - 1e-9 && r <= SP_MAX + 1e-9 ? Math.round(r * 20) / 20 : null);
   const fmtRate = (r) => `${+r.toFixed(2)}×`;
   let spDef = 1;
   let spVids = {};   // { videoId: rate }
   let spChs = {};    // { UCchannelId: { r, name } }
-  let spPicks = {};  // { UCchannelId: { "1.75": [videoIds] | "no" } } what the channel offer learns from
+  let spPicks = {};  // { UCchannelId: { n: name, h: [[videoId, speed], …] last 4 videos, no: [speeds you said No to] } }
   const spGot = new Set(); // which of the four stores have arrived
   let spRules = { music: true, live: true }; // popup switches
   const sp = {
     btn: null, pill: null, menu: null, now: null, chan: null, offer: null, live: null, fine: null, out: null,
     chips: new Map(), rows: {}, open: false, keepAlive: 0, flashTimer: 0, saveTimer: 0, tipText: '',
-    vid: '', expect: 0, applied: 1, picked: false, liveDone: false, fights: 0, appliedAt: 0, down: false, gesture: 0
+    vid: '', expect: 0, applied: 1, picked: false, liveDone: false, fights: 0, appliedAt: 0, down: false, gesture: 0,
+    watch: { vid: '', acc: {}, last: 0, sent: '' }, chip: null, chipText: null, chipKeep: null, chipTimer: 0, chipOffer: null,
+    offerVid: '', asked: new Set()
   };
   const spKnown = () => spGot.size === 4;
   const spOwn = (t) => !!(sp.btn && t && t.nodeType === 1 && (sp.btn.contains(t) || sp.menu.contains(t)));
@@ -568,31 +573,49 @@
     clearTimeout(sp.saveTimer);
     const commit = () => {
       postToExt({ type: 'speedVid', videoId: c.vid, value: spVids[c.vid] != null ? spVids[c.vid] : null });
-      if (r !== base) spLearn(c, r);
       spUpdate();
     };
     if (soon) sp.saveTimer = setTimeout(commit, 700); else commit();
     spUpdate();
   }
-  function spLearn(c, r) {
+  /** What a video of this channel tells: the speed you watched longest, once it reaches 2 minutes. */
+  function spTrack(c) {
+    const w = sp.watch;
+    if (w.vid !== c.vid) Object.assign(w, { vid: c.vid, acc: {}, last: 0, sent: '' });
+    const now = performance.now();
+    if (c.v.paused || sp.down) { w.last = 0; return; } // press-and-hold 2× is never your speed
+    if (w.last && now - w.last < 2000) {
+      const r = cleanRate(Math.round(c.v.playbackRate * 100) / 100);
+      if (r) w.acc[r] = (w.acc[r] || 0) + (now - w.last) / 1000;
+    }
+    w.last = now;
+    let main = '', most = 0;
+    for (const [r, secs] of Object.entries(w.acc)) if (secs > most) { main = r; most = secs; }
+    if (!main || most < WATCHED || main === w.sent) return;
     const ch = channelFor(c.p, c.vid);
-    if (!ch || (spChs[ch.id] && spChs[ch.id].r === r)) return;
-    const k = String(r);
+    if (!ch || (spRules.music && isMusic(c.p, c.vid))) return; // music held at 1× says nothing about the channel
+    w.sent = main;
     const m = spPicks[ch.id] || (spPicks[ch.id] = {});
-    if (m[k] === 'no') return;
-    const ids = Array.isArray(m[k]) ? m[k] : [];
-    if (ids.includes(c.vid)) return;
-    m[k] = [...ids, c.vid].slice(-LEARN_AT);
     if (ch.name) m.n = ch.name; // the popup's Learning list shows it
-    postToExt({ type: 'speedPick', channelId: ch.id, rate: r, videoId: c.vid, name: ch.name });
+    m.h = [...(Array.isArray(m.h) ? m.h : []).filter((e) => e[0] !== c.vid), [c.vid, Number(main)]].slice(-LEARN_OF);
+    postToExt({ type: 'speedWatch', channelId: ch.id, videoId: c.vid, rate: Number(main), name: ch.name });
   }
-  /** A speed picked on 3 videos of this channel, not yet kept or refused. */
+  /**
+   * What the channel's recent videos suggest, or null.
+   * No channel speed yet: 3 of the last 4 videos at one exact speed (not your default) → keep it.
+   * A channel speed already kept: 2 of the last 3 at one other speed → change it (or back to the default).
+   */
   function spOffer(ch) {
     const m = ch && spPicks[ch.id];
-    if (!m) return null;
-    for (const [k, ids] of Object.entries(m)) {
-      const r = Number(k);
-      if (Array.isArray(ids) && ids.length >= LEARN_AT && !(spChs[ch.id] && spChs[ch.id].r === r)) return r;
+    if (!m || !Array.isArray(m.h)) return null;
+    const no = Array.isArray(m.no) ? m.no : [];
+    const kept = spChs[ch.id] ? spChs[ch.id].r : null;
+    const recent = m.h.slice(kept != null ? -CHANGE_OF : -LEARN_OF);
+    const need = kept != null ? CHANGE_AT : LEARN_AT;
+    const base = kept != null ? kept : spDef;
+    for (const [, r] of recent) {
+      if (r === base || no.includes(r) || recent.filter((e) => e[1] === r).length < need) continue;
+      return { r, kind: kept == null ? 'keep' : r === spDef ? 'normal' : 'change' };
     }
     return null;
   }
@@ -601,11 +624,82 @@
     postToExt({ type: 'speedCh', channelId: ch.id, value: r, name: ch.name });
     // videos of this channel saved at this same speed now simply follow the channel
     const m = spPicks[ch.id] || {};
-    for (const id of new Set([c.vid, ...(Array.isArray(m[String(r)]) ? m[String(r)] : [])])) {
+    for (const id of new Set([c.vid, ...(Array.isArray(m.h) ? m.h.map((e) => e[0]) : [])])) {
       if (spVids[id] === r) { delete spVids[id]; postToExt({ type: 'speedVid', videoId: id, value: null }); }
     }
-    delete spPicks[ch.id];
-    postToExt({ type: 'speedPickClear', channelId: ch.id });
+  }
+  /** Keep / Change / Back to normal (yes), or No: from the chip or the menu. */
+  function spAnswer(yes) {
+    const c = spCtx();
+    const ch = c && channelFor(c.p, c.vid);
+    const o = spOffer(ch);
+    spHideChip();
+    if (!o) return;
+    sp.asked.add(`${ch.id}|${o.kind}|${o.r}`);
+    const name = ch.name || 'this channel';
+    if (!yes) {
+      const m = spPicks[ch.id];
+      m.no = [...(Array.isArray(m.no) ? m.no : []), o.r]; // never offered again for this speed here
+      postToExt({ type: 'speedNo', channelId: ch.id, rate: o.r });
+    } else if (o.kind === 'normal') {
+      delete spChs[ch.id];
+      postToExt({ type: 'speedCh', channelId: ch.id, value: null });
+      spFlash(`${name} is back to ${spDef === 1 ? 'normal' : 'your default'}`);
+    } else {
+      spSetChannel(c, ch, o.r);
+      spFlash(`${fmtRate(o.r)} for ${name}`);
+    }
+    if (yes && spVids[c.vid] == null) { sp.picked = false; spApply(); } // this video follows the answer at once
+    spUpdate();
+    if (sp.open) sp.rows.channel.focus({ preventScroll: true });
+  }
+  const spAsk = (o, name) => (o.kind === 'keep' ? `${name} at ${fmtRate(o.r)} again?`
+    : o.kind === 'change' ? `${name} at ${fmtRate(o.r)} now?` : `${name} back to ${spDef === 1 ? 'normal speed' : 'your default'}?`);
+  const spYes = (o) => (o.kind === 'keep' ? 'Keep' : o.kind === 'change' ? 'Change' : 'Yes');
+  /** The chip above the speed pill when a video of a channel with an offer opens. Gone after 8 s. */
+  function spMaybeChip(c) {
+    if (sp.offerVid === c.vid) return;
+    const ch = channelFor(c.p, c.vid);
+    if (!ch) return; // the channel id can come a moment later; the next check tries again
+    sp.offerVid = c.vid;
+    const o = spOffer(ch);
+    const key = o && `${ch.id}|${o.kind}|${o.r}`;
+    if (!o || sp.asked.has(key) || spVids[c.vid] != null) return; // each offer once while the page is open
+    sp.asked.add(key);
+    setTimeout(() => { const c2 = spCtx(); if (c2 && c2.vid === c.vid && !sp.open) spShowChip(c2, ch, o); }, 1200); // once it is playing
+  }
+  function spShowChip(c, ch, o) {
+    if (!sp.chip) {
+      const chip = el('div', 'yqs-chip', { role: 'group', 'aria-label': 'Speed suggestion' });
+      const mark = el('span', 'yqs-chip-mark', { 'aria-hidden': 'true' });
+      const text = el('span', 'yqs-chip-text', { role: 'status' });
+      const keep = el('button', 'yqs-chip-yes', { type: 'button' });
+      const no = el('button', 'yqs-chip-no', { type: 'button' });
+      no.textContent = 'No';
+      keep.addEventListener('click', () => spAnswer(true));
+      no.addEventListener('click', () => spAnswer(false));
+      chip.append(mark, text, keep, no);
+      for (const type of ['click', 'dblclick', 'mousedown', 'mouseup', 'pointerdown', 'pointerup', 'touchstart', 'touchend', 'keydown', 'keyup']) {
+        chip.addEventListener(type, (e) => e.stopPropagation()); // never pauses the video or reaches YouTube's shortcuts
+      }
+      chip.addEventListener('pointerenter', () => clearTimeout(sp.chipTimer)); // stays while you read it
+      chip.addEventListener('pointerleave', () => { sp.chipTimer = setTimeout(spHideChip, 4000); });
+      Object.assign(sp, { chip, chipText: text, chipKeep: keep, chipMark: mark });
+    }
+    sp.chipMark.textContent = (ch.name || '?').trim().charAt(0).toUpperCase() || '?';
+    sp.chipText.textContent = spAsk(o, ch.name || 'This channel');
+    sp.chipKeep.textContent = spYes(o);
+    if (sp.chip.parentElement !== c.p) c.p.append(sp.chip);
+    positionMenu(sp.btn, sp.chip);
+    sp.chip.style.maxHeight = '';
+    sp.chip.classList.add('yqs-show');
+    nudgeControls(); // the pill it points at stays visible
+    clearTimeout(sp.chipTimer);
+    sp.chipTimer = setTimeout(spHideChip, 8000);
+  }
+  function spHideChip() {
+    clearTimeout(sp.chipTimer);
+    if (sp.chip) sp.chip.classList.remove('yqs-show');
   }
 
   function spRateChange() {
@@ -752,6 +846,7 @@
     if (sp.open || !spCtx() || !spKnown()) return;
     closeMenu(false);
     hideTip();
+    spHideChip(); // the menu shows the same offer
     sp.open = true;
     spUpdate();
     positionMenu(sp.btn, sp.menu);
@@ -841,21 +936,6 @@
     postToExt({ type: 'speedDefault', value: spDef });
     spUpdate();
   }
-  function spAnswer(yes) {
-    const c = spCtx();
-    const ch = c && channelFor(c.p, c.vid);
-    const r = spOffer(ch);
-    if (r == null) return;
-    if (yes) {
-      spSetChannel(c, ch, r);
-      spFlash(`${fmtRate(r)} for ${ch.name || 'this channel'}`);
-    } else {
-      spPicks[ch.id][String(r)] = 'no'; // never asked again for this speed here
-      postToExt({ type: 'speedNo', channelId: ch.id, rate: r });
-    }
-    spUpdate();
-    if (sp.open) sp.rows.channel.focus({ preventScroll: true });
-  }
   const spGap = (s) => { s = Math.round(Math.abs(s)); return s >= 60 ? `${Math.round(s / 60)}m` : `${s}s`; };
   function spSetRow(row, label, note, disabled, on) {
     row.querySelector('.yqx-label').textContent = label;
@@ -896,7 +976,11 @@
     sp.chan.classList.toggle('yqx-chan-set', chR != null);
     const offer = spOffer(ch);
     sp.offer.hidden = offer == null;
-    if (offer != null) sp.offerText.textContent = `You picked ${fmtRate(offer)} on ${LEARN_AT} videos here. Keep it for ${chName}?`;
+    if (offer != null) {
+      sp.offerText.textContent = offer.kind === 'keep' ? `You watched 3 of your last 4 videos here at ${fmtRate(offer.r)}. Keep it for ${chName}?`
+        : offer.kind === 'change' ? `Lately you watch ${chName} at ${fmtRate(offer.r)}. Change it?` : `Lately you watch ${chName} at ${fmtRate(offer.r)}. Back to ${spDef === 1 ? 'normal' : 'your default'}?`;
+      sp.offer.querySelector('.yqs-keep').textContent = spYes(offer);
+    }
     // time saved against normal speed (nothing to show for live streams or an unknown length)
     const left = isFinite(c.v.duration) && c.v.duration > 0 ? Math.max(0, c.v.duration - c.v.currentTime) : 0;
     for (const [s, item] of sp.chips) {
@@ -951,7 +1035,13 @@
     document.addEventListener(type, (e) => { if (spOurs(e.target)) spApply(); }, true);
   }
   document.addEventListener('ratechange', (e) => { if (spOurs(e.target)) { spRateChange(); spUpdate(); } }, true);
-  document.addEventListener('timeupdate', (e) => { if (spOurs(e.target)) { spLiveCheck(); if (sp.open) spUpdate(); } }, true);
+  document.addEventListener('timeupdate', (e) => {
+    if (!spOurs(e.target)) return;
+    spLiveCheck();
+    const c = spCtx();
+    if (c && spKnown()) { spTrack(c); spMaybeChip(c); }
+    if (sp.open) spUpdate();
+  }, true);
   document.addEventListener('pointerdown', (e) => {
     sp.down = true;
     if (!spOwn(e.target)) sp.gesture = Date.now();
@@ -2533,7 +2623,7 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
     }, 150);
   }
 
-  document.addEventListener('yt-navigate-start', () => { saveSpot(true); hideResumePill(); hideBack(); closeResumeMenu(false); lastT = 0; resumeVid = ''; closeMenu(false); spClose(false); sp.vid = ''; clearHeld(); });
+  document.addEventListener('yt-navigate-start', () => { saveSpot(true); hideResumePill(); hideBack(); closeResumeMenu(false); lastT = 0; resumeVid = ''; closeMenu(false); spClose(false); spHideChip(); sp.vid = ''; clearHeld(); });
   document.addEventListener('yt-navigate-finish', () => { updateBar(); checkCinema(); });
   for (const type of ['yt-navigate-finish', 'yt-player-updated', 'yt-page-data-updated']) {
     document.addEventListener(type, () => {
@@ -2626,6 +2716,7 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
   const relayout = () => requestAnimationFrame(() => {
     if (ui.open) positionMenu();
     if (sp.open) positionMenu(sp.btn, sp.menu);
+    if (sp.chip && sp.chip.classList.contains('yqs-show')) { positionMenu(sp.btn, sp.chip); sp.chip.style.maxHeight = ''; }
     hideTip();
     ensureMast(); // wide <-> narrow top bar
     layoutResume();
@@ -2797,6 +2888,24 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
 .yqs-channel.yqx-on .yqx-iconbox{background:var(--yqx-tertiary-container);color:var(--yqx-on-tertiary-container);border-radius:10px}
 .yqs-default.yqx-on .yqx-iconbox{background:var(--yqx-primary-container);color:var(--yqx-on-primary-container);border-radius:10px}
 .yqs-forget .yqx-iconbox{background:transparent}
+
+/* the suggestion chip above the speed pill */
+#movie_player .yqs-chip{position:absolute;z-index:71;display:flex;align-items:center;gap:6px;padding:5px 5px 5px 8px;border-radius:20px;
+  background:var(--yqx-surface);color:var(--yqx-on-surface);-webkit-backdrop-filter:blur(28px) saturate(1.6);backdrop-filter:blur(28px) saturate(1.6);
+  box-shadow:inset 0 0 0 1px var(--yqx-glass-edge),0 12px 30px rgba(0,0,0,.35);font:400 13px/1.3 "YouTube Sans","Roboto",Arial,sans-serif;text-shadow:none;white-space:nowrap;
+  opacity:0;visibility:hidden;transform:translateY(8px) scale(.94);transform-origin:bottom right;
+  transition:opacity .15s var(--yqx-exit),transform .2s var(--yqx-exit),visibility 0s linear .2s}
+#movie_player .yqs-chip.yqs-show{opacity:1;visibility:visible;transform:none;transition:opacity .2s var(--yqx-ease),transform .5s var(--yqx-spring),visibility 0s}
+.yqs-chip-mark{width:24px;height:24px;flex:none;display:grid;place-items:center;border-radius:8px;background:var(--yqx-tertiary-container);color:var(--yqx-on-tertiary-container);font-weight:500;font-size:12px}
+.yqs-chip-text{padding:0 4px}
+#movie_player .yqs-chip button{height:30px;margin:0;padding:0 12px;border:0;border-radius:15px;cursor:pointer;font:500 12.5px/1 "YouTube Sans","Roboto",Arial,sans-serif;
+  color:var(--yqx-on-surface);background:transparent;transition:background-color .2s var(--yqx-ease),border-radius .35s var(--yqx-spring-fast),transform .35s var(--yqx-spring-fast)}
+#movie_player .yqs-chip button:hover{background:rgba(255,255,255,.10)}
+#movie_player .yqs-chip .yqs-chip-yes{background:var(--yqx-tertiary);color:#3f2e04}
+#movie_player .yqs-chip .yqs-chip-yes:hover{background:color-mix(in srgb,#fff 14%,var(--yqx-tertiary))}
+#movie_player .yqs-chip button:active{transform:scale(.94);border-radius:10px}
+#movie_player .yqs-chip button:focus-visible{outline:2px solid var(--yqx-primary);outline-offset:2px}
+#movie_player.ytp-big-mode .yqs-chip{font-size:15px}
 
 /* fullscreen: larger targets */
 #movie_player.ytp-big-mode .yqx-menu{font-size:16px;min-width:360px;border-radius:32px}

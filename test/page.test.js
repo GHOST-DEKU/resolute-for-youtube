@@ -955,7 +955,11 @@ const open = () => document.querySelector('#yqx-button').dispatchEvent(new windo
     const sbtn = () => document.getElementById('yqs-button');
     const chip = (r) => document.querySelector(`.yqs-menu .yqx-chip[data-r="${r}"]`);
     const sentOf = (type) => sent.filter((m) => m.type === type);
-    for (const id of ['sp1', 'sp2', 'sp3', 'sp4', 'sp5', 'sp6']) channelOf[id] = { id: CH_A, name: 'Alpha' };
+    for (const id of ['sp1', 'sp2', 'sp3', 'sp4', 'sp5', 'sp6', 'sp8', 'sp11', 'sp12', 'sp13']) channelOf[id] = { id: CH_A, name: 'Alpha' };
+    let clock = 0; // watching time is real time, so the test moves its own clock
+    const perfNow = Object.getOwnPropertyDescriptor(window.performance, 'now');
+    Object.defineProperty(window.performance, 'now', { value: () => clock, configurable: true });
+    const watch = (secs) => { videoPaused = false; for (let i = 0; i <= secs; i++) { clock += 1000; videoEl.dispatchEvent(new window.Event('timeupdate')); } };
     document.dispatchEvent(new window.Event('pointerup')); // earlier checks leave a press without a release
     for (const [t, v] of [['speedDefault', 1], ['speedVideos', {}], ['speedChannels', {}], ['speedPicks', {}]]) toPage(t, v);
     await open('sp1');
@@ -980,6 +984,8 @@ const open = () => document.querySelector('#yqx-button').dispatchEvent(new windo
     assert.ok(sentOf('speedVid').some((m) => m.videoId === 'sp1' && m.value === 2.35), 'saved once it settles');
     chip(1.5).click(); await wait(10);
     document.body.click();
+    watch(130);
+    assert.ok(sentOf('speedWatch').some((m) => m.videoId === 'sp1' && m.rate === 1.5), 'after 2 minutes at 1.5×, the video counts as a 1.5× video');
 
     // next video of the same channel: back to normal; YouTube changing it by itself is undone
     await open('sp2');
@@ -996,20 +1002,33 @@ const open = () => document.querySelector('#yqx-button').dispatchEvent(new windo
     assert.strictEqual(rate, 2, 'press and hold: YouTube keeps its 2× while held');
     document.dispatchEvent(new window.Event('pointerup')); setR(1.5); await wait(20);
     assert.ok(!sent.slice(before).some((m) => m.type === 'speedVid' && m.value === 2), 'and it is not saved');
+    document.dispatchEvent(new window.Event('pointerdown')); watch(30); document.dispatchEvent(new window.Event('pointerup'));
+    watch(130);
+    assert.deepStrictEqual(sentOf('speedWatch').filter((m) => m.videoId === 'sp2').map((m) => m.rate), [1.5], 'held 2× never counts as watching time');
 
-    // third video at the same speed: the menu offers to keep it for the channel
+    // third video: a quick 2× try doesn't count, 2 minutes at 1.5× does
     await open('sp3');
     sbtn().click(); await wait(5);
     assert.ok(document.querySelector('.yqs-offer').hidden, 'two videos: no offer yet');
-    chip(1.5).click(); await wait(10);
-    assert.strictEqual(sentOf('speedPick').filter((m) => m.channelId === CH_A && m.rate === 1.5 && m.name === 'Alpha').length, 3, 'learns from three videos, with the channel name');
-    assert.ok(!document.querySelector('.yqs-offer').hidden && /1\.5× on 3 videos here\. Keep it for Alpha\?/.test(document.querySelector('.yqs-offer').textContent), 'then asks to keep it for the channel');
-    document.querySelector('.yqs-keep').click(); await wait(10);
+    chip(2).click(); await wait(10); watch(10);
+    chip(1.5).click(); await wait(10); watch(60);
+    assert.ok(!sentOf('speedWatch').some((m) => m.videoId === 'sp3'), 'under 2 minutes at a speed: nothing counted yet');
+    watch(70);
+    assert.deepStrictEqual(sentOf('speedWatch').filter((m) => m.videoId === 'sp3').map((m) => m.rate), [1.5], 'the speed you watched longest counts, the quick 2× try does not');
+    assert.strictEqual(sentOf('speedWatch').filter((m) => m.channelId === CH_A && m.rate === 1.5 && m.name === 'Alpha').length, 3, 'three videos at 1.5×, with the channel name');
+    assert.ok(!document.querySelector('.yqs-offer').hidden && /3 of your last 4 videos here at 1\.5×\. Keep it for Alpha\?/.test(document.querySelector('.yqs-offer').textContent), 'the menu shows the offer too');
+    document.body.dispatchEvent(new window.Event('pointerdown', { bubbles: true })); document.body.dispatchEvent(new window.Event('pointerup', { bubbles: true }));
+    // the next video of the channel opens with a chip
+    const schip = () => document.querySelector('.yqs-chip');
+    await open('sp4'); watch(1); await wait(1300);
+    assert.ok(schip() && schip().classList.contains('yqs-show') && /Alpha at 1\.5× again\?/.test(schip().textContent), 'the next video opens with a chip: "Alpha at 1.5× again?"');
+    assert.strictEqual(schip().querySelector('.yqs-chip-yes').textContent, 'Keep', 'with Keep');
+    schip().querySelector('.yqs-chip-yes').click(); await wait(20);
     assert.ok(sentOf('speedCh').some((m) => m.channelId === CH_A && m.value === 1.5 && m.name === 'Alpha'), 'Keep saves the channel speed');
+    assert.strictEqual(rate, 1.5, 'and this video plays at it right away');
     assert.ok(['sp1', 'sp2', 'sp3'].every((id) => sentOf('speedVid').some((m) => m.videoId === id && m.value === null)), 'those videos now just follow the channel');
-    assert.ok(document.querySelector('.yqs-offer').hidden && document.querySelector('.yqs-channel').classList.contains('yqx-on'), 'offer gone, channel row on');
-    document.body.click();
-    await open('sp4');
+    assert.ok(!schip().classList.contains('yqs-show'), 'the chip goes away');
+    await open('sp8');
     assert.strictEqual(rate, 1.5, 'a new video of the channel gets its speed');
     assert.strictEqual(sbtn().querySelector('.yqx-pill').dataset.from, 'channel', 'the dot says: from the channel');
 
@@ -1029,6 +1048,17 @@ const open = () => document.querySelector('#yqx-button').dispatchEvent(new windo
     await open('sp6'); cur = 199; videoEl.dispatchEvent(new window.Event('timeupdate')); await wait(10);
     assert.strictEqual(rate, 1.5, 'live rule off: live keeps the speed at live');
     toPage('speedRules', { music: true, live: true }); await wait(10);
+    live = false; seekEnd = 0;
+    // changed your mind: 2 of your last 3 videos at 1.75× offer to change the kept 1.5×
+    for (const id of ['sp11', 'sp12']) { await open(id); chip(1.75).click(); await wait(10); watch(130); }
+    await open('sp13'); watch(1); await wait(1300);
+    assert.ok(schip().classList.contains('yqs-show') && /Alpha at 1\.75× now\?/.test(schip().textContent) && schip().querySelector('.yqs-chip-yes').textContent === 'Change',
+      'a kept speed you keep changing: "Alpha at 1.75× now?" with Change');
+    schip().querySelector('.yqs-chip-no').click(); await wait(20);
+    assert.ok(sentOf('speedNo').some((m) => m.channelId === CH_A && m.rate === 1.75), 'No is remembered, so it never asks again');
+    assert.strictEqual(rate, 1.5, 'and nothing changes');
+    await open('sp4'); watch(1); await wait(1300);
+    assert.ok(!schip().classList.contains('yqs-show'), 'after No: no chip on the next video');
     live = false; seekEnd = 0; cur = 30;
     window.history.pushState({}, '', '/shorts/sp7'); rate = 1; await open('sp7');
     assert.strictEqual(rate, 1, 'Shorts: never changed');
@@ -1037,6 +1067,7 @@ const open = () => document.querySelector('#yqx-button').dispatchEvent(new windo
 
     for (const k of ['playbackRate', 'duration', 'currentTime', 'seekable']) delete videoEl[k];
     p.getPlayerResponse = baseResponse; delete p.setPlaybackRate;
+    if (perfNow) Object.defineProperty(window.performance, 'now', perfNow); else delete window.performance.now;
     videoId = 'vid1'; await open('vid1');
   }
 

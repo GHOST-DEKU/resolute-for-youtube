@@ -29,7 +29,9 @@
  *  - sync  "speedDefault":      playback speed for all videos (1 unless changed)
  *  - local "speedVideos":       { videoId: speed } speeds picked for single videos
  *  - local "speedChannels":     { UCchannelId: { r: speed, name } } channel speeds
- *  - local "speedPicks":        { UCchannelId: { n: name, "1.75": [videoIds] | "no" } } what the "keep it for this channel?" offer learns from
+ *  - local "speedPicks":        { UCchannelId: { n: name, h: [[videoId, speed], …] your last 4 videos (the speed watched longest, 2 min+),
+ *                                no: [speeds you said No to] } } what the "keep it for this channel?" offer learns from
+ *    (an older version stored { "1.75": [videoIds] | "no" }: its "no" answers are kept, the rest is dropped)
  *  - sync  "speedRules":        { music, live } music stays at 1×, live goes back to 1× at live (both on unless turned off)
  *    (name is only for showing the list; the id is the key, so renames don't matter)
  */
@@ -146,12 +148,12 @@
       if (!CHANNEL_ID.test(id) || !v || typeof v !== 'object') continue;
       const one = {};
       if (typeof v.n === 'string' && v.n) one.n = v.n.slice(0, 100);
-      for (const [k, ids] of Object.entries(v)) {
-        if (k === 'n' || cleanRate(Number(k)) === null) continue;
-        if (ids === 'no') one[k] = 'no';
-        else if (Array.isArray(ids)) one[k] = ids.filter((x) => VIDEO_ID.test(x)).slice(-3);
-      }
-      out[id] = one;
+      const h = (Array.isArray(v.h) ? v.h : []).filter((e) => Array.isArray(e) && VIDEO_ID.test(e[0]) && cleanRate(e[1])).map((e) => [e[0], cleanRate(e[1])]).slice(-4);
+      if (h.length) one.h = h;
+      const no = new Set((Array.isArray(v.no) ? v.no : []).map(cleanRate).filter(Boolean));
+      for (const [k, x] of Object.entries(v)) if (x === 'no' && cleanRate(Number(k))) no.add(cleanRate(Number(k))); // older format
+      if (no.size) one.no = [...no].slice(-10);
+      if (one.h || one.no) out[id] = one;
     }
     return out;
   }
@@ -395,19 +397,18 @@
         delete map[msg.channelId];
         if (cleanRate(msg.value)) map[msg.channelId] = { r: cleanRate(msg.value), name: typeof msg.name === 'string' ? msg.name.trim().slice(0, 100) : '' };
         await api.storage.local.set({ [SP_CHS]: trim(map, MAX_CHANNELS) });
-      } else if (['speedPick', 'speedNo', 'speedPickClear'].includes(msg.type) && CHANNEL_ID.test(msg.channelId)) {
+      } else if (['speedWatch', 'speedNo'].includes(msg.type) && CHANNEL_ID.test(msg.channelId) && cleanRate(msg.rate)) {
         const map = await readLocal(SP_PICKS, cleanSpPicks);
         const one = map[msg.channelId] || {};
-        delete map[msg.channelId];
-        const k = String(cleanRate(msg.rate));
-        if (msg.type === 'speedPick' && cleanRate(msg.rate) && VIDEO_ID.test(msg.videoId) && one[k] !== 'no') {
-          const ids = Array.isArray(one[k]) ? one[k].filter((x) => x !== msg.videoId) : [];
-          one[k] = [...ids, msg.videoId].slice(-3);
+        delete map[msg.channelId]; // re-adding moves it to the newest position
+        const r = cleanRate(msg.rate);
+        if (msg.type === 'speedWatch' && VIDEO_ID.test(msg.videoId)) {
+          one.h = [...(one.h || []).filter((e) => e[0] !== msg.videoId), [msg.videoId, r]].slice(-4);
           if (typeof msg.name === 'string' && msg.name.trim()) one.n = msg.name.trim().slice(0, 100);
-        } else if (msg.type === 'speedNo' && cleanRate(msg.rate)) {
-          one[k] = 'no';
+        } else if (msg.type === 'speedNo') {
+          one.no = [...new Set([...(one.no || []), r])].slice(-10);
         }
-        if (msg.type !== 'speedPickClear') map[msg.channelId] = one;
+        map[msg.channelId] = one;
         await api.storage.local.set({ [SP_PICKS]: trim(map, 500) });
       } else if (msg.type === 'channel' && CHANNEL_ID.test(msg.channelId)) {
         const map = await readChannels();

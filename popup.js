@@ -837,26 +837,38 @@
     }
   });
 
-  // learning: dots toward 3 videos per channel and speed, and the offers you said No to (with Undo)
+  // learning: dots toward 3 of the last 4 videos per channel, kept channels that drift, and the offers you said No to (with Undo)
   let spPicks = {};
+  /** The same rule as the player: what the channel's recent videos suggest. */
+  function spLean(m, kept) {
+    const h = Array.isArray(m.h) ? m.h.filter((e) => Array.isArray(e) && cleanRate(e[1])) : [];
+    const no = Array.isArray(m.no) ? m.no : [];
+    const recent = h.slice(kept != null ? -3 : -4);
+    const base = kept != null ? kept : spDef;
+    let best = null;
+    for (const [, r] of [...recent].reverse()) { // ties: the most recent speed
+      if (r === base || no.includes(r)) continue;
+      const n = recent.filter((e) => e[1] === r).length;
+      if (!best || n > best.n) best = { r, n };
+    }
+    return best;
+  }
   function showSpLearn(map) {
     spPicks = map && typeof map === 'object' ? map : {};
     const rows = [];
     for (const [id, m] of Object.entries(spPicks)) {
       if (!CHANNEL_ID.test(id) || !m || typeof m !== 'object') continue;
       const name = (typeof m.n === 'string' && m.n) || 'A channel';
-      for (const [k, v] of Object.entries(m)) {
-        const r = cleanRate(Number(k));
-        if (r === null || (v !== 'no' && !Array.isArray(v)) || (Array.isArray(v) && !v.length)) continue;
-        if (spChs[id] && spChs[id].r === r) continue; // already kept for the channel
-        rows.push({ id, name, r, no: v === 'no', n: Array.isArray(v) ? Math.min(LEARN_AT, v.length) : 0 });
-      }
+      const kept = spChs[id] ? spChs[id].r : null;
+      const lean = spLean(m, kept);
+      if (lean && (kept == null || lean.n >= 2)) rows.push({ id, name, r: lean.r, n: lean.n, kept });
+      for (const r of Array.isArray(m.no) ? m.no : []) if (cleanRate(r)) rows.push({ id, name, r, no: true });
     }
-    rows.sort((a, b) => a.no - b.no || b.n - a.n || a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+    rows.sort((a, b) => !!a.no - !!b.no || (b.n || 0) - (a.n || 0) || a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
     const learning = rows.filter((x) => !x.no).length;
     const noes = rows.length - learning;
-    $('spl-hint').textContent = !rows.length ? 'Same speed on 3 videos of a channel and the player asks to keep it'
-      : [learning && `${learning} speed${learning === 1 ? '' : 's'} on the way`, noes && `${noes} turned down`].filter(Boolean).join(' · ');
+    $('spl-hint').textContent = !rows.length ? 'Watch 3 of your last 4 videos of a channel at one speed and the player asks to keep it'
+      : [learning && `${learning} channel${learning === 1 ? '' : 's'} on the way`, noes && `${noes} turned down`].filter(Boolean).join(' · ');
     $('spl-list').replaceChildren(...rows.map((x) => {
       const li = document.createElement('li');
       li.className = x.no ? 'channel said-no' : 'channel';
@@ -870,10 +882,10 @@
         undo.textContent = 'Undo';
         undo.setAttribute('aria-label', `Let ${x.name} offer ${fmtRate(x.r)} again`);
         undo.addEventListener('click', async () => {
-          const m = { ...spPicks[x.id] };
-          delete m[String(x.r)];
+          const m = { ...spPicks[x.id], no: (spPicks[x.id].no || []).filter((r) => r !== x.r) };
+          if (!m.no.length) delete m.no;
           const all = { ...spPicks };
-          if (Object.keys(m).some((k) => k !== 'n')) all[x.id] = m; else delete all[x.id];
+          if (m.h || m.no) all[x.id] = m; else delete all[x.id];
           try {
             await api.storage.local.set({ [SP_PICKS]: all });
             flash(`${x.name} can offer ${fmtRate(x.r)} again`);
@@ -883,13 +895,16 @@
         });
         li.append(avatarOf(x.name), channelLink(x.id, x.name), lab, undo);
       } else {
+        const need = x.kept != null ? 2 : LEARN_AT;
+        const ready = x.n >= need;
         const dots = document.createElement('span');
         dots.className = 'dots';
         dots.setAttribute('role', 'img');
-        dots.setAttribute('aria-label', x.n >= LEARN_AT ? `${fmtRate(x.r)} on ${LEARN_AT} videos: the player asks next time` : `${fmtRate(x.r)} on ${x.n} of ${LEARN_AT} videos`);
-        for (let i = 0; i < LEARN_AT; i++) { const d = document.createElement('i'); if (i < x.n) d.className = 'on'; dots.append(d); }
-        if (x.n >= LEARN_AT) li.title = 'The player asks next time you watch this channel';
-        lab.textContent = fmtRate(x.r);
+        dots.setAttribute('aria-label', x.kept != null ? `${fmtRate(x.r)} on ${x.n} of your last 3 videos, kept ${fmtRate(x.kept)}`
+          : `${fmtRate(x.r)} on ${x.n} of your last 4 videos${ready ? ': the player asks next time' : ''}`);
+        for (let i = 0; i < need; i++) { const d = document.createElement('i'); if (i < x.n) d.className = 'on'; dots.append(d); }
+        if (ready) li.title = x.kept != null ? `Next video: the player offers to change ${fmtRate(x.kept)} to ${fmtRate(x.r)}` : 'The player asks on the next video of this channel';
+        lab.textContent = x.kept != null ? `${fmtRate(x.kept)} → ${fmtRate(x.r)}` : fmtRate(x.r);
         li.append(avatarOf(x.name), channelLink(x.id, x.name), dots, lab);
       }
       return li;
@@ -986,7 +1001,7 @@
     if (area === 'sync' && changes[THEME]) applyTheme(changes[THEME].newValue);
     if (area === 'local' && changes[OVERRIDES]) showMemory(changes[OVERRIDES].newValue);
     if (area === 'local' && changes[CHANNELS]) showChannels(changes[CHANNELS].newValue);
-    if (area === 'sync' && changes[SP_DEF]) showSpDef(changes[SP_DEF].newValue);
+    if (area === 'sync' && changes[SP_DEF]) { showSpDef(changes[SP_DEF].newValue); showSpLearn(spPicks); } // the default decides what counts
     if (area === 'sync' && changes[SP_RULES]) showSpRules(changes[SP_RULES].newValue);
     if (area === 'local' && changes[SP_VIDS]) showSpVids(changes[SP_VIDS].newValue);
     if (area === 'local' && changes[SP_CHS]) { showSpChs(changes[SP_CHS].newValue); showSpLearn(spPicks); }

@@ -218,19 +218,25 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
   assert.deepStrictEqual(store.local.speedChannels, { [UCa]: { r: 2, name: 'Alpha' } }, 'saves a channel speed');
   await fromPage({ type: 'speedCh', channelId: UCa, value: null });
   assert.deepStrictEqual(store.local.speedChannels, {}, 'removes a channel speed');
-  for (const v of ['a1a1a1a1a1a', 'a2a2a2a2a2a', 'a2a2a2a2a2a', 'a3a3a3a3a3a', 'a4a4a4a4a4a']) await fromPage({ type: 'speedPick', channelId: UCa, rate: 1.75, videoId: v, name: '  Alpha ' });
+  for (const [v, r] of [['a1a1a1a1a1a', 1.5], ['a2a2a2a2a2a', 1.5], ['a2a2a2a2a2a', 1.75], ['a3a3a3a3a3a', 1], ['a4a4a4a4a4a', 1.5], ['a5a5a5a5a5a', 1.5]]) {
+    await fromPage({ type: 'speedWatch', channelId: UCa, videoId: v, rate: r, name: '  Alpha ' });
+  }
+  assert.deepStrictEqual(store.local.speedPicks[UCa].h, [['a2a2a2a2a2a', 1.75], ['a3a3a3a3a3a', 1], ['a4a4a4a4a4a', 1.5], ['a5a5a5a5a5a', 1.5]], 'keeps your last 4 videos, one speed each (a video watched again updates its place)');
   assert.strictEqual(store.local.speedPicks[UCa].n, 'Alpha', 'keeps the channel name for the popup');
-  assert.deepStrictEqual(store.local.speedPicks[UCa]['1.75'], ['a2a2a2a2a2a', 'a3a3a3a3a3a', 'a4a4a4a4a4a'], 'learns up to 3 different videos per speed');
-  await fromPage({ type: 'speedNo', channelId: UCa, rate: 1.75 });
-  await fromPage({ type: 'speedPick', channelId: UCa, rate: 1.75, videoId: 'a5a5a5a5a5a' });
-  assert.strictEqual(store.local.speedPicks[UCa]['1.75'], 'no', 'after "No" that speed is never offered again');
-  await fromPage({ type: 'speedPickClear', channelId: UCa });
-  assert.deepStrictEqual(store.local.speedPicks, {}, 'kept for the channel: learning starts over');
+  await fromPage({ type: 'speedWatch', channelId: UCa, videoId: 'bad id!', rate: 1.5 });
+  await fromPage({ type: 'speedWatch', channelId: UCa, videoId: 'a6a6a6a6a6a', rate: 9 });
+  assert.strictEqual(store.local.speedPicks[UCa].h.length, 4, 'rejects bad videos and speeds');
+  await fromPage({ type: 'speedNo', channelId: UCa, rate: 1.5 });
+  await fromPage({ type: 'speedNo', channelId: UCa, rate: 1.5 });
+  assert.deepStrictEqual(store.local.speedPicks[UCa].no, [1.5], 'remembers a No once');
+  store.local.speedPicks = { [UCb]: { n: 'Beta', '2': 'no', '1.5': ['x1x1x1x1x1x'] } };
+  await fromPage({ type: 'speedWatch', channelId: UCb, videoId: 'b1b1b1b1b1b', rate: 1.25 });
+  assert.deepStrictEqual(store.local.speedPicks[UCb], { n: 'Beta', h: [['b1b1b1b1b1b', 1.25]], no: [2] }, 'an older No is kept, old pick lists are dropped');
   posted.length = 0;
-  changeListener({ speedVideos: { newValue: { good1234567: 2, bad: 2, worse123456: 7 } }, speedPicks: { newValue: { [UCb]: { '1.5': ['good1234567', 'bad!'], x: [] }, junk: {} } } }, 'local');
+  changeListener({ speedVideos: { newValue: { good1234567: 2, bad: 2, worse123456: 7 } }, speedPicks: { newValue: { [UCb]: { h: [['good1234567', 1.5], ['bad!', 1.5], ['good7654321', 'x']], no: [2, 'x'] }, junk: {} } } }, 'local');
   changeListener({ speedDefault: { newValue: 'nope' } }, 'sync');
   changeListener({ speedRules: { newValue: { music: false, live: 'no' } } }, 'sync');
-  assert.strictEqual(JSON.stringify(posted.map((m) => [m.type, m.value])), JSON.stringify([['speedVideos', { good1234567: 2 }], ['speedPicks', { [UCb]: { '1.5': ['good1234567'] } }], ['speedDefault', 1], ['speedRules', { music: false, live: true }]]), 'only well-formed speeds reach the page; a rule is off only when exactly false');
+  assert.strictEqual(JSON.stringify(posted.map((m) => [m.type, m.value])), JSON.stringify([['speedVideos', { good1234567: 2 }], ['speedPicks', { [UCb]: { h: [['good1234567', 1.5]], no: [2] } }], ['speedDefault', 1], ['speedRules', { music: false, live: true }]]), 'only well-formed speeds reach the page; a rule is off only when exactly false');
 
   console.log('All checks passed');
 })().catch((e) => { console.error(e); process.exit(1); });

@@ -46,6 +46,10 @@
  * channel. Order: this video, music at 1×, channel, default. Live goes back to 1× at live; Shorts are never touched.
  * Leaving theater yourself teaches it: that channel's videos stay normal next time; going back into
  * theater there undoes that. Your own clicks and the T key count; Resolute's own click never does.
+ * Optional ambient glow (/watch only): the picture's colours glow under the player and fill its black bars (bars
+ * of the window and bars inside the video itself; nothing is cropped). It follows cuts fast, ignores 1-2 frame
+ * flashes, draws less often when drawing gets slow, rests on still pictures, dims while paused, stays off during
+ * ads, and tints the quality pill and autoplay button. It replaces YouTube's own ambient mode while it's on.
  */
 (() => {
   'use strict';
@@ -1945,6 +1949,13 @@
     } else if (msg.type === 'cinemaSkip' && msg.value && typeof msg.value === 'object') {
       cinemaSkip = new Set(Object.keys(msg.value).filter((id) => CHANNEL_ID.test(id)));
       return;
+    } else if (msg.type === 'glowStrength' && Number.isFinite(msg.value) && msg.value >= 10 && msg.value <= 100) {
+      document.documentElement.style.setProperty('--yqx-gk', String(Math.round(msg.value) / 60)); // 60 = Lamp, the default
+      return;
+    } else if (msg.type === 'glow' && typeof msg.value === 'boolean') {
+      glowOn = msg.value;
+      glowSync();
+      return;
     } else if (msg.type === 'cinema' && typeof msg.value === 'boolean') {
       cinemaOn = msg.value;
       updateBar();
@@ -2607,6 +2618,300 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
     updateResumeUI();
   }
 
+  // ---------- ambient glow: the picture's colours under the player, in its black bars, and on Resolute's glass ----------
+  let glowOn = false;
+  const GW = 48, GH = 27, AW = 80, AH = 120; // glow buffer (tiny: the blur does the rest) and bar check (tall, so bar edges land within a few pixels)
+  const gl = {
+    v: null, outer: null, ox: null, fill: null, fx: null, bx: null, ax: null, img: null, acc: null, readable: true,
+    bars: { t: 0, r: 0, b: 0, l: 0 }, sc: null, cand: '', candN: 0, anAt: 0, cut: 0, still: 0, ms: 0, every: 1, n: 0,
+    last: 0, req: 0, cb: false, tintAt: 0, tint: '', placeAt: 0, ro: null, fit: null
+  };
+  const glowWanted = () => IS_TOP && glowOn && location.pathname === '/watch';
+  /** Black bars baked into the picture, as fractions of each side. Bars come in pairs (letterbox or pillarbox),
+   *  so one dark edge alone is part of the scene, not a bar. An all-dark frame has no bars. */
+  function glowBars(d, w, h) {
+    const lum = (i) => d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11;
+    const dark = (x0, y0, dx, dy, n) => {
+      let sum = 0, max = 0;
+      for (let k = 0; k < n; k++) { const l = lum(((y0 + dy * k) * w + x0 + dx * k) * 4); sum += l; if (l > max) max = l; }
+      return sum / n < 12 && max < 32;
+    };
+    const lim = (n) => Math.floor(n / 3);
+    let t = 0, b = 0, l = 0, r = 0;
+    while (t < lim(h) && dark(0, t, 1, 0, w)) t++;
+    while (b < lim(h) && dark(0, h - 1 - b, 1, 0, w)) b++;
+    while (l < lim(w) && dark(l, 0, 0, 1, h)) l++;
+    while (r < lim(w) && dark(w - 1 - r, 0, 0, 1, h)) r++;
+    const none = { t: 0, r: 0, b: 0, l: 0 };
+    if (t >= lim(h) || l >= lim(w)) return none; // a third or more is dark: a dark scene
+    const pair = (a, c) => (a >= 2 && c >= 2 && Math.abs(a - c) <= 2 ? Math.min(a, c) : 0);
+    const v = pair(t, b), sd = pair(l, r);
+    return { t: v / h, b: v / h, l: sd / w, r: sd / w };
+  }
+  /** Where the picture sits inside the <video> box. YouTube usually sizes the box to the picture; cinema uses "contain". */
+  function glowFit(v) {
+    const ew = v.clientWidth, eh = v.clientHeight, vw = v.videoWidth, vh = v.videoHeight;
+    if (!ew || !eh || !vw || !vh) return null;
+    const fit = getComputedStyle(v).objectFit;
+    if (fit === 'fill') return { x: 0, y: 0, w: ew, h: eh, ew, eh, cover: false };
+    const sc = fit === 'cover' ? Math.max(ew / vw, eh / vh) : Math.min(ew / vw, eh / vh);
+    const w = vw * sc, h = vh * sc;
+    return { x: (ew - w) / 2, y: (eh - h) / 2, w, h, ew, eh, cover: fit === 'cover' };
+  }
+  /** Hide the bars inside the video (clip them off the <video>), so the lit bars behind show through. Nothing is cropped from the picture. */
+  function glowClip() {
+    const v = gl.v, f = gl.fit, b = gl.bars;
+    if (!v) return;
+    if (!f || f.cover || !(b.t || b.l)) { v.style.removeProperty('clip-path'); return; }
+    // +1px on a bar's side: scaling the video blends its last black row into the first picture row
+    const px = (n, bar) => `${Math.max(0, n + (bar ? 1 : 0)).toFixed(1)}px`;
+    v.style.setProperty('clip-path', `inset(${px(f.y + b.t * f.h, b.t)} ${px(f.ew - f.x - f.w + b.r * f.w, b.r)} ${px(f.eh - f.y - f.h + b.b * f.h, b.b)} ${px(f.x + b.l * f.w, b.l)})`);
+  }
+  function glowPlace() {
+    gl.placeAt = performance.now();
+    const p = getPlayer();
+    if (!p) return;
+    const r = p.getBoundingClientRect();
+    p.style.setProperty('--yqx-gb', `${Math.round(r.width * 0.035)}px`);
+    if (gl.v) { gl.fit = glowFit(gl.v); glowClip(); }
+    const c = gl.outer && gl.outer.parentElement;
+    if (!c || !r.width) return;
+    const cr = c.getBoundingClientRect();
+    Object.assign(gl.outer.style, {
+      left: `${r.left - cr.left - r.width * 0.08}px`, top: `${r.top - cr.top - r.height * 0.12}px`,
+      width: `${r.width * 1.16}px`, height: `${r.height * 1.24}px`
+    });
+    gl.outer.style.setProperty('--yqx-gob', `${Math.round(r.width * 0.06)}px`);
+  }
+  const glowCanvas = (id) => el('canvas', '', { id, width: String(GW), height: String(GH), 'aria-hidden': 'true' });
+  function glowReset() { // a new video: start the colours and the bars over
+    gl.acc = null; gl.bars = { t: 0, r: 0, b: 0, l: 0 }; gl.cand = ''; gl.candN = 0; gl.cut = 0; gl.still = 0; gl.last = 0;
+    if (gl.v) gl.v.style.removeProperty('clip-path');
+    document.documentElement.removeAttribute('yqx-glow-live');
+  }
+  function glowStop() {
+    if (gl.req) { try { gl.cb ? gl.v.cancelVideoFrameCallback(gl.req) : cancelAnimationFrame(gl.req); } catch { /* gone */ } }
+    gl.req = 0;
+  }
+  function glowTeardown() {
+    glowStop();
+    if (glowTold) glowTell('off');
+    const root = document.documentElement;
+    for (const a of ['yqx-glow', 'yqx-glow-live', 'yqx-glow-dim', 'yqx-glow-ad', 'yqx-glow-tint']) root.removeAttribute(a);
+    if (gl.v) gl.v.style.removeProperty('clip-path');
+    if (gl.ro) { gl.ro.disconnect(); gl.ro = null; }
+    if (gl.outer) gl.outer.remove();
+    if (gl.fill) gl.fill.remove();
+    gl.outer = gl.fill = gl.v = null;
+  }
+  /** Attach to the current player and video (YouTube can swap them), then start if the video plays. */
+  function glowSync() {
+    if (!glowWanted()) { glowTeardown(); return; }
+    const p = getPlayer();
+    const v = p && p.querySelector('video.html5-main-video, video');
+    if (!p || !v) return;
+    const root = document.documentElement;
+    if (!document.getElementById('yqx-glow-style')) {
+      const style = el('style', '', { id: 'yqx-glow-style' });
+      style.textContent = GLOW_CSS;
+      (document.head || document.documentElement).append(style);
+    }
+    if (!gl.bx) {
+      const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c.getContext('2d', { willReadFrequently: true }); };
+      gl.bx = mk(GW, GH); gl.ax = mk(AW, AH);
+      if (!gl.bx || !gl.ax) { gl.bx = gl.ax = null; return; } // no canvas here: nothing to draw with
+      gl.img = gl.bx.createImageData(GW, GH);
+    }
+    if (gl.v !== v) { if (gl.v) gl.v.style.removeProperty('clip-path'); glowStop(); gl.v = v; glowReset(); }
+    if (!gl.fill || !p.contains(gl.fill)) {
+      if (gl.fill) gl.fill.remove();
+      gl.fill = el('div', '', { id: 'yqx-glow-fill', 'aria-hidden': 'true' });
+      const c = glowCanvas('yqx-glow-fill-c');
+      gl.fill.append(c);
+      gl.fx = c.getContext('2d');
+      const box = p.querySelector('.html5-video-container');
+      p.insertBefore(gl.fill, box && box.parentElement === p ? box : p.firstChild); // under the video, over the player's black
+    }
+    const content = document.querySelector('#content.ytd-app');
+    if (content && (!gl.outer || gl.outer.parentElement !== content)) {
+      if (gl.outer) gl.outer.remove();
+      gl.outer = glowCanvas('yqx-glow-outer');
+      gl.ox = gl.outer.getContext('2d');
+      content.prepend(gl.outer);
+    }
+    if (!gl.fx || (gl.outer && !gl.ox)) return;
+    if (!gl.ro && typeof ResizeObserver === 'function') {
+      gl.ro = new ResizeObserver(() => glowPlace());
+      gl.ro.observe(p);
+      if (content) gl.ro.observe(content);
+    }
+    root.setAttribute('yqx-glow', '');
+    glowPlace();
+    root.toggleAttribute('yqx-glow-dim', v.paused || v.ended);
+    glowStart();
+  }
+  function glowStart() {
+    const v = gl.v;
+    if (gl.req || !v || !glowWanted() || v.paused || v.ended || document.hidden) return;
+    document.documentElement.removeAttribute('yqx-glow-dim');
+    gl.cb = typeof v.requestVideoFrameCallback === 'function'; // only on new frames (Firefox caps it near 24 fps: plenty for a glow)
+    gl.req = gl.cb ? v.requestVideoFrameCallback(glowTick) : requestAnimationFrame(glowTick);
+  }
+  function glowTick(now) {
+    gl.req = 0;
+    const v = gl.v, p = getPlayer();
+    if (!v || !v.isConnected || !p || !p.contains(v)) { glowSync(); return; } // YouTube swapped the video
+    if (!glowWanted() || v.paused || v.ended || document.hidden) return; // starts again on play, return or navigation
+    glowStart();
+    const root = document.documentElement;
+    const ad = p.classList.contains('ad-showing');
+    root.toggleAttribute('yqx-glow-ad', ad);
+    if (ad) { gl.last = 0; return; } // no ad colours on your page
+    if (now - gl.placeAt > 1000) glowPlace(); // catches layout shifts the observer can't see
+    // Self-tuning: the video comes first. Slow draws = draw less often; a still picture = rest.
+    gl.every = gl.still > 1 ? 12 : gl.ms > 6 ? 4 : gl.ms > 3 ? 2 : 1;
+    if (++gl.n % gl.every) return;
+    const dt = gl.last ? Math.min(1, (now - gl.last) / 1000) : 0;
+    gl.last = now;
+    const t0 = performance.now();
+    if (glowDraw(dt)) root.setAttribute('yqx-glow-live', '');
+    gl.ms += (performance.now() - t0 - gl.ms) * 0.2;
+  }
+  function glowDraw(dt) {
+    const v = gl.v, vw = v.videoWidth, vh = v.videoHeight;
+    if (!vw || !vh || v.readyState < 2) return false;
+    if (gl.readable && performance.now() - gl.anAt > 100) glowAnalyse(v, vw, vh);
+    const b = gl.bars, sx = b.l * vw, sy = b.t * vh, sw = vw * (1 - b.l - b.r), sh = vh * (1 - b.t - b.b); // colours from the picture, never from its bars
+    if (gl.readable) {
+      try {
+        gl.bx.drawImage(v, sx, sy, sw, sh, 0, 0, GW, GH);
+        const cur = gl.bx.getImageData(0, 0, GW, GH).data;
+        if (!gl.acc) gl.acc = Float32Array.from(cur);
+        const acc = gl.acc;
+        let diff = 0;
+        for (let i = 0; i < cur.length; i += 4) diff += Math.abs(cur[i] - acc[i]) + Math.abs(cur[i + 1] - acc[i + 1]) + Math.abs(cur[i + 2] - acc[i + 2]);
+        diff /= (cur.length / 4) * 3;
+        gl.still = diff < 0.6 ? gl.still + dt : 0;
+        // A big change that lasts 3 draws is a cut: follow it fast. Shorter is a flash: ease past it.
+        gl.cut = diff > 38 ? gl.cut + 1 : 0;
+        const k = gl.cut >= 3 ? 1 - Math.exp(-dt / 0.06) : 1 - Math.exp(-dt / (diff > 38 ? 1.2 : 0.45));
+        const o = gl.img.data;
+        let R = 0, G = 0, B = 0;
+        for (let i = 0; i < cur.length; i++) { acc[i] += (cur[i] - acc[i]) * k; o[i] = acc[i]; }
+        for (let i = 0; i < cur.length; i += 4) { R += acc[i]; G += acc[i + 1]; B += acc[i + 2]; }
+        if (gl.ox) gl.ox.putImageData(gl.img, 0, 0);
+        gl.fx.putImageData(gl.img, 0, 0);
+        if (performance.now() - gl.tintAt > 250) { // the glass follows the scene a few times a second
+          gl.tintAt = performance.now();
+          const n = cur.length / 4, tint = `${R / n | 0},${G / n | 0},${B / n | 0}`;
+          if (tint !== gl.tint) { gl.tint = tint; document.documentElement.style.setProperty('--yqx-tint', tint); }
+          document.documentElement.setAttribute('yqx-glow-tint', '');
+          glowTell('on', glowThirds(acc));
+        }
+        return true;
+      } catch {
+        gl.readable = false; // a protected picture: still drawable, just not readable
+        document.documentElement.removeAttribute('yqx-glow-tint');
+      }
+    }
+    // Without reading pixels: a plain half-second fade, no cut, still or bar checks.
+    const a = dt ? 1 - Math.exp(-dt / 0.5) : 1;
+    for (const x of [gl.ox, gl.fx]) {
+      if (!x) continue;
+      x.globalAlpha = a; x.drawImage(v, sx, sy, sw, sh, 0, 0, GW, GH); x.globalAlpha = 1;
+    }
+    return true;
+  }
+  /** The left, middle and right colours of the glow, for the popup's live icon and background. */
+  function glowThirds(acc) {
+    return [0, 1, 2].map((t) => {
+      const c = [0, 0, 0];
+      let n = 0;
+      for (let y = 0; y < GH; y++) for (let x = Math.floor(t * GW / 3); x < Math.floor((t + 1) * GW / 3); x++, n++) {
+        const i = (y * GW + x) * 4; c[0] += acc[i]; c[1] += acc[i + 1]; c[2] += acc[i + 2];
+      }
+      return c.map((v) => Math.round(v / n));
+    });
+  }
+  let glowTold = '';
+  function glowTell(state, colors) { // only changes are sent: the popup asks the content script for the latest
+    const p = getPlayer(), d = p && call(p, 'getVideoData');
+    const msg = { type: 'glowNow', state, colors: colors || null, title: (d && typeof d.title === 'string' && d.title) || '' };
+    const key = JSON.stringify(msg);
+    if (key !== glowTold) { glowTold = key; postToExt(msg); }
+  }
+  function glowAnalyse(v, vw, vh) {
+    gl.anAt = performance.now();
+    try {
+      gl.ax.drawImage(v, 0, 0, vw, vh, 0, 0, AW, AH);
+      const r = glowBars(gl.ax.getImageData(0, 0, AW, AH).data, AW, AH);
+      const key = `${r.t.toFixed(3)},${r.l.toFixed(3)}`;
+      // The same bars for a full second before anything moves: a dark scene never makes the picture jump.
+      if (key !== gl.cand) { gl.cand = key; gl.candN = 0; return; }
+      if (++gl.candN !== 10) return;
+      if (r.t) [r.t, r.b] = glowEdges(v, vw, vh, 'y', r.t, AH);
+      if (r.l) [r.l, r.r] = glowEdges(v, vw, vh, 'x', r.l, AW);
+      const b = gl.bars;
+      if (['t', 'r', 'b', 'l'].every((k) => Math.abs(b[k] - r[k]) < 0.002)) return;
+      gl.bars = r;
+      glowClip();
+    } catch { gl.readable = false; }
+  }
+  /** Exact bar edges in the video's own pixels: three 1-pixel strips across the picture, the first lit pixel wins.
+   *  Kept near the rough answer, so dark content at the edge of a strip can't move it far. */
+  function glowEdges(v, vw, vh, axis, rough, steps) {
+    const n = Math.min(axis === 'y' ? vh : vw, 2160);
+    if (!gl.sc) { gl.sc = document.createElement('canvas').getContext('2d', { willReadFrequently: true }); }
+    const c = gl.sc.canvas;
+    if (axis === 'y') { c.width = 3; c.height = n; } else { c.width = n; c.height = 3; }
+    for (let k = 0; k < 3; k++) {
+      const at = (k + 1) / 4;
+      if (axis === 'y') gl.sc.drawImage(v, vw * at, 0, 1, vh, k, 0, 1, n);
+      else gl.sc.drawImage(v, 0, vh * at, vw, 1, 0, k, n, 1);
+    }
+    const d = gl.sc.getImageData(0, 0, c.width, c.height).data;
+    const L = (k, i) => { const j = (axis === 'y' ? i * 3 + k : k * n + i) * 4; return d[j] * 0.3 + d[j + 1] * 0.59 + d[j + 2] * 0.11; };
+    // Past the first lit pixel, skip the soft dark seam video compression leaves at a bar's edge (a few pixels at most).
+    const edge = (k, at) => {
+      let i = 0; while (i < n && L(k, at(i)) <= 24) i++;
+      for (let g = 0; g < 6 && i + 3 < n && L(k, at(i)) < 0.8 * L(k, at(i + 3)); g++) i++;
+      return i;
+    };
+    let a = n, z = n;
+    for (let k = 0; k < 3; k++) { a = Math.min(a, edge(k, (i) => i)); z = Math.min(z, edge(k, (i) => n - 1 - i)); }
+    const lo = (rough - 1 / steps) * n, hi = (rough + 2 / steps) * n, keep = (e) => Math.min(hi, Math.max(lo, e)) / n;
+    return [keep(a), keep(z)];
+  }
+  for (const type of ['playing', 'loadedmetadata', 'pause', 'ended', 'emptied']) document.addEventListener(type, (e) => {
+    const v = e.target;
+    if (!(v instanceof HTMLVideoElement) || !glowOn) return;
+    if (type === 'emptied' || type === 'loadedmetadata') { if (v === gl.v) { glowReset(); gl.fit = glowFit(v); } return; }
+    if (type === 'playing') { glowSync(); return; }
+    if (v === gl.v && glowWanted()) { document.documentElement.setAttribute('yqx-glow-dim', ''); if (gl.acc) glowTell('paused', glowThirds(gl.acc)); } // hold the colours, dim slowly
+  }, true);
+  document.addEventListener('visibilitychange', () => { if (glowOn && !document.hidden) glowStart(); });
+  document.addEventListener('fullscreenchange', () => { if (glowOn) setTimeout(glowPlace, 100); });
+  const GLOW_CSS = `
+html[yqx-glow] #cinematics,html[yqx-glow] #cinematics-container,html[yqx-glow] #cinematics-full-bleed-container{display:none!important}
+html[yqx-glow] #content.ytd-app{position:relative;z-index:0}
+#yqx-glow-outer{position:absolute;z-index:-1;pointer-events:none;opacity:0;filter:blur(var(--yqx-gob,60px)) saturate(1.35);
+  transition:opacity .9s cubic-bezier(.34,.8,.34,1)}
+/* Strength: --yqx-gk is 0.5 (Candle) to 1.67 (Daylight), 1 = Lamp. Past full opacity it brightens instead. */
+html[yqx-glow-live] #yqx-glow-outer{opacity:min(1,calc(.8 * var(--yqx-gk,1)));filter:blur(var(--yqx-gob,60px)) saturate(1.35) brightness(calc(1 + max(0, var(--yqx-gk,1) - 1) * .4))}
+html[yqx-glow-live]:not([dark]) #yqx-glow-outer{opacity:min(1,calc(.45 * var(--yqx-gk,1)));filter:blur(var(--yqx-gob,60px)) saturate(1.9)}
+html[yqx-glow-live][yqx-cin] #yqx-glow-outer{opacity:0}
+#yqx-glow-fill{position:absolute;inset:0;overflow:hidden;pointer-events:none;opacity:0;transition:opacity .6s cubic-bezier(.34,.8,.34,1)}
+#yqx-glow-fill canvas{position:absolute;left:-10%;top:-10%;width:120%;height:120%;filter:blur(var(--yqx-gb,24px)) saturate(1.25)}
+html[yqx-glow-live] #yqx-glow-fill{opacity:min(1,var(--yqx-gk,1))}
+html[yqx-glow] #movie_player .html5-video-container{background:transparent}
+html[yqx-glow] #movie_player .html5-main-video{transition:clip-path .45s cubic-bezier(.2,0,0,1)}
+html[yqx-glow-live][yqx-glow-dim] #yqx-glow-outer{opacity:min(1,calc(.3 * var(--yqx-gk,1)));transition-duration:3s}
+html[yqx-glow-live][yqx-glow-dim] #yqx-glow-fill{opacity:min(1,calc(.45 * var(--yqx-gk,1)));transition-duration:3s}
+html[yqx-glow-live][yqx-glow-ad] #yqx-glow-outer,html[yqx-glow-live][yqx-glow-ad] #yqx-glow-fill{opacity:0}
+html[yqx-glow-tint]:not([yqx-glow-ad]) #movie_player .yqx-pill{background:rgba(var(--yqx-tint),.42);box-shadow:inset 0 0 0 1px rgba(255,255,255,.26),0 0 14px rgba(var(--yqx-tint),.4)}
+html[yqx-glow-tint]:not([yqx-glow-ad]) .yqx-au:not(.yqx-open) .yqx-ms-shape{background:rgba(var(--yqx-tint),.32)}
+@media (prefers-reduced-motion: reduce){#yqx-glow-outer,#yqx-glow-fill,html[yqx-glow] #movie_player .html5-main-video{transition:none}}`;
+
   // ---------- lifecycle ----------
   let ensureQueued = false;
   function queueEnsure() {
@@ -2624,7 +2929,7 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
   }
 
   document.addEventListener('yt-navigate-start', () => { saveSpot(true); hideResumePill(); hideBack(); closeResumeMenu(false); lastT = 0; resumeVid = ''; closeMenu(false); spClose(false); spHideChip(); sp.vid = ''; clearHeld(); });
-  document.addEventListener('yt-navigate-finish', () => { updateBar(); checkCinema(); });
+  document.addEventListener('yt-navigate-finish', () => { updateBar(); checkCinema(); if (glowOn) glowSync(); });
   for (const type of ['yt-navigate-finish', 'yt-player-updated', 'yt-page-data-updated']) {
     document.addEventListener(type, () => {
       ensureUI();

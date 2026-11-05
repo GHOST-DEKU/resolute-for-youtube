@@ -23,6 +23,7 @@
   <a href="#autoplay">Autoplay</a> ·
   <a href="#topbar">Top&nbsp;bar</a> ·
   <a href="#cinema">Cinema</a> ·
+  <a href="#glow">Glow</a> ·
   <a href="#time-left">Time&nbsp;left</a> ·
   <a href="#chat">Live&nbsp;chat</a> ·
   <a href="#resume">Resume</a> ·
@@ -32,7 +33,9 @@
   <a href="PRIVACY.md">Privacy</a>
 </p>
 
-> **🆕 New in 1.4:** a **speed button** in the player (the left half of the quality pill), speeds remembered for each video and each channel, a smart helper that notices the speed you like for a channel and asks once, and a new **Speed** page in the popup. [See how it works](#speed).
+> **🆕 New in 1.5:** **ambient glow**. The video's colours softly light up the page around the player, and black bars fill with a blur of the scene, in dark and light theme. Pick Candle, Lamp or Daylight in the popup, which takes on your video's colours too. [See how it works](#glow).
+>
+> **New in 1.4:** a **speed button** in the player (the left half of the quality pill), speeds remembered for each video and each channel, a smart helper that notices the speed you like for a channel and asks once, and a new **Speed** page in the popup. [See how it works](#speed).
 
 ---
 
@@ -50,6 +53,7 @@
 | 💬 **Hide live chat** *(optional)* | The chat next to a live stream closes by itself. Press **Show chat** if you want it back. |
 | 🫥 **Hide top bar** *(optional)* | YouTube's top bar slides away while the video plays, so you see more of the video. Pause or point at the top and it comes back. |
 | 🎬 **Cinema mode** *(optional)* | Videos open in theater mode and fill your window, without stretching or cutting anything. |
+| 🌈 **Ambient glow** *(optional)* | The video's colours softly light up the page around the player, and black bars fill with a blur of the scene. Nothing is cropped. Works in light theme too. |
 | 🍃 **Background saver** *(optional)* | Listening to music in a tab you are not looking at? The quality goes down to use less data, and comes back when you return. |
 | ⏯️ **Pick up where you stopped** | YouTube sometimes forgets. Resolute remembers the spot and jumps back when you open the video, with a small "Resumed at 12:29 · Start over" note. |
 | 🙅 **Skip a whole channel** | Do not want a channel's videos remembered (a music channel, a livestream you leave on)? Press **Don't save this channel** in the menu by the clock. Nothing is saved for it, and its old spots are deleted. |
@@ -248,6 +252,43 @@ Only your own click or key press counts as "leaving" theater. The extension's ow
 
 ---
 
+<a id="glow"></a>
+## 🌈 Ambient glow
+
+Off by default. Switch it on in the toolbar popup (**Playing** page), and pick how bright it is there.
+
+<p align="center">
+  <img src="docs/ambient-glow.png" alt="A wide film on a dark YouTube page with its colours glowing around the player and its black bars filled, then the same on the light theme as a soft colour wash" width="100%"><br>
+  <sub>Drawn by the extension's own code on a stand-in for a YouTube watch page. Left: dark theme. Right: light theme.</sub>
+</p>
+
+The colours of the video glow softly around the player, like light from a TV in a dark room. It replaces YouTube's own ambient mode while it is on.
+
+| What happens | What you see |
+|:---|:---|
+| **Black bars** (wide films, old 4:3 clips, Cinema mode, fullscreen) | The bars fill with a soft blur of the scene. Nothing is zoomed or cut off. |
+| A new scene starts | The glow changes quickly. |
+| Quick flashes (concert lights, camera flashes) | The glow ignores them, so it does not flicker. |
+| A slow computer | The glow draws less often, so the video always stays smooth. |
+| A still picture (slides, a paused screen) | The glow rests and uses almost no power. |
+| You pause | The glow keeps its colours and slowly dims. |
+| An ad plays | No glow. |
+| Light theme | A gentle colour wash on the white page. (YouTube's own ambient mode works in dark theme only.) |
+| The quality and autoplay buttons | They pick up the colour of the scene. |
+
+### In the popup
+
+<p align="center">
+  <img src="docs/popup-glow.png" alt="The Playing page of the popup in dark and light: the Ambient glow switch with a colourful icon that says Glowing now, the Strength preview, the Candle, Lamp and Daylight chips and the slider" width="70%"><br>
+  <sub>The real popup, rendered from the extension's code. The video name is an example.</sub>
+</p>
+
+- **The switch's icon swirls with the colours of the video in your tab**, and the row says "Glowing now · *video name*" (or "Paused").
+- **Strength:** pick **Candle** (faint, for a dark room), **Lamp** (soft, the default) or **Daylight** (bright), or drag the slider for anything between. The small player above it shows how bright the glow will be.
+- **The popup glows too:** while the glow is on, the popup's frosted background takes the colours of your video.
+
+---
+
 <a id="time-left"></a>
 ## ⏱️ Time left at your speed
 
@@ -419,7 +460,7 @@ The popup card also shows about how much data you saved **this week (Sunday to S
 The popup has four pages, so you never have to scroll a long list:
 - **Quality**: default quality, channel defaults, remembered videos.
 - **Speed**: default speed, channel speeds, video speeds, what it is learning, and the speed rules.
-- **Playing**: the switches for start paused, hide chat, hide top bar, Cinema mode, the time-left icons, the resume settings (rewind a little, what counts as progress), and the progress-bar parts (flag, fill, back chip, button).
+- **Playing**: the switches for start paused, hide chat, hide top bar, Cinema mode, ambient glow, the time-left icons, the resume settings (rewind a little, what counts as progress), and the progress-bar parts (flag, fill, back chip, button).
 - **Saver**: the background saver and its weekly estimate.
 
 Tap a tab, press the left or right arrow key while a tab is selected (Home and End work too), or swipe on a touch screen.
@@ -511,7 +552,7 @@ Firefox removes it when you close it, so load it again next time.
 <details>
 <summary><b>Does it send my data anywhere?</b></summary>
 
-No. Resolute has no code that uses the internet. Your settings (default quality, default speed, the speed rules, the autoplay switches, hide live chat, hide top bar, Cinema mode, tab icons, the resume settings and the saver) are saved in your browser's own extension storage and sync with your browser account if you use sync. Remembered videos, video and channel speeds, what the speed learning has seen, the spots where you stopped watching, channel defaults, the channels Cinema mode leaves normal, and the saver's daily numbers stay on this device only. You can read all the details in the [privacy policy](PRIVACY.md).
+No. Resolute has no code that uses the internet. Your settings (default quality, default speed, the speed rules, the autoplay switches, hide live chat, hide top bar, Cinema mode, ambient glow and its strength, tab icons, the resume settings and the saver) are saved in your browser's own extension storage and sync with your browser account if you use sync. Remembered videos, video and channel speeds, what the speed learning has seen, the spots where you stopped watching, channel defaults, the channels Cinema mode leaves normal, and the saver's daily numbers stay on this device only. You can read all the details in the [privacy policy](PRIVACY.md).
 </details>
 
 <details>
@@ -570,6 +611,7 @@ No. Shorts and m.youtube.com use a different player. The autoplay switches also 
 - Channel defaults need the channel ID from YouTube's player data. If YouTube stops giving it, videos use your default for all videos ("Channel not detected"), and nothing wrong is applied.
 - **Hide top bar** moves YouTube's top bar with CSS. If YouTube renames those parts, the bar just stays where it is until Resolute is updated. The hidden bar can still be reached with **/** and Tab, so search keeps working.
 - **Cinema mode** clicks YouTube's own theater button once for each video, then makes the video fill the window without cutting it. If YouTube renames the button, theater just does not turn on. Only your own click or the **T** key counts as leaving theater.
+- **Ambient glow** reads the colours of a tiny copy of the video (48 × 27 pixels) on your own computer. Nothing is saved or sent. To light black bars that are part of the video itself, it hides those rows of the video (plus 1 pixel at the edge, where scaling blends black into the picture) so the glow behind shows through. If a browser does not let the extension read the video's colours, the glow still works, but without bar lighting, flash detection, still-picture rest and the coloured buttons. It was tested on a stand-in player in Chrome, not on real YouTube or Firefox, so please try it on a real video.
 - **Hide live chat** presses the close button inside YouTube's chat. If YouTube renames that button, the chat stays open until Resolute is updated. A chat that loads more than about a minute after the page opens is left open.
 - **Time left** is hidden during ads, on live streams, and in small players. It adds one small label inside YouTube's clock. If YouTube renames that part, the label is simply not shown. The tab countdown rounds up to whole minutes (seconds in the last minute), and you can switch off the ⏱ sign on the popup's **Playing** page.
 - **Resume** needs the player's own functions to read and set the time. If YouTube changes them, Resolute simply does not save or jump. The rewind numbers of *Smart* (2, 5 and 10 seconds) are my own choice.
@@ -594,9 +636,9 @@ You do not need this part to use Resolute. It is for people who want to look ins
 
 | File | What it does |
 |:---|:---|
-| `page.js` | Runs inside the YouTube page itself, so it can use the player's own functions. It adds the quality button and menu and sets the quality on every new video (it waits for ads to finish). It adds the speed half of the pill with its menu, sets each video's speed, counts how long you watch at each speed, and shows the "keep it for this channel?" chip. It also adds the autoplay button next to the search box and pauses a video the first time it starts by itself (it can tell "opened by you" from "next in the queue"). It shows "Video waiting" while a video is held, closes the live chat once per video, slides the top bar away while a video plays, and (Cinema mode) turns theater on and makes the video fill the window. It also saves and restores your spot, draws the flag, stripe, back chip and the button with its menu, shows the time left, and runs the background saver (tab hidden, not in picture-in-picture) with its tab name and icon. Each of these only works if you switched it on. |
+| `page.js` | Runs inside the YouTube page itself, so it can use the player's own functions. It adds the quality button and menu and sets the quality on every new video (it waits for ads to finish). It adds the speed half of the pill with its menu, sets each video's speed, counts how long you watch at each speed, and shows the "keep it for this channel?" chip. It also adds the autoplay button next to the search box and pauses a video the first time it starts by itself (it can tell "opened by you" from "next in the queue"). It shows "Video waiting" while a video is held, closes the live chat once per video, slides the top bar away while a video plays, and (Cinema mode) turns theater on and makes the video fill the window. It draws the ambient glow and fills black bars. It also saves and restores your spot, draws the flag, stripe, back chip and the button with its menu, shows the time left, and runs the background saver (tab hidden, not in picture-in-picture) with its tab name and icon. Each of these only works if you switched it on. |
 | `background.js` | Tells each YouTube tab if it is the selected tab of its window (Vivaldi keeps background tabs "visible" to pages, so the page also checks that it is no longer being drawn). It also shows the "Background saver: 144p" notification while a tab is lowered, and removes it when you return. |
-| `content.js` | The bridge to the extension's storage. It holds the default quality, the autoplay switches, the hide-chat, hide-top-bar, Cinema mode, tab-icons and saver settings (the resume rewind, rules and progress-bar switches too, all synced), and, on this device only: the saver's daily numbers (last 21 days), remembered videos (newest 1,000), resume spots (newest 1,000, each with its channel ID), the videos you chose not to save (newest 1,000), the channels you chose not to save (newest 2,000), channel defaults (newest 2,000), the channels Cinema mode leaves normal (newest 2,000), video speeds (newest 1,000), channel speeds (newest 2,000), and the speed learning (your last 4 videos and your No answers, for the newest 500 channels). The default speed and the speed rules are synced. It checks every message and throws away damaged entries. |
+| `content.js` | The bridge to the extension's storage. It holds the default quality, the autoplay switches, the hide-chat, hide-top-bar, Cinema mode, ambient glow, tab-icons and saver settings (the resume rewind, rules and progress-bar switches too, all synced), and, on this device only: the saver's daily numbers (last 21 days), remembered videos (newest 1,000), resume spots (newest 1,000, each with its channel ID), the videos you chose not to save (newest 1,000), the channels you chose not to save (newest 2,000), channel defaults (newest 2,000), the channels Cinema mode leaves normal (newest 2,000), video speeds (newest 1,000), channel speeds (newest 2,000), and the speed learning (your last 4 videos and your No answers, for the newest 500 channels). The default speed and the speed rules are synced. It checks every message and throws away damaged entries. |
 | `popup.*` | The toolbar popup, with four pages (Quality, Speed, Playing, Saver), a sliding tab bar and swipe. It has every setting above (speed, resume and progress-bar included), the channel defaults and channel speeds, remembered videos, the theme, and a fix for when YouTube access is switched off. |
 
 `page.js` and `content.js` talk to each other through `window.postMessage`. There is no build step, no bundler and no libraries.
@@ -634,6 +676,7 @@ The tests run the scripts against a fake YouTube player and fake storage. They c
 - **Hide live chat:** off by default, waits until the chat has loaded, closes it once per video so **Show chat** stays open, closes it again on the next stream, leaves it alone when switched off.
 - **Hide top bar:** off by default, away while playing, back on pause / pointer / focus / open menu, Esc lets it go, fullscreen and other pages untouched, switching off restores it.
 - **Cinema mode:** off by default, theater on once per video, channels you leave stay normal and are undone when you turn theater back on, only real clicks/**T** count, fullscreen and non-watch pages untouched, switching off restores the page.
+- **Ambient glow:** finding letterbox and pillarbox bars, a dark edge alone and an all-dark frame not counted as bars, strength (Candle, Lamp, Daylight, out-of-range values ignored), what the popup is told about the glowing video (bad colours thrown away, never saved), switching off leaving nothing behind.
 - **Time left:** real time left at the current speed in the player (any speed, ads/live/small player hidden, survives YouTube rebuilding its clock) and in the tab only while away (rounding, hours, seconds, follows speed and seeking, clears on return), together with the saver's prefix and leaf icon, ⏱/⏸ switchable.
 - **Resume:** saves while playing and on pause / hide / navigate, jumps once per video, rewind (exact, 5 s, smart), no jump for links with a time, Shorts, short videos, live (unless included), ads or videos you chose not to save, never drifts back, last 30 seconds count as finished.
 - **Progress-bar marks:** button placement beside the clock, the menu and its five items, Start over, Don't save (video and channel: nothing saved, no jump, spots deleted, a slashed icon, a greyed row without a channel ID), Forget, the Back chip only after your own skip, each popup switch hiding its part, Shorts untouched.

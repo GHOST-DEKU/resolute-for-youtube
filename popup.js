@@ -987,8 +987,87 @@
   goPage(0);
 
   // ---------- stay in sync with changes made in the player or another window ----------
+  // ---------- ambient glow ----------
+  const GLOW = 'ambientGlow';
+  const gwOn = $('gw-on');
+  const GLOW_STR = 'ambientGlowStrength';
+  const gwMore = $('gw-more');
+  const gwRange = $('gw-range');
+  const showGlow = (v) => { gwOn.checked = v === true; gwMore.classList.toggle('shut', !gwOn.checked); glowLook(); };
+  api.storage.sync.get(GLOW).then((r) => showGlow(r[GLOW])).catch(() => {});
+  gwOn.addEventListener('change', async () => {
+    const on = gwOn.checked;
+    gwMore.classList.toggle('shut', !on);
+    glowLook();
+    try {
+      await api.storage.sync.set({ [GLOW]: on });
+      flash(on ? 'Ambient glow on' : 'Ambient glow off');
+    } catch {
+      showGlow(!on); // show the setting that is really saved
+      flash('Could not save. Please try again.');
+    }
+  });
+  // Strength: Candle 30, Lamp 60 (default), Daylight 100, or anything between with the slider.
+  const STR_NAMES = { 30: 'Candle: a faint light, for a dark room.', 60: 'Lamp: a soft light, like a room lamp.', 100: 'Daylight: bright and vivid.' };
+  const cleanStr = (v) => (Number.isFinite(v) && v >= 10 && v <= 100 ? Math.round(v / 5) * 5 : 60);
+  function showStr(v) {
+    v = cleanStr(v);
+    gwRange.value = String(v);
+    gwRange.style.setProperty('--p', `${((v - 10) / 90) * 100}%`);
+    document.documentElement.style.setProperty('--v', String(v));
+    $('gw-pct').textContent = `${v}%`;
+    for (const i of document.querySelectorAll('input[name="gw-str"]')) i.checked = Number(i.value) === v; // a slider value between them checks no chip
+    $('gw-str-hint').textContent = STR_NAMES[v] || 'Your own strength.';
+  }
+  async function saveStr(v) {
+    try { await api.storage.sync.set({ [GLOW_STR]: cleanStr(v) }); } catch { flash('Could not save. Please try again.'); }
+  }
+  api.storage.sync.get(GLOW_STR).then((r) => showStr(r[GLOW_STR])).catch(() => showStr(60));
+  gwRange.addEventListener('input', () => showStr(Number(gwRange.value)));
+  gwRange.addEventListener('change', () => saveStr(Number(gwRange.value)));
+  for (const i of document.querySelectorAll('input[name="gw-str"]')) i.addEventListener('change', () => { showStr(Number(i.value)); saveStr(Number(i.value)); });
+
+  // What is glowing in the current tab: the icon swirls with its colours and the popup takes them on.
+  let glowNow = null;
+  const cur = [[255, 122, 47], [91, 30, 140], [31, 181, 201]];
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function glowLook() {
+    const live = !!glowNow && gwOn.checked;
+    $('gw-ico').classList.toggle('gw-has', live);
+    document.documentElement.classList.toggle('gw-glowing', live);
+    const now = $('gw-now');
+    now.hidden = !live || !glowNow.title;
+    $('gw-desc').hidden = !now.hidden;
+    if (!now.hidden) {
+      const b = document.createElement('b');
+      b.textContent = glowNow.title;
+      now.replaceChildren(`${glowNow.state === 'paused' ? 'Paused' : 'Glowing now'} · `, b);
+    }
+  }
+  async function askGlow() {
+    try {
+      const [tab] = await api.tabs.query({ active: true, currentWindow: true, url: ['https://www.youtube.com/*'] });
+      glowNow = tab ? (await api.tabs.sendMessage(tab.id, { type: 'glowNow' }, { frameId: 0 })) || null : null;
+    } catch { glowNow = null; } // no Resolute in that tab yet (opened before install): nothing glows
+    glowLook();
+  }
+  askGlow();
+  setInterval(askGlow, 500);
+  (function swirl(t) { // ease toward the video's colours, so a scene change flows instead of jumping
+    if (glowNow && gwOn.checked) {
+      const root = document.documentElement.style;
+      glowNow.colors.forEach((c, j) => {
+        for (let k = 0; k < 3; k++) cur[j][k] += (c[k] - cur[j][k]) * 0.08;
+        root.setProperty(`--c${j + 1}`, cur[j].map(Math.round).join(', '));
+      });
+      if (!still) root.setProperty('--gw-a', `${(t / 40) % 360}deg`);
+    }
+    requestAnimationFrame(swirl);
+  })(0);
   api.storage.onChanged.addListener((changes, area) => {
     if (area === 'sync' && changes[KEY]) select(changes[KEY].newValue);
+    if (area === 'sync' && changes[GLOW]) showGlow(changes[GLOW].newValue);
+    if (area === 'sync' && changes[GLOW_STR]) showStr(changes[GLOW_STR].newValue);
     if (area === 'sync' && (changes[HOLD.opened] || changes[HOLD.next] || changes[OLD_AUTOPLAY])) readHold();
     if (area === 'sync' && changes[SAVER]) showSaver(changes[SAVER].newValue);
     if (area === 'sync' && changes[HIDE_CHAT]) showHideChat(changes[HIDE_CHAT].newValue);

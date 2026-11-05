@@ -11,6 +11,8 @@
  *    (older versions stored one "stopAutoplay" switch; it counts as both until either is set)
  *  - sync  "hideChat":          true = close YouTube's live chat panel when a stream opens (off unless turned on)
  *  - sync  "cinemaMode":      true = videos open in theater, the top bar hides while they play, the video fills the window (off unless turned on)
+ *  - sync  "ambientGlow":     true = the picture's colours glow around the player and fill its black bars (off unless turned on)
+ *  - sync  "ambientGlowStrength": 10-100, how bright the glow is (30 Candle, 60 Lamp = default, 100 Daylight)
  *  - local "cinemaSkip":      { UCchannelId: name } channels where you left theater; cinema mode leaves them alone
  *  - sync  "tabIcons":          false = the tab countdown shows just the time; otherwise ⏱ comes first (on unless turned off)
  *  - sync  "hideTopBar":       true = YouTube's top bar hides while a video plays (off unless turned on)
@@ -48,6 +50,12 @@
   const HIDE_BAR = 'hideTopBar';
   const TAB_ICONS = 'tabIcons';
   const CINEMA = 'cinemaMode';
+  const GLOW = 'ambientGlow';
+  const GLOW_STR = 'ambientGlowStrength';
+  const cleanStrength = (v) => (Number.isFinite(v) && v >= 10 && v <= 100 ? Math.round(v) : 60);
+  // What the glow shows right now in this tab, for the popup's live icon (never stored)
+  let glowNow = null;
+  const rgb = (c) => Array.isArray(c) && c.length === 3 && c.every((n) => Number.isInteger(n) && n >= 0 && n <= 255);
   const SKIP = 'cinemaSkip';
   const MAX_SKIP = 2000; // shortcut: drops the oldest beyond this; raise if users hit it
   const STATS = 'saverStats';
@@ -237,6 +245,8 @@
     send({ type: 'tabicons', value: await readTabIcons() });
     send({ type: 'cinemaSkip', value: await readSkip() }); // before 'cinema', so a skipped channel is known when cinema starts
     send({ type: 'cinema', value: await readCinema() });
+    send({ type: 'glow', value: await readFlag(GLOW) });
+    try { send({ type: 'glowStrength', value: cleanStrength((await api.storage.sync.get(GLOW_STR))[GLOW_STR]) }); } catch { send({ type: 'glowStrength', value: 60 }); }
     send({ type: 'spots', value: await readSpots() });
     send({ type: 'resumeRewind', value: await readRewind() });
     send({ type: 'resumeRules', value: await readRules() });
@@ -257,6 +267,13 @@
   async function readHideChat() {
     try {
       return (await api.storage.sync.get(HIDE_CHAT))[HIDE_CHAT] === true;
+    } catch {
+      return false;
+    }
+  }
+  async function readFlag(key) {
+    try {
+      return (await api.storage.sync.get(key))[key] === true;
     } catch {
       return false;
     }
@@ -317,6 +334,9 @@
         await api.storage.local.set({ [LAST]: { at: Date.now(), skipped: msg.reason } });
       } else if (msg.type === 'saverOn' && typeof msg.label === 'string' && typeof msg.title === 'string') {
         await api.runtime.sendMessage({ type: 'saverOn', label: msg.label.slice(0, 20), title: msg.title.slice(0, 100) });
+      } else if (msg.type === 'glowNow' && ['on', 'paused', 'off'].includes(msg.state)) {
+        const ok = msg.state === 'off' || (Array.isArray(msg.colors) && msg.colors.length === 3 && msg.colors.every(rgb));
+        glowNow = ok && msg.state !== 'off' ? { state: msg.state, colors: msg.colors, title: typeof msg.title === 'string' ? msg.title.slice(0, 100) : '' } : null;
       } else if (msg.type === 'saverOff') {
         await api.runtime.sendMessage({ type: 'saverOff' });
       } else if (msg.type === 'saved' && typeof msg.mb === 'number' && msg.mb >= 0 && msg.mb <= 100000) {
@@ -439,6 +459,12 @@
       if (area === 'sync' && changes[CINEMA]) {
         send({ type: 'cinema', value: changes[CINEMA].newValue === true });
       }
+      if (area === 'sync' && changes[GLOW]) {
+        send({ type: 'glow', value: changes[GLOW].newValue === true });
+      }
+      if (area === 'sync' && changes[GLOW_STR]) {
+        send({ type: 'glowStrength', value: cleanStrength(changes[GLOW_STR].newValue) });
+      }
       if (area === 'local' && changes[SKIP]) {
         send({ type: 'cinemaSkip', value: cleanSkip(changes[SKIP].newValue) });
       }
@@ -484,8 +510,10 @@
   } catch { /* ignore */ }
 
   try {
-    api.runtime.onMessage.addListener((msg, sender) => {
-      if (sender.id === api.runtime.id && msg && msg.type === 'tabActive' && typeof msg.on === 'boolean') send({ type: 'tabActive', value: msg.on });
+    api.runtime.onMessage.addListener((msg, sender, reply) => {
+      if (sender.id !== api.runtime.id || !msg) return;
+      if (msg.type === 'tabActive' && typeof msg.on === 'boolean') send({ type: 'tabActive', value: msg.on });
+      if (msg.type === 'glowNow') reply(glowNow); // the popup asks what is glowing in this tab
     });
   } catch { /* ignore */ }
 

@@ -1071,6 +1071,33 @@ const open = () => document.querySelector('#yqx-button').dispatchEvent(new windo
     videoId = 'vid1'; await open('vid1');
   }
 
+  // Ambient glow: bar detection, and a clean on/off (jsdom has no canvas, so nothing is drawn here)
+  {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'page.js'), 'utf8');
+    const glowBars = new Function(`return ${src.match(/function glowBars\(d, w, h\) \{[\s\S]*?\n  \}\n/)[0]}`)();
+    const frame = (fill) => {
+      const d = new Uint8ClampedArray(64 * 36 * 4);
+      for (let y = 0; y < 36; y++) for (let x = 0; x < 64; x++) { const v = fill(x, y); d.set([v, v, v, 255], (y * 64 + x) * 4); }
+      return d;
+    };
+    let r = glowBars(frame((x, y) => (y < 5 || y >= 31 ? 0 : 140)), 64, 36);
+    assert.ok(r.t === 5 / 36 && r.b === r.t && r.l === 0 && r.r === 0, 'letterbox: top and bottom bars found');
+    r = glowBars(frame((x) => (x < 8 || x >= 56 ? 3 : 120)), 64, 36);
+    assert.ok(r.l === 8 / 64 && r.r === r.l && r.t === 0, 'pillarbox: side bars found');
+    r = glowBars(frame((x, y) => (y < 6 ? 0 : 140)), 64, 36);
+    assert.ok(!r.t && !r.b && !r.l && !r.r, 'one dark edge alone is part of the scene');
+    r = glowBars(frame(() => 0), 64, 36);
+    assert.ok(!r.t && !r.b && !r.l && !r.r, 'an all-dark frame has no bars');
+    toPage('glowStrength', 30); await wait(5);
+    assert.strictEqual(document.documentElement.style.getPropertyValue('--yqx-gk'), '0.5', 'Candle (30) is half of Lamp');
+    toPage('glowStrength', 500); await wait(5);
+    assert.strictEqual(document.documentElement.style.getPropertyValue('--yqx-gk'), '0.5', 'a strength out of range is ignored');
+    toPage('glow', true); await wait(20);
+    toPage('glow', false); await wait(20);
+    assert.ok(!document.documentElement.hasAttribute('yqx-glow') && !document.getElementById('yqx-glow-fill') && !document.getElementById('yqx-glow-outer'),
+      'turning the glow off leaves nothing behind');
+  }
+
   console.log('All checks passed');
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

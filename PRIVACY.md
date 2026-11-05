@@ -4,7 +4,7 @@
 
 Resolute is available by manual installation in Chrome and is planned for Mozilla Add-ons (Firefox). This policy covers the extension's own behaviour in any browser.
 
-Resolute for YouTube ("the extension") lets you choose the video quality and the playback speed of YouTube videos from a button inside the YouTube player, and can optionally start videos paused, hide live chat, hide the top bar while a video plays, open videos in theater mode (Cinema mode) and lower quality in background tabs. This policy explains exactly what the extension stores and what it does not do.
+Resolute for YouTube ("the extension") lets you choose the video quality and the playback speed of YouTube videos from a button inside the YouTube player, and can optionally start videos paused, hide live chat, hide the top bar while a video plays, open videos in theater mode (Cinema mode), add an ambient glow around the video and lower quality in background tabs. This policy explains exactly what the extension stores and what it does not do.
 
 ## What the extension stores
 
@@ -16,6 +16,7 @@ Resolute for YouTube ("the extension") lets you choose the video quality and the
 | Your **hide top bar** setting (on or off) | When you switch it in the toolbar popup | Your browser's extension storage (`storage.sync`), synced by your browser like the default quality. |
 | Your **tab countdown icons** setting (on or off) | When you switch it in the toolbar popup | Your browser's extension storage (`storage.sync`). |
 | Your **Cinema mode** setting (on or off) | When you switch it in the toolbar popup | Your browser's extension storage (`storage.sync`). |
+| Your **Ambient glow** setting (on or off) and its **strength** (10 to 100) | When you switch it in the toolbar popup | Your browser's extension storage (`storage.sync`). The video's colours are read from a tiny copy of the picture on your computer to draw the glow. They are never saved or sent. While the popup is open, it asks your current YouTube tab for those colours and the video's title to show them; that stays inside your browser and is not saved. |
 | The **channels you left in normal view** (channel ID and name, newest 2,000) | When you leave theater mode on a channel while Cinema mode is on | Your browser's local extension storage (`storage.local`), this device only. **Forget all** in the popup clears it. |
 | Your **background saver** setting (on or off, when it starts, how low it goes) | When you change it in the toolbar popup | Your browser's extension storage (`storage.sync`), synced by your browser like the default quality. |
 | The saver's **last run** (when, the quality before and after, how long, about how many MB) | Each time the background saver has lowered a video | Your browser's local extension storage (`storage.local`), on this device only. Only the most recent run is kept (or, if it didn't lower the video, the reason), and it doesn't include which video it was. |

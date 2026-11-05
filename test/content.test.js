@@ -25,9 +25,9 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
 
 (async () => {
   await tick();
-  assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides', 'channels', 'autoplay', 'saver', 'chat', 'topbar', 'tabicons', 'cinemaSkip', 'cinema', 'glow', 'spots', 'resumeRewind', 'resumeRules', 'resumeBar', 'spotsOff', 'chOff', 'speedDefault', 'speedVideos', 'speedChannels', 'speedPicks', 'speedRules', 'tabActive'], 'sends default, remembered videos, channel defaults, autoplay, saver, chat, top bar, tab icons, cinema, glow, resume and speed settings');
-  assert.strictEqual(posted[17].value, 1, 'speed is normal (1×) by default');
-  assert.strictEqual(JSON.stringify(posted.slice(18, 21).map((m) => m.value)), '[{},{},{}]', 'no saved speeds by default');
+  assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides', 'channels', 'autoplay', 'saver', 'chat', 'topbar', 'tabicons', 'cinemaSkip', 'cinema', 'glow', 'glowStrength', 'spots', 'resumeRewind', 'resumeRules', 'resumeBar', 'spotsOff', 'chOff', 'speedDefault', 'speedVideos', 'speedChannels', 'speedPicks', 'speedRules', 'tabActive'], 'sends default, remembered videos, channel defaults, autoplay, saver, chat, top bar, tab icons, cinema, glow, resume and speed settings');
+  assert.strictEqual(posted[18].value, 1, 'speed is normal (1×) by default');
+  assert.strictEqual(JSON.stringify(posted.slice(19, 22).map((m) => m.value)), '[{},{},{}]', 'no saved speeds by default');
   assert.strictEqual(posted[7].value, true, 'tab countdown icons are on by default');
   assert.strictEqual(posted[5].value, false, 'live chat stays visible by default');
   assert.strictEqual(posted[6].value, false, 'top bar stays visible by default');
@@ -36,11 +36,12 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
   assert.strictEqual(JSON.stringify(posted[8].value), '{}', 'no channels left out by default');
   assert.strictEqual(posted[9].value, false, 'cinema mode is off by default');
   assert.strictEqual(posted[10].value, false, 'ambient glow is off by default');
-  assert.strictEqual(posted[22].value, false, 'tells the page whether its tab is selected');
-  assert.strictEqual(JSON.stringify(posted[21].value), '{"music":true,"live":true}', 'both speed rules are on by default');
-  assert.strictEqual(JSON.stringify(posted[16].value), '{}', 'no channels switched off by default');
-  assert.strictEqual(JSON.stringify(posted[14].value), '{"flag":true,"back":true,"ghost":true,"button":true}', 'every bar extra is on by default');
-  assert.strictEqual(JSON.stringify(posted[15].value), '{}', 'no videos left out by default');
+  assert.strictEqual(posted[11].value, 60, 'glow strength is Lamp (60) by default');
+  assert.strictEqual(posted[23].value, false, 'tells the page whether its tab is selected');
+  assert.strictEqual(JSON.stringify(posted[22].value), '{"music":true,"live":true}', 'both speed rules are on by default');
+  assert.strictEqual(JSON.stringify(posted[17].value), '{}', 'no channels switched off by default');
+  assert.strictEqual(JSON.stringify(posted[15].value), '{"flag":true,"back":true,"ghost":true,"button":true}', 'every bar extra is on by default');
+  assert.strictEqual(JSON.stringify(posted[16].value), '{}', 'no videos left out by default');
   bgListener({ type: 'tabActive', on: true }, { id: 'me' });
   bgListener({ type: 'tabActive', on: true }, { id: 'someone-else' });
   bgListener({ type: 'tabActive', on: 'yes' }, { id: 'me' });
@@ -135,9 +136,9 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
   assert.strictEqual(runtimeSent[0].title.length, 100, 'video title capped');
 
   // ---- resume: where you stopped ----
-  assert.strictEqual(JSON.stringify(posted[11].value), '{}', 'no saved spots by default');
-  assert.strictEqual(posted[12].value, 'smart', 'smart rewind by default');
-  assert.strictEqual(JSON.stringify(posted[13].value), '{"includeLive":true,"skipStart":true,"endFinished":true,"skipShort":true}', 'every rule on by default');
+  assert.strictEqual(JSON.stringify(posted[12].value), '{}', 'no saved spots by default');
+  assert.strictEqual(posted[13].value, 'smart', 'smart rewind by default');
+  assert.strictEqual(JSON.stringify(posted[14].value), '{"includeLive":true,"skipStart":true,"endFinished":true,"skipShort":true}', 'every rule on by default');
   await fromPage({ type: 'spot', videoId: 'dQw4w9WgXcQ', t: 754.9 });
   assert.strictEqual(store.local.resumeSpots.dQw4w9WgXcQ.t, 754, 'saves a spot in whole seconds');
   assert.ok(store.local.resumeSpots.dQw4w9WgXcQ.at > 0, 'with the time it was saved');
@@ -238,6 +239,21 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
   changeListener({ speedDefault: { newValue: 'nope' } }, 'sync');
   changeListener({ speedRules: { newValue: { music: false, live: 'no' } } }, 'sync');
   assert.strictEqual(JSON.stringify(posted.map((m) => [m.type, m.value])), JSON.stringify([['speedVideos', { good1234567: 2 }], ['speedPicks', { [UCb]: { h: [['good1234567', 1.5]], no: [2] } }], ['speedDefault', 1], ['speedRules', { music: false, live: true }]]), 'only well-formed speeds reach the page; a rule is off only when exactly false');
+
+  // Ambient glow: the popup asks what is glowing; only well-formed reports are kept, never stored
+  const askGlow = () => { let got; bgListener({ type: 'glowNow' }, { id: 'me' }, (r) => { got = r; }); return got; };
+  assert.strictEqual(askGlow(), null, 'nothing glowing yet');
+  await fromPage({ type: 'glowNow', state: 'on', colors: [[1, 2, 3], [4, 5, 6], [7, 8, 9]], title: 'Night drive' });
+  assert.strictEqual(JSON.stringify(askGlow()), JSON.stringify({ state: 'on', colors: [[1, 2, 3], [4, 5, 6], [7, 8, 9]], title: 'Night drive' }), 'the latest colours and title');
+  await fromPage({ type: 'glowNow', state: 'on', colors: [[1, 2, 300], [4, 5, 6], [7, 8, 9]], title: 'x' });
+  assert.strictEqual(askGlow(), null, 'a bad colour is thrown away');
+  await fromPage({ type: 'glowNow', state: 'off' });
+  assert.strictEqual(askGlow(), null, 'off clears it');
+  assert.ok(!Object.keys(store.local).concat(Object.keys(store.sync)).some((k) => /glowNow/.test(k)), 'never saved');
+  posted.length = 0;
+  changeListener({ ambientGlowStrength: { newValue: 5 } }, 'sync');
+  changeListener({ ambientGlowStrength: { newValue: 30 } }, 'sync');
+  assert.deepStrictEqual(posted.map((m) => m.value), [60, 30], 'strength out of range falls back to Lamp (60)');
 
   console.log('All checks passed');
 })().catch((e) => { console.error(e); process.exit(1); });

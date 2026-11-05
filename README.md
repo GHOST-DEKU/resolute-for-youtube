@@ -33,7 +33,7 @@
   <a href="PRIVACY.md">Privacy</a>
 </p>
 
-> **🆕 New in 1.5:** **ambient glow**. The video's colours softly light up the page around the player, and black bars fill with a blur of the scene, in dark and light theme. [See how it works](#glow).
+> **🆕 New in 1.5:** **ambient glow**. The video's colours softly light up the page around the player, and black bars fill with a blur of the scene, in dark and light theme. Pick Candle, Lamp or Daylight in the popup, which takes on your video's colours too. [See how it works](#glow).
 >
 > **New in 1.4:** a **speed button** in the player (the left half of the quality pill), speeds remembered for each video and each channel, a smart helper that notices the speed you like for a channel and asks once, and a new **Speed** page in the popup. [See how it works](#speed).
 
@@ -255,7 +255,7 @@ Only your own click or key press counts as "leaving" theater. The extension's ow
 <a id="glow"></a>
 ## 🌈 Ambient glow
 
-Off by default. Switch it on in the toolbar popup (**Playing** page).
+Off by default. Switch it on in the toolbar popup (**Playing** page), and pick how bright it is there.
 
 <p align="center">
   <img src="docs/ambient-glow.png" alt="A wide film on a dark YouTube page with its colours glowing around the player and its black bars filled, then the same on the light theme as a soft colour wash" width="100%"><br>
@@ -275,6 +275,17 @@ The colours of the video glow softly around the player, like light from a TV in 
 | An ad plays | No glow. |
 | Light theme | A gentle colour wash on the white page. (YouTube's own ambient mode works in dark theme only.) |
 | The quality and autoplay buttons | They pick up the colour of the scene. |
+
+### In the popup
+
+<p align="center">
+  <img src="docs/popup-glow.png" alt="The Playing page of the popup in dark and light: the Ambient glow switch with a colourful icon that says Glowing now, the Strength preview, the Candle, Lamp and Daylight chips and the slider" width="70%"><br>
+  <sub>The real popup, rendered from the extension's code. The video name is an example.</sub>
+</p>
+
+- **The switch's icon swirls with the colours of the video in your tab**, and the row says "Glowing now · *video name*" (or "Paused").
+- **Strength:** pick **Candle** (faint, for a dark room), **Lamp** (soft, the default) or **Daylight** (bright), or drag the slider for anything between. The small player above it shows how bright the glow will be.
+- **The popup glows too:** while the glow is on, the popup's frosted background takes the colours of your video.
 
 ---
 
@@ -541,7 +552,7 @@ Firefox removes it when you close it, so load it again next time.
 <details>
 <summary><b>Does it send my data anywhere?</b></summary>
 
-No. Resolute has no code that uses the internet. Your settings (default quality, default speed, the speed rules, the autoplay switches, hide live chat, hide top bar, Cinema mode, ambient glow, tab icons, the resume settings and the saver) are saved in your browser's own extension storage and sync with your browser account if you use sync. Remembered videos, video and channel speeds, what the speed learning has seen, the spots where you stopped watching, channel defaults, the channels Cinema mode leaves normal, and the saver's daily numbers stay on this device only. You can read all the details in the [privacy policy](PRIVACY.md).
+No. Resolute has no code that uses the internet. Your settings (default quality, default speed, the speed rules, the autoplay switches, hide live chat, hide top bar, Cinema mode, ambient glow and its strength, tab icons, the resume settings and the saver) are saved in your browser's own extension storage and sync with your browser account if you use sync. Remembered videos, video and channel speeds, what the speed learning has seen, the spots where you stopped watching, channel defaults, the channels Cinema mode leaves normal, and the saver's daily numbers stay on this device only. You can read all the details in the [privacy policy](PRIVACY.md).
 </details>
 
 <details>
@@ -665,7 +676,7 @@ The tests run the scripts against a fake YouTube player and fake storage. They c
 - **Hide live chat:** off by default, waits until the chat has loaded, closes it once per video so **Show chat** stays open, closes it again on the next stream, leaves it alone when switched off.
 - **Hide top bar:** off by default, away while playing, back on pause / pointer / focus / open menu, Esc lets it go, fullscreen and other pages untouched, switching off restores it.
 - **Cinema mode:** off by default, theater on once per video, channels you leave stay normal and are undone when you turn theater back on, only real clicks/**T** count, fullscreen and non-watch pages untouched, switching off restores the page.
-- **Ambient glow:** finding letterbox and pillarbox bars, a dark edge alone and an all-dark frame not counted as bars, switching off leaving nothing behind.
+- **Ambient glow:** finding letterbox and pillarbox bars, a dark edge alone and an all-dark frame not counted as bars, strength (Candle, Lamp, Daylight, out-of-range values ignored), what the popup is told about the glowing video (bad colours thrown away, never saved), switching off leaving nothing behind.
 - **Time left:** real time left at the current speed in the player (any speed, ads/live/small player hidden, survives YouTube rebuilding its clock) and in the tab only while away (rounding, hours, seconds, follows speed and seeking, clears on return), together with the saver's prefix and leaf icon, ⏱/⏸ switchable.
 - **Resume:** saves while playing and on pause / hide / navigate, jumps once per video, rewind (exact, 5 s, smart), no jump for links with a time, Shorts, short videos, live (unless included), ads or videos you chose not to save, never drifts back, last 30 seconds count as finished.
 - **Progress-bar marks:** button placement beside the clock, the menu and its five items, Start over, Don't save (video and channel: nothing saved, no jump, spots deleted, a slashed icon, a greyed row without a channel ID), Forget, the Back chip only after your own skip, each popup switch hiding its part, Shorts untouched.

@@ -1949,6 +1949,9 @@
     } else if (msg.type === 'cinemaSkip' && msg.value && typeof msg.value === 'object') {
       cinemaSkip = new Set(Object.keys(msg.value).filter((id) => CHANNEL_ID.test(id)));
       return;
+    } else if (msg.type === 'glowStrength' && Number.isFinite(msg.value) && msg.value >= 10 && msg.value <= 100) {
+      document.documentElement.style.setProperty('--yqx-gk', String(Math.round(msg.value) / 60)); // 60 = Lamp, the default
+      return;
     } else if (msg.type === 'glow' && typeof msg.value === 'boolean') {
       glowOn = msg.value;
       glowSync();
@@ -2692,6 +2695,7 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
   }
   function glowTeardown() {
     glowStop();
+    if (glowTold) glowTell('off');
     const root = document.documentElement;
     for (const a of ['yqx-glow', 'yqx-glow-live', 'yqx-glow-dim', 'yqx-glow-ad', 'yqx-glow-tint']) root.removeAttribute(a);
     if (gl.v) gl.v.style.removeProperty('clip-path');
@@ -2802,6 +2806,7 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
           const n = cur.length / 4, tint = `${R / n | 0},${G / n | 0},${B / n | 0}`;
           if (tint !== gl.tint) { gl.tint = tint; document.documentElement.style.setProperty('--yqx-tint', tint); }
           document.documentElement.setAttribute('yqx-glow-tint', '');
+          glowTell('on', glowThirds(acc));
         }
         return true;
       } catch {
@@ -2816,6 +2821,24 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
       x.globalAlpha = a; x.drawImage(v, sx, sy, sw, sh, 0, 0, GW, GH); x.globalAlpha = 1;
     }
     return true;
+  }
+  /** The left, middle and right colours of the glow, for the popup's live icon and background. */
+  function glowThirds(acc) {
+    return [0, 1, 2].map((t) => {
+      const c = [0, 0, 0];
+      let n = 0;
+      for (let y = 0; y < GH; y++) for (let x = Math.floor(t * GW / 3); x < Math.floor((t + 1) * GW / 3); x++, n++) {
+        const i = (y * GW + x) * 4; c[0] += acc[i]; c[1] += acc[i + 1]; c[2] += acc[i + 2];
+      }
+      return c.map((v) => Math.round(v / n));
+    });
+  }
+  let glowTold = '';
+  function glowTell(state, colors) { // only changes are sent: the popup asks the content script for the latest
+    const p = getPlayer(), d = p && call(p, 'getVideoData');
+    const msg = { type: 'glowNow', state, colors: colors || null, title: (d && typeof d.title === 'string' && d.title) || '' };
+    const key = JSON.stringify(msg);
+    if (key !== glowTold) { glowTold = key; postToExt(msg); }
   }
   function glowAnalyse(v, vw, vh) {
     gl.anAt = performance.now();
@@ -2864,7 +2887,7 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
     if (!(v instanceof HTMLVideoElement) || !glowOn) return;
     if (type === 'emptied' || type === 'loadedmetadata') { if (v === gl.v) { glowReset(); gl.fit = glowFit(v); } return; }
     if (type === 'playing') { glowSync(); return; }
-    if (v === gl.v && glowWanted()) document.documentElement.setAttribute('yqx-glow-dim', ''); // hold the colours, dim slowly
+    if (v === gl.v && glowWanted()) { document.documentElement.setAttribute('yqx-glow-dim', ''); if (gl.acc) glowTell('paused', glowThirds(gl.acc)); } // hold the colours, dim slowly
   }, true);
   document.addEventListener('visibilitychange', () => { if (glowOn && !document.hidden) glowStart(); });
   document.addEventListener('fullscreenchange', () => { if (glowOn) setTimeout(glowPlace, 100); });
@@ -2873,16 +2896,17 @@ html[yqx-glow] #cinematics,html[yqx-glow] #cinematics-container,html[yqx-glow] #
 html[yqx-glow] #content.ytd-app{position:relative;z-index:0}
 #yqx-glow-outer{position:absolute;z-index:-1;pointer-events:none;opacity:0;filter:blur(var(--yqx-gob,60px)) saturate(1.35);
   transition:opacity .9s cubic-bezier(.34,.8,.34,1)}
-html[yqx-glow-live] #yqx-glow-outer{opacity:.8}
-html[yqx-glow-live]:not([dark]) #yqx-glow-outer{opacity:.45;filter:blur(var(--yqx-gob,60px)) saturate(1.9)}
+/* Strength: --yqx-gk is 0.5 (Candle) to 1.67 (Daylight), 1 = Lamp. Past full opacity it brightens instead. */
+html[yqx-glow-live] #yqx-glow-outer{opacity:min(1,calc(.8 * var(--yqx-gk,1)));filter:blur(var(--yqx-gob,60px)) saturate(1.35) brightness(calc(1 + max(0, var(--yqx-gk,1) - 1) * .4))}
+html[yqx-glow-live]:not([dark]) #yqx-glow-outer{opacity:min(1,calc(.45 * var(--yqx-gk,1)));filter:blur(var(--yqx-gob,60px)) saturate(1.9)}
 html[yqx-glow-live][yqx-cin] #yqx-glow-outer{opacity:0}
 #yqx-glow-fill{position:absolute;inset:0;overflow:hidden;pointer-events:none;opacity:0;transition:opacity .6s cubic-bezier(.34,.8,.34,1)}
 #yqx-glow-fill canvas{position:absolute;left:-10%;top:-10%;width:120%;height:120%;filter:blur(var(--yqx-gb,24px)) saturate(1.25)}
-html[yqx-glow-live] #yqx-glow-fill{opacity:1}
+html[yqx-glow-live] #yqx-glow-fill{opacity:min(1,var(--yqx-gk,1))}
 html[yqx-glow] #movie_player .html5-video-container{background:transparent}
 html[yqx-glow] #movie_player .html5-main-video{transition:clip-path .45s cubic-bezier(.2,0,0,1)}
-html[yqx-glow-live][yqx-glow-dim] #yqx-glow-outer{opacity:.3;transition-duration:3s}
-html[yqx-glow-live][yqx-glow-dim] #yqx-glow-fill{opacity:.45;transition-duration:3s}
+html[yqx-glow-live][yqx-glow-dim] #yqx-glow-outer{opacity:min(1,calc(.3 * var(--yqx-gk,1)));transition-duration:3s}
+html[yqx-glow-live][yqx-glow-dim] #yqx-glow-fill{opacity:min(1,calc(.45 * var(--yqx-gk,1)));transition-duration:3s}
 html[yqx-glow-live][yqx-glow-ad] #yqx-glow-outer,html[yqx-glow-live][yqx-glow-ad] #yqx-glow-fill{opacity:0}
 html[yqx-glow-tint]:not([yqx-glow-ad]) #movie_player .yqx-pill{background:rgba(var(--yqx-tint),.42);box-shadow:inset 0 0 0 1px rgba(255,255,255,.26),0 0 14px rgba(var(--yqx-tint),.4)}
 html[yqx-glow-tint]:not([yqx-glow-ad]) .yqx-au:not(.yqx-open) .yqx-ms-shape{background:rgba(var(--yqx-tint),.32)}

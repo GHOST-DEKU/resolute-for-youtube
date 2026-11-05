@@ -1088,6 +1088,10 @@ const open = () => document.querySelector('#yqx-button').dispatchEvent(new windo
     assert.ok(!r.t && !r.b && !r.l && !r.r, 'one dark edge alone is part of the scene');
     r = glowBars(frame(() => 0), 64, 36);
     assert.ok(!r.t && !r.b && !r.l && !r.r, 'an all-dark frame has no bars');
+    toPage('glowStrength', 30); await wait(5);
+    assert.strictEqual(document.documentElement.style.getPropertyValue('--yqx-gk'), '0.5', 'Candle (30) is half of Lamp');
+    toPage('glowStrength', 500); await wait(5);
+    assert.strictEqual(document.documentElement.style.getPropertyValue('--yqx-gk'), '0.5', 'a strength out of range is ignored');
     toPage('glow', true); await wait(20);
     toPage('glow', false); await wait(20);
     assert.ok(!document.documentElement.hasAttribute('yqx-glow') && !document.getElementById('yqx-glow-fill') && !document.getElementById('yqx-glow-outer'),

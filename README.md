@@ -12,13 +12,14 @@
 
 <p align="center">
   <b>Does YouTube play your videos in low quality? Does it start playing before you are ready?</b><br>
-  Resolute fixes that. It adds a quality button inside the video player and remembers your choice for each video and each channel.<br>
+  Resolute fixes that. It adds a quality button and a speed button inside the video player and remembers your choice for each video and each channel.<br>
   If you want, it can also stop videos from starting by themselves, hide the live chat and the top bar, open videos in a big cinema view, show the real time left, pick up a video where you stopped, and save your data when you are on another tab.
 </p>
 
 <p align="center">
   <a href="#install">Install</a> ·
   <a href="#quality">Quality</a> ·
+  <a href="#speed">Speed</a> ·
   <a href="#autoplay">Autoplay</a> ·
   <a href="#topbar">Top&nbsp;bar</a> ·
   <a href="#cinema">Cinema</a> ·
@@ -41,6 +42,8 @@
 | 📌 **Remember per video** | Press "Remember for this video" and that video always opens in the quality you chose. |
 | 👤 **Remember per channel** | Like 4K for one creator and 720p for another. It follows the channel even if the channel changes its name. |
 | ⭐ **One default for everything else** | Pick one quality that is used for all other videos. |
+| ⏩ **Speed button in the player** | The left half of the same pill. Pick 0.75× to 3×, see how many minutes each speed saves, or fine-tune in 0.05 steps (scroll on the pill works too). The speed you pick sticks to that video. |
+| 🧠 **Learns your channel speeds** | Watch 3 of your last 4 videos of a channel at one speed, and the next video asks: "Orbit Lab at 1.5× again?" Keep it with one tap. Quick tries never count. |
 | ⏸️ **No more autoplay** *(optional)* | Two separate switches: one for videos you open, one for the next video in a playlist. Videos wait until you press play. |
 | 💬 **Hide live chat** *(optional)* | The chat next to a live stream closes by itself. Press **Show chat** if you want it back. |
 | 🫥 **Hide top bar** *(optional)* | YouTube's top bar slides away while the video plays, so you see more of the video. Pause or point at the top and it comes back. |
@@ -85,6 +88,52 @@ flowchart LR
 - If a video does not have your quality, Resolute uses the best one below it and the menu tells you (for example "Using 720p").
 - Qualities that a video does not have are greyed out ("Not available").
 - With the keyboard: press Tab to reach the button, ↑ or ↓ to open the menu and move, Enter to pick, Esc to close.
+
+---
+
+<a id="speed"></a>
+## ⏩ Playback speed
+
+The quality pill has a second half on its left: the **speed**. Click it to open the Speed menu, or scroll on it to go up or down by 0.05.
+
+<p align="center">
+  <img src="docs/speed-menu.png" alt="The Speed menu open above the split pill: speed chips from 0.75× to 3× with the minutes each one saves, a fine slider, the offer to keep 1.5× for the channel, and rows to forget, use for the channel, or make default" width="70%"><br>
+  <sub>The Speed menu, rendered from the extension's code on a stand-in player. The channel and the offer are example data.</sub>
+</p>
+
+| In the menu | What it does |
+|:---|:---|
+| **Speed chips** | 0.75×, 1×, 1.25×, 1.5×, 1.75×, 2×, 2.5× and 3×. Under each one: how much time it saves (or adds) on this video, for example `−6m`. |
+| **Fine slider** | Any speed from 0.25× to 3× in 0.05 steps, like 1.35×. |
+| **Forget this video's speed** | This video goes back to its channel speed or your default. |
+| **Use 1.5× for Orbit Lab** | All videos of this channel open at this speed. Tap it again to remove it. |
+| **Make 1.5× the default** | All other videos open at this speed. Tap it again to go back to 1×. |
+
+**Which speed a video gets** (the first one that fits wins):
+1. The speed saved for **that video**. Any speed you pick is saved for the video you are watching, also when you use YouTube's own gear menu or **Shift + >** / **Shift + <**.
+2. **Music stays at 1×** (a switch in the popup).
+3. The speed saved for **its channel**.
+4. **Your default** (1× unless you change it).
+
+The small dot on the pill tells you where the speed came from: pink = this video, gold = the channel.
+
+### It learns your channel speeds
+
+Resolute watches *how* you watch, so it only offers what you really want:
+- Each video counts **once**, as the speed you watched it at the longest, and only after **2 minutes** at that speed. Trying 2× for a few seconds, or speeding through a sponsor part, does not count. YouTube's press-and-hold 2× never counts.
+- When **3 of your last 4 videos** of a channel were at the **same speed**, the next video of that channel opens with a small chip above the pill:
+
+<p align="center">
+  <img src="docs/speed-chip.png" alt="A frosted chip above the speed pill: Orbit Lab at 1.5× again? with Keep and No buttons" width="60%"><br>
+  <sub>The chip, rendered from the extension's code. It goes away after 8 seconds, and stays while your mouse is on it.</sub>
+</p>
+
+- **Keep** saves the speed for the channel, and the video you are on switches to it at once.
+- **No** means that speed is never offered again for that channel (you can undo it in the popup).
+- **Changed your mind?** Once a speed is kept, if 2 of your last 3 videos of that channel are at another speed, the chip asks "Orbit Lab at 1.75× now?" with **Change**.
+- The same offer also shows at the top of the Speed menu.
+
+**Live streams** go back to 1× once they catch up to live (a switch in the popup). **Shorts** are never changed.
 
 ---
 
@@ -352,7 +401,7 @@ The popup card also shows about how much data you saved **this week (Sunday to S
 
 <p align="center">
   <img src="docs/popup.png" alt="The Resolute popup's three pages, Quality, Playing and Saver, in dark (top) and light (bottom) themes" width="100%"><br>
-  <sub>The real popup's three pages in dark (top) and light (bottom), rendered from the extension's code. The channels and counts are example data. This picture was taken before the resume settings were added, so see the picture below for those.</sub>
+  <sub>The real popup's pages in dark (top) and light (bottom), rendered from the extension's code. The channels and counts are example data. This picture was taken before the resume settings and the Speed page were added, so see the pictures below for those.</sub>
 </p>
 
 <p align="center">
@@ -360,8 +409,14 @@ The popup card also shows about how much data you saved **this week (Sunday to S
   <sub>The resume settings on the <b>Playing</b> page, in dark (top) and light (bottom), rendered from the real popup code. On the right: the channels you do not save (example data).</sub>
 </p>
 
-The popup has three pages, so you never have to scroll a long list:
+<p align="center">
+  <img src="docs/popup-speed.png" alt="The Speed page of the popup in dark (top) and light (bottom): default speed chips with what they mean for a 20-minute video, channel speeds, video speeds, the Learning list with dots, and the Speed rules switches" width="80%"><br>
+  <sub>The <b>Speed</b> page, in dark (top) and light (bottom), rendered from the real popup code. Left: the top of the page with the channel list folded. Right: the Learning list and the rules. Example data.</sub>
+</p>
+
+The popup has four pages, so you never have to scroll a long list:
 - **Quality**: default quality, channel defaults, remembered videos.
+- **Speed**: default speed, channel speeds, video speeds, what it is learning, and the speed rules.
 - **Playing**: the switches for start paused, hide chat, hide top bar, Cinema mode, the time-left icons, the resume settings (rewind a little, what counts as progress), and the progress-bar parts (flag, fill, back chip, button).
 - **Saver**: the background saver and its weekly estimate.
 
@@ -369,6 +424,11 @@ Tap a tab, press the left or right arrow key while a tab is selected (Home and E
 
 What you can do in the popup:
 - Set the **default quality** for all videos.
+- Set the **default speed**. Under the chips it tells you what it means, for example "A 20-minute video takes 13:20 at 1.5×".
+- See every **channel speed**: change it, remove it with ×, or use **Remove all**. With more than 3 channels, the list folds under its row. Tap the row to open it.
+- Clear the speeds of single videos with **Forget all**.
+- See what Resolute is **learning**: dots show how close a channel is (●●○ = 2 of 3 videos), and the speeds you said No to have an **Undo**.
+- Turn **Music stays at 1×** and **Live goes back to 1×** on or off. **Shorts are never changed** is always on.
 - Switch **Videos I open** and **Next in queue or playlist** to start paused.
 - Turn **Hide live chat** on or off.
 - Turn **Hide top bar** on or off.
@@ -449,7 +509,7 @@ Firefox removes it when you close it, so load it again next time.
 <details>
 <summary><b>Does it send my data anywhere?</b></summary>
 
-No. Resolute has no code that uses the internet. Your settings (default quality, the autoplay switches, hide live chat, hide top bar, Cinema mode, tab icons, the resume settings and the saver) are saved in your browser's own extension storage and sync with your browser account if you use sync. Remembered videos, the spots where you stopped watching, channel defaults, the channels Cinema mode leaves normal, and the saver's daily numbers stay on this device only. You can read all the details in the [privacy policy](PRIVACY.md).
+No. Resolute has no code that uses the internet. Your settings (default quality, default speed, the speed rules, the autoplay switches, hide live chat, hide top bar, Cinema mode, tab icons, the resume settings and the saver) are saved in your browser's own extension storage and sync with your browser account if you use sync. Remembered videos, video and channel speeds, what the speed learning has seen, the spots where you stopped watching, channel defaults, the channels Cinema mode leaves normal, and the saver's daily numbers stay on this device only. You can read all the details in the [privacy policy](PRIVACY.md).
 </details>
 
 <details>
@@ -468,6 +528,12 @@ It reads the channel's permanent ID (it starts with `UC`) from YouTube's own pla
 <summary><b>What if YouTube changes how its page looks?</b></summary>
 
 Your videos will still play normally. If YouTube moves its controls, the quality button becomes a small floating button above the progress bar. If YouTube changes its top bar, the autoplay button may not show, but the switch in the popup still works. If YouTube changes its chat, the chat just stays open. If YouTube changes its theater button, Cinema mode simply does not turn theater on. Nothing else is affected.
+</details>
+
+<details>
+<summary><b>Why didn't it offer to keep my speed for a channel?</b></summary>
+
+Check these: you need **3 of your last 4 videos** of that channel at the **exact same speed** (1.5× and 1.55× are different), each watched for at least **2 minutes** at that speed. A video you mostly watched at another speed counts against it. Music videos held at 1× do not count. If you said **No** to that speed before, it is never offered again (undo it on the popup's Speed page). The chip shows once per offer while YouTube is open: if you ignored it, it comes back after you reload YouTube. It also shows at the top of the Speed menu.
 </details>
 
 <details>
@@ -509,6 +575,10 @@ No. Shorts and m.youtube.com use a different player. The autoplay switches also 
 - **Don't save this video** and **Don't save this channel** also stop the automatic jump. There is no master switch for all of resume yet.
 - **Don't save this channel** deletes the spots that remember their channel. Spots saved before version 1.3 do not, so they stay (and are not used while the channel is off) until you forget them or they are replaced by newer ones. The video you are on is deleted at once. If YouTube gives no channel ID for a video yet, Resolute cannot know its channel and treats it as a normal video.
 - Remembered videos, resume spots and channel defaults stay on the device where you saved them. They are not synced to your other devices.
+- **Speeds above 2×** are set on the video itself, because YouTube's own menu stops at 2×. If YouTube puts its own speed back, Resolute sets yours again (a few times per video). Please test 2.5× and 3× on your browser.
+- **Music stays at 1×** uses the category YouTube gives the video ("Music"). Music without that category plays at your speed.
+- **Live goes back to 1×** when the stream is within about 8 seconds of the newest part. YouTube's delay can differ, so please test it on a real stream.
+- The **speed learning** of the first speed test version counted every pick. That data was reset, only your No answers were kept.
 - After a forced quality, "Auto" uses YouTube's own automatic mode. This has not been checked on every kind of video, so please try it on a real one.
 
 ---
@@ -522,10 +592,10 @@ You do not need this part to use Resolute. It is for people who want to look ins
 
 | File | What it does |
 |:---|:---|
-| `page.js` | Runs inside the YouTube page itself, so it can use the player's own functions. It adds the quality button and menu and sets the quality on every new video (it waits for ads to finish). It also adds the autoplay button next to the search box and pauses a video the first time it starts by itself (it can tell "opened by you" from "next in the queue"). It shows "Video waiting" while a video is held, closes the live chat once per video, slides the top bar away while a video plays, and (Cinema mode) turns theater on and makes the video fill the window. It also saves and restores your spot, draws the flag, stripe, back chip and the button with its menu, shows the time left, and runs the background saver (tab hidden, not in picture-in-picture) with its tab name and icon. Each of these only works if you switched it on. |
+| `page.js` | Runs inside the YouTube page itself, so it can use the player's own functions. It adds the quality button and menu and sets the quality on every new video (it waits for ads to finish). It adds the speed half of the pill with its menu, sets each video's speed, counts how long you watch at each speed, and shows the "keep it for this channel?" chip. It also adds the autoplay button next to the search box and pauses a video the first time it starts by itself (it can tell "opened by you" from "next in the queue"). It shows "Video waiting" while a video is held, closes the live chat once per video, slides the top bar away while a video plays, and (Cinema mode) turns theater on and makes the video fill the window. It also saves and restores your spot, draws the flag, stripe, back chip and the button with its menu, shows the time left, and runs the background saver (tab hidden, not in picture-in-picture) with its tab name and icon. Each of these only works if you switched it on. |
 | `background.js` | Tells each YouTube tab if it is the selected tab of its window (Vivaldi keeps background tabs "visible" to pages, so the page also checks that it is no longer being drawn). It also shows the "Background saver: 144p" notification while a tab is lowered, and removes it when you return. |
-| `content.js` | The bridge to the extension's storage. It holds the default quality, the autoplay switches, the hide-chat, hide-top-bar, Cinema mode, tab-icons and saver settings (the resume rewind, rules and progress-bar switches too, all synced), and, on this device only: the saver's daily numbers (last 21 days), remembered videos (newest 1,000), resume spots (newest 1,000, each with its channel ID), the videos you chose not to save (newest 1,000), the channels you chose not to save (newest 2,000), channel defaults (newest 2,000) and the channels Cinema mode leaves normal (newest 2,000). It checks every message and throws away damaged entries. |
-| `popup.*` | The toolbar popup, with three pages (Quality, Playing, Saver), a sliding tab bar and swipe. It has every setting above (resume and progress-bar included), the channel defaults, remembered videos, the theme, and a fix for when YouTube access is switched off. |
+| `content.js` | The bridge to the extension's storage. It holds the default quality, the autoplay switches, the hide-chat, hide-top-bar, Cinema mode, tab-icons and saver settings (the resume rewind, rules and progress-bar switches too, all synced), and, on this device only: the saver's daily numbers (last 21 days), remembered videos (newest 1,000), resume spots (newest 1,000, each with its channel ID), the videos you chose not to save (newest 1,000), the channels you chose not to save (newest 2,000), channel defaults (newest 2,000), the channels Cinema mode leaves normal (newest 2,000), video speeds (newest 1,000), channel speeds (newest 2,000), and the speed learning (your last 4 videos and your No answers, for the newest 500 channels). The default speed and the speed rules are synced. It checks every message and throws away damaged entries. |
+| `popup.*` | The toolbar popup, with four pages (Quality, Speed, Playing, Saver), a sliding tab bar and swipe. It has every setting above (speed, resume and progress-bar included), the channel defaults and channel speeds, remembered videos, the theme, and a fix for when YouTube access is switched off. |
 
 `page.js` and `content.js` talk to each other through `window.postMessage`. There is no build step, no bundler and no libraries.
 </details>
@@ -539,7 +609,7 @@ The popup, the in-player menu and the autoplay button are **inspired by Material
 - **Progress-bar marks:** the pill uses the accent colour, the menu is a list with a header, and the flag label shows on hover. They follow the same motion rules as the rest.
 - **Moving shapes:** the autoplay button changes its shape (circle, cookie, rounded square) and has a wavy ring, like Material's wavy progress bar.
 - **Motion:** springy and smooth. It is switched off when your system's "reduce motion" setting is on.
-- **Popup layout:** it follows the autoplay menu: small group titles, joined glass rows with an icon at the start, a red row for every setting that is on, and a short note under each group, on three pages with a sliding tab bar. A channel's quality opens the same kind of frosted menu.
+- **Popup layout:** it follows the autoplay menu: small group titles, joined glass rows with an icon at the start, a red row for every setting that is on, and a short note under each group, on four pages with a sliding tab bar. A channel's quality opens the same kind of frosted menu.
 - **Glass look:** real frosted glass (`backdrop-filter`). In the player you can see the video through the quality menu, and on the page you can see the page through the autoplay menu. Browsers that cannot blur get plain solid surfaces.
 - **Theme:** the popup can be System, Light or Dark. The in-player menu is always dark, like YouTube's own controls. The autoplay button and its menu follow YouTube's light or dark theme.
 </details>
@@ -565,6 +635,8 @@ The tests run the scripts against a fake YouTube player and fake storage. They c
 - **Time left:** real time left at the current speed in the player (any speed, ads/live/small player hidden, survives YouTube rebuilding its clock) and in the tab only while away (rounding, hours, seconds, follows speed and seeking, clears on return), together with the saver's prefix and leaf icon, ⏱/⏸ switchable.
 - **Resume:** saves while playing and on pause / hide / navigate, jumps once per video, rewind (exact, 5 s, smart), no jump for links with a time, Shorts, short videos, live (unless included), ads or videos you chose not to save, never drifts back, last 30 seconds count as finished.
 - **Progress-bar marks:** button placement beside the clock, the menu and its five items, Start over, Don't save (video and channel: nothing saved, no jump, spots deleted, a slashed icon, a greyed row without a channel ID), Forget, the Back chip only after your own skip, each popup switch hiding its part, Shorts untouched.
+- **Playback speed:** the split pill and its menu, chips, slider, scroll, saving per video, YouTube's own controls counting, YouTube resetting the speed by itself being undone, press-and-hold 2× never saved, music at 1×, live back to 1× at live, both rules switchable, Shorts untouched.
+- **Speed learning:** only the speed watched longest and only after 2 minutes, quick tries and held 2× not counted, 3 of the last 4 videos, the chip with Keep (applies at once) and No (never again), changing a kept speed after 2 of the last 3, old data converted.
 - **Background saver:** off by default, the delay, lowest or 480p, the tab title and icon, the next playlist video staying low, picture-in-picture never lowered or counted, paused time not counted, daily estimates kept for 21 days.
 </details>
 

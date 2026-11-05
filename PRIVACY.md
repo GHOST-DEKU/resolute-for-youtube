@@ -1,10 +1,10 @@
 # Privacy Policy — Resolute for YouTube
 
-**Effective date:** 22 October 2026
+**Effective date:** 5 November 2026
 
 Resolute is available by manual installation in Chrome and is planned for Mozilla Add-ons (Firefox). This policy covers the extension's own behaviour in any browser.
 
-Resolute for YouTube ("the extension") lets you choose the video quality of YouTube videos from a button inside the YouTube player, and can optionally start videos paused, hide live chat, hide the top bar while a video plays, open videos in theater mode (Cinema mode) and lower quality in background tabs. This policy explains exactly what the extension stores and what it does not do.
+Resolute for YouTube ("the extension") lets you choose the video quality and the playback speed of YouTube videos from a button inside the YouTube player, and can optionally start videos paused, hide live chat, hide the top bar while a video plays, open videos in theater mode (Cinema mode) and lower quality in background tabs. This policy explains exactly what the extension stores and what it does not do.
 
 ## What the extension stores
 
@@ -22,6 +22,10 @@ Resolute for YouTube ("the extension") lets you choose the video quality of YouT
 | The saver's **daily estimate** of data saved (for example `2026-10-23 → 140 MB`) | Only while the background saver is on, after it has lowered a video | Your browser's local extension storage (`storage.local`), on this device only. It is never synced. Only the last 21 days are kept. It holds a date and a number, nothing about which videos you watched. |
 | Your **popup theme** (System, Light or Dark) | When you pick a theme in the toolbar popup | Your browser's extension storage (`storage.sync`), synced by your browser like the default quality. |
 | **Video IDs you choose to remember**, each with its quality (for example `dQw4w9WgXcQ → 480p`) | Only when you click **Remember for this video** | Your browser's local extension storage (`storage.local`), on this device only. It is never synced. At most the 1,000 most recent are kept. |
+| Your **default speed** (for example `1.5×`) and your two **speed rules** (music stays at 1×, live goes back to 1×: each on or off) | When you pick a default speed in the popup or click **Make … the default** in the Speed menu, or switch a rule in the popup | Your browser's extension storage (`storage.sync`), synced by your browser like the default quality. |
+| **Video speeds**: video IDs, each with its speed (for example `dQw4w9WgXcQ → 1.5×`) | When you pick a speed for a video (in the Speed menu, or with YouTube's own speed controls) | Your browser's local extension storage (`storage.local`), on this device only. It is never synced. At most the 1,000 most recent are kept. |
+| **Channel speeds**: the channel ID, its display name, and the chosen speed | Only when you choose **Use … for this channel**, tap **Keep** or **Change** on the speed chip (or edit the list in the popup) | Your browser's local extension storage (`storage.local`), on this device only. It is never synced. The name is kept only so the list in the popup is readable. At most 2,000 channels are kept. |
+| **Speed learning**: for each channel, its ID and display name, your last 4 videos of it (video ID and the one speed you watched it at longest), and the speeds you said **No** to | Automatically, after you watch a video for 2 minutes at one speed, so Resolute can offer to keep a speed for the channel. Shorts and music held at 1× are never counted | Your browser's local extension storage (`storage.local`), on this device only. It is never synced. Only the last 4 videos per channel and the newest 500 channels are kept. You can see this list on the popup's **Speed** page. |
 | Your **resume settings** (rewind amount, and which videos count as progress) | When you change them in the toolbar popup | Your browser's extension storage (`storage.sync`), synced by your browser like the default quality. |
 | Your **progress bar extras** settings (flag, back chip, watched fill, button: each on or off) | When you change them in the toolbar popup | Your browser's extension storage (`storage.sync`), synced by your browser like the default quality. |
 | **Channels you chose not to save**: the channel ID and its display name | Only when you choose **Don't save this channel** in the button's menu (or edit the list in the popup) | Your browser's local extension storage (`storage.local`), on this device only. It is never synced. The name is kept only so the list in the popup is readable. At most 2,000 channels are kept. |
@@ -31,7 +35,7 @@ Resolute for YouTube ("the extension") lets you choose the video quality of YouT
 
 While the background saver is on, the extension checks whether the YouTube tab is visible and whether its video is in picture-in-picture, and changes that tab's title and icon while it has lowered the quality. It restores both when you return.
 
-The extension reads the ID of the video currently playing, the ID and name of its channel, and the list of qualities the YouTube player offers for it, so that it can apply your choice. It uses these only on your device, at that moment, and does not keep them unless you click **Remember for this video** or **Set as default for this channel**. The one exception is the spot where you stopped watching, described above.
+The extension reads the ID of the video currently playing, the ID and name of its channel, and the list of qualities the YouTube player offers for it, so that it can apply your choice. It uses these only on your device, at that moment, and does not keep them unless you click **Remember for this video** or **Set as default for this channel**. The exceptions are the spot where you stopped watching and the speed learning, both described above.
 
 ## What the extension does not do
 

@@ -2881,7 +2881,9 @@ html[yqx-cin] #page-manager.ytd-app{margin-top:0!important}
 .yqs-offer{display:flex;align-items:center;gap:6px;margin-top:8px;padding:5px 5px 5px 12px;border-radius:18px;
   background:var(--yqx-tertiary-container);color:var(--yqx-on-tertiary-container);font-size:12px;line-height:1.3;animation:yqx-swap .45s var(--yqx-spring)}
 .yqs-offer[hidden]{display:none}
-.yqs-offer-text{flex:1}
+#movie_player .yqx-menu.yqs-menu{width:360px}
+#movie_player.ytp-big-mode .yqx-menu.yqs-menu{width:400px}
+.yqs-offer-text{flex:1;min-width:0;white-space:normal}
 .yqs-offer .yqx-item{flex:none;height:30px;padding:0 12px;border-radius:15px;font-weight:500;color:inherit}
 .yqs-offer .yqs-keep{background:var(--yqx-tertiary);color:#3f2e04}
 .yqs-offer .yqs-keep:hover{background:color-mix(in srgb,#fff 14%,var(--yqx-tertiary))}

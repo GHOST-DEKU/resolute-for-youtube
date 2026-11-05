@@ -33,6 +33,8 @@
   <a href="PRIVACY.md">Privacy</a>
 </p>
 
+> **🆕 New in 1.4:** a **speed button** in the player (the left half of the quality pill), speeds remembered for each video and each channel, a smart helper that notices the speed you like for a channel and asks once, and a new **Speed** page in the popup. [See how it works](#speed).
+
 ---
 
 ## ✨ What you get
@@ -428,8 +430,8 @@ The popup card also shows about how much data you saved **this week (Sunday to S
 ## 🗂️ The toolbar popup
 
 <p align="center">
-  <img src="docs/popup.png" alt="The Resolute popup's three pages, Quality, Playing and Saver, in dark (top) and light (bottom) themes" width="100%"><br>
-  <sub>The real popup's pages in dark (top) and light (bottom), rendered from the extension's code. The channels and counts are example data. This picture was taken before the resume settings and the Speed page were added, so see the pictures below for those.</sub>
+  <img src="docs/popup.png" alt="The Resolute popup's four pages, Quality, Speed, Playing and Saver, in dark (top) and light (bottom) themes" width="100%"><br>
+  <sub>The real popup's four pages in dark (top) and light (bottom), rendered from the extension's code. The channels and counts are example data. The pictures below show the Speed page and the resume settings further down.</sub>
 </p>
 
 <p align="center">
@@ -489,7 +491,7 @@ Safari and phone browsers are not supported.
 
 1. Open the [Resolute page on Mozilla Add-ons](https://addons.mozilla.org/en-US/firefox/addon/resolute-video-quality-control/) in Firefox.
 2. Click **Add to Firefox**, then **Add** in the box that appears.
-3. Open any YouTube video. The quality button is in the player, next to the gear.
+3. Open any YouTube video. The speed and quality pill is in the player, next to the gear.
 
 It updates by itself. If the button does not appear, open `about:addons`, click **Resolute**, go to **Permissions**, and allow YouTube.
 
@@ -502,7 +504,7 @@ Resolute is not on the Chrome Web Store, so you add it from a folder on your com
 3. Open `chrome://extensions` (Edge: `edge://extensions`, Brave: `brave://extensions`).
 4. Turn on **Developer mode** (top right).
 5. Click **Load unpacked** and choose the folder that **contains `manifest.json`**. Inside the unzipped folder there may be one more folder with the same name: open it until you can see `manifest.json`, then select that.
-6. Open a YouTube video. The quality button is in the player, next to the gear.
+6. Open a YouTube video. The speed and quality pill is in the player, next to the gear.
 
 To make the button easy to reach, click the puzzle-piece icon in the toolbar and pin **Resolute**.
 
@@ -525,7 +527,7 @@ Firefox removes it when you close it, so load it again next time.
 | What you see | What it means |
 |:---|:---|
 | "manifest.json was not found" | You picked a folder or ZIP with another folder inside it. Pick the one that shows `manifest.json` straight away. |
-| No quality button on YouTube | Refresh the YouTube tab. Then check that Resolute is allowed on YouTube (Firefox: `about:addons` → Resolute → Permissions). |
+| No speed and quality pill on YouTube | Refresh the YouTube tab. Then check that Resolute is allowed on YouTube (Firefox: `about:addons` → Resolute → Permissions). |
 | Button is there but the popup shows a warning | Click **Allow on YouTube** in the popup. |
 | It stopped after a browser update (Chrome) | Open `chrome://extensions` and make sure Resolute is still switched on. |
 
@@ -555,7 +557,7 @@ It reads the channel's permanent ID (it starts with `UC`) from YouTube's own pla
 <details>
 <summary><b>What if YouTube changes how its page looks?</b></summary>
 
-Your videos will still play normally. If YouTube moves its controls, the quality button becomes a small floating button above the progress bar. If YouTube changes its top bar, the autoplay button may not show, but the switch in the popup still works. If YouTube changes its chat, the chat just stays open. If YouTube changes its theater button, Cinema mode simply does not turn theater on. Nothing else is affected.
+Your videos will still play normally. If YouTube moves its controls, the quality button becomes a small floating button above the progress bar (the speed half hides then, and YouTube's own speed menu still works). If YouTube changes its top bar, the autoplay button may not show, but the switch in the popup still works. If YouTube changes its chat, the chat just stays open. If YouTube changes its theater button, Cinema mode simply does not turn theater on. Nothing else is affected.
 </details>
 
 <details>

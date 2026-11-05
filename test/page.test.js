@@ -1002,7 +1002,7 @@ const open = () => document.querySelector('#yqx-button').dispatchEvent(new windo
     sbtn().click(); await wait(5);
     assert.ok(document.querySelector('.yqs-offer').hidden, 'two videos: no offer yet');
     chip(1.5).click(); await wait(10);
-    assert.strictEqual(sentOf('speedPick').filter((m) => m.channelId === CH_A && m.rate === 1.5).length, 3, 'learns from three videos');
+    assert.strictEqual(sentOf('speedPick').filter((m) => m.channelId === CH_A && m.rate === 1.5 && m.name === 'Alpha').length, 3, 'learns from three videos, with the channel name');
     assert.ok(!document.querySelector('.yqs-offer').hidden && /1\.5× on 3 videos here\. Keep it for Alpha\?/.test(document.querySelector('.yqs-offer').textContent), 'then asks to keep it for the channel');
     document.querySelector('.yqs-keep').click(); await wait(10);
     assert.ok(sentOf('speedCh').some((m) => m.channelId === CH_A && m.value === 1.5 && m.name === 'Alpha'), 'Keep saves the channel speed');
@@ -1022,6 +1022,13 @@ const open = () => document.querySelector('#yqx-button').dispatchEvent(new windo
     assert.strictEqual(rate, 1.5, 'still behind live');
     cur = 195; videoEl.dispatchEvent(new window.Event('timeupdate')); await wait(10);
     assert.strictEqual(rate, 1, 'caught up to live: back to 1×');
+    // both rules can be switched off in the popup
+    toPage('speedRules', { music: false, live: false }); await wait(10);
+    await open('sp5');
+    assert.strictEqual(rate, 1.5, 'music rule off: music follows the channel speed');
+    await open('sp6'); cur = 199; videoEl.dispatchEvent(new window.Event('timeupdate')); await wait(10);
+    assert.strictEqual(rate, 1.5, 'live rule off: live keeps the speed at live');
+    toPage('speedRules', { music: true, live: true }); await wait(10);
     live = false; seekEnd = 0; cur = 30;
     window.history.pushState({}, '', '/shorts/sp7'); rate = 1; await open('sp7');
     assert.strictEqual(rate, 1, 'Shorts: never changed');

@@ -391,21 +391,39 @@ dialog .actions { display: flex; justify-content: flex-end; gap: 8px; }
 @keyframes dialog-in { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: none; } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 
-/* ---------- three pages: Quality, Playing, Saver ---------- */
-.tabs { position: relative; flex: none; display: grid; grid-template-columns: repeat(3, 1fr); margin: 2px 0 4px; padding: 4px; border-radius: var(--r-full);
+/* ---------- four pages: Quality, Speed, Playing, Saver ---------- */
+.tabs { position: relative; flex: none; display: grid; grid-template-columns: repeat(4, 1fr); margin: 2px 0 4px; padding: 4px; border-radius: var(--r-full);
   background: var(--panel); border: 1px solid var(--panel-edge); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
-.tabs .ind { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 3); border-radius: var(--r-full); background: var(--sel);
+.tabs .ind { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 4); border-radius: var(--r-full); background: var(--sel);
   transform: translateX(calc(var(--page, 0) * 100%)); transition: transform 0.6s cubic-bezier(0.32, 0.72, 0, 1); }
 .tabs button { position: relative; height: 36px; border: 0; border-radius: var(--r-full); background: transparent; color: var(--on-surface-variant);
   font: 500 13px/1 "Google Sans", Roboto, system-ui, sans-serif; cursor: pointer; transition: color var(--t-effect) var(--ease-effects); }
 .tabs button[aria-selected="true"] { color: var(--on-primary-container); }
 .tabs button:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 .viewport { flex: 1; min-height: 0; margin: 0 -8px; overflow: hidden; }
-.trk { display: flex; width: 300%; height: 100%; transform: translateX(calc(var(--page, 0) * -33.3333%)); transition: transform 0.65s cubic-bezier(0.32, 0.72, 0, 1); }
+.trk { display: flex; width: 400%; height: 100%; transform: translateX(calc(var(--page, 0) * -25%)); transition: transform 0.65s cubic-bezier(0.32, 0.72, 0, 1); }
 .trk.drag { transition: none; }
-.pg { width: 33.3333%; height: 100%; overflow-y: auto; overflow-x: hidden; padding: 0 8px 14px; display: flex; flex-direction: column; gap: 4px;
+.pg { width: 25%; height: 100%; overflow-y: auto; overflow-x: hidden; padding: 0 8px 14px; display: flex; flex-direction: column; gap: 4px;
   scrollbar-width: thin; scrollbar-color: var(--outline-variant) transparent; }
 .pg > .group { flex: none; }
+
+/* ---------- speed page ---------- */
+.chips .choice > .face { font-variant-numeric: tabular-nums; }
+.sp-means { margin: 0 4px; font-variant-numeric: tabular-nums; }
+/* a long channel list folds under its row; the chevron turns to show which way */
+.fold { display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--t-med) var(--spring), margin var(--t-med) var(--spring), opacity var(--t-effect) var(--ease-effects); }
+.fold.shut { grid-template-rows: 0fr; margin-top: -2px; opacity: 0; }
+.fold > .channel-list { min-height: 0; max-height: none; overflow: hidden; }
+.fold-btn svg { transition: transform var(--t-fast) var(--spring-fast); }
+.fold-btn[aria-expanded="true"] svg { transform: rotate(180deg); }
+.foldable { cursor: pointer; }
+.foldable:hover { background: color-mix(in srgb, var(--on-surface) 6%, var(--item)); }
+.rows:has(> .fold.shut:last-child) > .row:nth-last-child(2), .rows > .row:has(+ .channel-list:empty:last-child) { border-bottom-left-radius: 18px; border-bottom-right-radius: 18px; }
+.dots { display: inline-flex; gap: 3px; flex: none; }
+.dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--outline-variant); transition: background-color var(--t-effect) var(--ease-effects); }
+.dots i.on { background: var(--tertiary); }
+.lr { flex: none; font-weight: 500; font-size: 12.5px; color: var(--on-surface-variant); padding-right: 8px; font-variant-numeric: tabular-nums; }
+.said-no .lr { font-weight: 400; padding-right: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .tabs .ind, .trk { transition-duration: 0.01s; }

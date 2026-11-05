@@ -427,12 +427,12 @@
     setTimeout(() => { if (!qmFor) qm.hidden = true; }, 250); // after the closing motion
     if (refocus) btn.focus();
   }
-  function openQm(btn, current, label, onPick) {
+  function openQm(btn, current, label, onPick, choices = OPTIONS) {
     if (qmFor && qmFor.btn === btn) return closeQm(true);
     closeQm(false);
     qmFor = { btn, onPick };
     qm.setAttribute('aria-label', label);
-    qm.replaceChildren(...OPTIONS.map(([q, text]) => {
+    qm.replaceChildren(...choices.map(([q, text]) => {
       const o = document.createElement('div');
       o.className = 'qopt';
       o.setAttribute('role', 'option');
@@ -676,9 +676,252 @@
     }
   });
 
+  // ---------- playback speed: default, channel speeds, remembered videos, learning, rules ----------
+  const SP_DEF = 'speedDefault', SP_VIDS = 'speedVideos', SP_CHS = 'speedChannels', SP_PICKS = 'speedPicks', SP_RULES = 'speedRules';
+  const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
+  const LEARN_AT = 3, SHORT_LIST = 3;
+  const fmtRate = (r) => `${+r.toFixed(2)}×`;
+  const cleanRate = (r) => (typeof r === 'number' && r >= 0.25 - 1e-9 && r <= 3 + 1e-9 ? Math.round(r * 20) / 20 : null);
+  const mmss = (secs) => { const t = Math.round(secs), h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), x = String(t % 60).padStart(2, '0');
+    return h ? `${h}:${String(m).padStart(2, '0')}:${x}` : `${m}:${x}`; };
+  const avatarOf = (name) => { const a = document.createElement('span'); a.className = 'avatar'; a.setAttribute('aria-hidden', 'true');
+    a.textContent = (name || '?').trim().charAt(0).toUpperCase() || '?'; return a; };
+  const channelLink = (id, name) => { const l = document.createElement('a'); l.href = `https://www.youtube.com/channel/${id}`; l.target = '_blank';
+    l.rel = 'noopener noreferrer'; l.textContent = name; l.title = `${name} (${id})`; return l; };
+
+  // default speed: the same chips as the quality default, with what it means for a 20-minute video
+  const spBox = $('sp-options');
+  let spDef = 1;
+  for (const r of SPEEDS) {
+    const choice = document.createElement('label');
+    choice.className = 'choice';
+    const input = document.createElement('input');
+    input.type = 'radio'; input.name = 'speed'; input.value = String(r);
+    input.setAttribute('aria-label', r === 1 ? '1× (normal)' : fmtRate(r));
+    const face = document.createElement('span');
+    face.className = 'face';
+    const tick = document.createElement('span');
+    tick.className = 'tick';
+    tick.append(svg(CHECK));
+    face.append(tick, document.createTextNode(fmtRate(r)));
+    choice.append(input, face);
+    $('sp-chips').append(choice);
+  }
+  function showSpDef(v) {
+    spDef = cleanRate(v) || 1;
+    for (const i of spBox.querySelectorAll('input[name="speed"]')) i.checked = Math.abs(Number(i.value) - spDef) < 0.001; // a slider speed like 1.35× checks no chip
+    const means = $('sp-means');
+    means.replaceChildren();
+    const b = document.createElement('b');
+    b.textContent = mmss(1200 / spDef);
+    if (spDef === 1) means.append('Normal speed. A 20-minute video takes ', b, '.');
+    else means.append('A 20-minute video takes ', b, ` at ${fmtRate(spDef)} (${spDef > 1 ? 'saves' : 'adds'} ${mmss(Math.abs(1200 - 1200 / spDef))}).`);
+  }
+  api.storage.sync.get(SP_DEF).then((r) => showSpDef(r[SP_DEF])).catch(() => showSpDef(1));
+  spBox.addEventListener('change', async (e) => {
+    if (e.target.name !== 'speed') return;
+    const r = Number(e.target.value);
+    try {
+      await api.storage.sync.set({ [SP_DEF]: r });
+      showSpDef(r);
+      flash(r === 1 ? 'Default speed: normal (1×)' : `Default speed: ${fmtRate(r)}`);
+    } catch {
+      showSpDef(spDef); // show what is really saved
+      flash('Could not save. Please try again.');
+    }
+  });
+
+  // channel speeds: a list like the channel defaults, folded under its row once it is longer than 3
+  const spcList = $('spc-list'), spcWrap = $('spc-wrap'), spcFold = $('spc-fold'), spcRow = $('spc-row'), spcClear = $('spc-clear');
+  let spChs = {};
+  let spcOpen = false; // folded by default when long
+  let spcShown = '';
+  const saveSpChs = () => api.storage.local.set({ [SP_CHS]: spChs });
+  const SPEED_CHOICES = SPEEDS.map((r) => [r, r === 1 ? '1× (normal)' : fmtRate(r)]);
+  function labelSpPick(btn, name, r) {
+    btn.textContent = fmtRate(r);
+    btn.setAttribute('aria-label', `Speed for ${name}: ${fmtRate(r)}`);
+  }
+  function showSpFold() {
+    const n = Object.keys(spChs).length;
+    const long = n > SHORT_LIST;
+    const open = !long || spcOpen;
+    spcFold.hidden = !long;
+    spcRow.classList.toggle('foldable', long);
+    spcFold.setAttribute('aria-expanded', String(open));
+    spcFold.setAttribute('aria-label', open ? 'Fold the channel list' : `Show all ${n} channels`);
+    spcFold.title = open ? 'Fold' : 'Show all';
+    spcWrap.classList.toggle('shut', !open);
+    spcList.inert = !open; // folded rows can't be reached by Tab
+  }
+  function showSpChs(map) {
+    spChs = {};
+    if (map && typeof map === 'object') for (const [id, v] of Object.entries(map)) if (CHANNEL_ID.test(id) && v && cleanRate(v.r)) spChs[id] = { r: cleanRate(v.r), name: typeof v.name === 'string' ? v.name : '' };
+    const ids = Object.keys(spChs).sort((a, b) => (spChs[a].name || a).localeCompare(spChs[b].name || b, undefined, { sensitivity: 'base' }));
+    $('spc-empty').hidden = ids.length > 0;
+    spcClear.hidden = ids.length === 0;
+    $('spc-count').textContent = ids.length ? `${ids.length} channel${ids.length === 1 ? '' : 's'} saved` : 'Beat the default speed';
+    showSpFold();
+    if (ids.join() === spcShown) { // same channels: just update values (keeps keyboard focus)
+      for (const id of ids) labelSpPick(spcList.querySelector(`.pick[data-id="${id}"]`), spChs[id].name || id, spChs[id].r);
+      return;
+    }
+    spcShown = ids.join();
+    spcList.replaceChildren(...ids.map((id) => {
+      const name = spChs[id].name || id;
+      const li = document.createElement('li');
+      li.className = 'channel';
+      const pick = document.createElement('button');
+      pick.type = 'button';
+      pick.className = 'pick';
+      pick.dataset.id = id;
+      pick.setAttribute('aria-haspopup', 'listbox');
+      pick.setAttribute('aria-expanded', 'false');
+      labelSpPick(pick, name, spChs[id].r);
+      const open = () => openQm(pick, spChs[id].r, `Speed for ${name}`, (r) => {
+        if (r === spChs[id].r) return;
+        spChs[id] = { ...spChs[id], r };
+        labelSpPick(pick, name, r);
+        saveSpChs().then(() => flash(`${name}: ${fmtRate(r)}`)).catch(() => flash('Could not save. Please try again.'));
+      }, SPEED_CHOICES);
+      pick.addEventListener('click', open);
+      pick.addEventListener('keydown', (e) => { if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); open(); } });
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'icon-btn remove';
+      remove.append(svg(CLOSE));
+      remove.setAttribute('aria-label', `Remove speed for ${name}`);
+      remove.title = 'Remove';
+      remove.addEventListener('click', () => {
+        const next = li.nextElementSibling || li.previousElementSibling;
+        delete spChs[id];
+        saveSpChs().then(() => {
+          flash(`Removed ${name}`);
+          ((next && next.querySelector('.pick')) || spBox.querySelector('input:checked') || spcRow).focus(); // keep keyboard users in place
+        }).catch(() => flash('Could not remove. Please try again.'));
+      });
+      li.append(avatarOf(spChs[id].name), channelLink(id, name), pick, remove);
+      return li;
+    }));
+  }
+  api.storage.local.get(SP_CHS).then((r) => showSpChs(r[SP_CHS])).catch(() => showSpChs({}));
+  const toggleSpFold = () => { spcOpen = !spcOpen; showSpFold(); };
+  spcFold.addEventListener('click', (e) => { e.stopPropagation(); toggleSpFold(); });
+  spcRow.addEventListener('click', (e) => { if (!spcFold.hidden && !e.target.closest('button')) toggleSpFold(); }); // the whole row folds, Remove all stays a button
+  spcClear.addEventListener('click', async () => {
+    const n = Object.keys(spChs).length;
+    const ok = await confirmAction(`Remove all ${n} channel speed${n === 1 ? '' : 's'}?`,
+      'Videos from these channels will use your default speed again.', 'Remove all');
+    if (!ok) return spcClear.focus();
+    spChs = {};
+    saveSpChs().then(() => flash('All channel speeds removed')).catch(() => flash('Could not remove. Please try again.'));
+  });
+
+  // remembered video speeds: just a count and Forget all
+  let spVidCount = 0;
+  function showSpVids(map) {
+    spVidCount = Object.values(map && typeof map === 'object' ? map : {}).filter((r) => cleanRate(r)).length;
+    $('spv-count').textContent = spVidCount ? `${spVidCount} video${spVidCount === 1 ? '' : 's'} remembered` : 'No videos remembered';
+    $('spv-clear').hidden = spVidCount === 0;
+  }
+  api.storage.local.get(SP_VIDS).then((r) => showSpVids(r[SP_VIDS])).catch(() => showSpVids({}));
+  $('spv-clear').addEventListener('click', async () => {
+    const ok = await confirmAction(`Forget ${spVidCount} video speed${spVidCount === 1 ? '' : 's'}?`,
+      'These videos will use their channel speed or your default again.', 'Forget all');
+    if (!ok) return $('spv-clear').focus();
+    try {
+      await api.storage.local.set({ [SP_VIDS]: {} });
+      flash('Video speeds forgotten');
+    } catch {
+      flash('Could not clear. Please try again.');
+    }
+  });
+
+  // learning: dots toward 3 videos per channel and speed, and the offers you said No to (with Undo)
+  let spPicks = {};
+  function showSpLearn(map) {
+    spPicks = map && typeof map === 'object' ? map : {};
+    const rows = [];
+    for (const [id, m] of Object.entries(spPicks)) {
+      if (!CHANNEL_ID.test(id) || !m || typeof m !== 'object') continue;
+      const name = (typeof m.n === 'string' && m.n) || 'A channel';
+      for (const [k, v] of Object.entries(m)) {
+        const r = cleanRate(Number(k));
+        if (r === null || (v !== 'no' && !Array.isArray(v)) || (Array.isArray(v) && !v.length)) continue;
+        if (spChs[id] && spChs[id].r === r) continue; // already kept for the channel
+        rows.push({ id, name, r, no: v === 'no', n: Array.isArray(v) ? Math.min(LEARN_AT, v.length) : 0 });
+      }
+    }
+    rows.sort((a, b) => a.no - b.no || b.n - a.n || a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+    const learning = rows.filter((x) => !x.no).length;
+    const noes = rows.length - learning;
+    $('spl-hint').textContent = !rows.length ? 'Same speed on 3 videos of a channel and the player asks to keep it'
+      : [learning && `${learning} speed${learning === 1 ? '' : 's'} on the way`, noes && `${noes} turned down`].filter(Boolean).join(' · ');
+    $('spl-list').replaceChildren(...rows.map((x) => {
+      const li = document.createElement('li');
+      li.className = x.no ? 'channel said-no' : 'channel';
+      const lab = document.createElement('span');
+      lab.className = 'lr';
+      if (x.no) {
+        lab.textContent = `You said No to ${fmtRate(x.r)}`;
+        const undo = document.createElement('button');
+        undo.type = 'button';
+        undo.className = 'btn text';
+        undo.textContent = 'Undo';
+        undo.setAttribute('aria-label', `Let ${x.name} offer ${fmtRate(x.r)} again`);
+        undo.addEventListener('click', async () => {
+          const m = { ...spPicks[x.id] };
+          delete m[String(x.r)];
+          const all = { ...spPicks };
+          if (Object.keys(m).some((k) => k !== 'n')) all[x.id] = m; else delete all[x.id];
+          try {
+            await api.storage.local.set({ [SP_PICKS]: all });
+            flash(`${x.name} can offer ${fmtRate(x.r)} again`);
+          } catch {
+            flash('Could not save. Please try again.');
+          }
+        });
+        li.append(avatarOf(x.name), channelLink(x.id, x.name), lab, undo);
+      } else {
+        const dots = document.createElement('span');
+        dots.className = 'dots';
+        dots.setAttribute('role', 'img');
+        dots.setAttribute('aria-label', x.n >= LEARN_AT ? `${fmtRate(x.r)} on ${LEARN_AT} videos: the player asks next time` : `${fmtRate(x.r)} on ${x.n} of ${LEARN_AT} videos`);
+        for (let i = 0; i < LEARN_AT; i++) { const d = document.createElement('i'); if (i < x.n) d.className = 'on'; dots.append(d); }
+        if (x.n >= LEARN_AT) li.title = 'The player asks next time you watch this channel';
+        lab.textContent = fmtRate(x.r);
+        li.append(avatarOf(x.name), channelLink(x.id, x.name), dots, lab);
+      }
+      return li;
+    }));
+  }
+  api.storage.local.get([SP_PICKS, SP_CHS]).then((r) => { showSpChs(r[SP_CHS]); showSpLearn(r[SP_PICKS]); }).catch(() => showSpLearn({}));
+
+  // rules: music and live can be switched off; Shorts stay locked
+  const srSwitch = { music: $('sr-music'), live: $('sr-live') };
+  let spRules = { music: true, live: true };
+  function showSpRules(v) {
+    spRules = { music: !(v && v.music === false), live: !(v && v.live === false) };
+    for (const k of ['music', 'live']) srSwitch[k].checked = spRules[k];
+  }
+  api.storage.sync.get(SP_RULES).then((r) => showSpRules(r[SP_RULES])).catch(() => showSpRules(null));
+  for (const k of ['music', 'live']) {
+    srSwitch[k].addEventListener('change', async () => {
+      const on = srSwitch[k].checked;
+      try {
+        await api.storage.sync.set({ [SP_RULES]: { ...spRules, [k]: on } });
+        spRules[k] = on;
+        flash(k === 'music' ? (on ? 'Music stays at 1×' : 'Music uses your speeds too') : (on ? 'Live goes back to 1× at live' : 'Live keeps your speed'));
+      } catch {
+        srSwitch[k].checked = !on; // show the setting that is really saved
+        flash('Could not save. Please try again.');
+      }
+    });
+  }
+
   checkAccess();
 
-  // ---------- three pages: tabs, swipe, arrow keys ----------
+  // ---------- four pages: tabs, swipe, arrow keys ----------
   const tabs = [...document.querySelectorAll('#tabs [role=tab]')];
   const panels = tabs.map((t) => $(t.getAttribute('aria-controls')));
   const viewport = document.querySelector('.viewport');
@@ -743,5 +986,10 @@
     if (area === 'sync' && changes[THEME]) applyTheme(changes[THEME].newValue);
     if (area === 'local' && changes[OVERRIDES]) showMemory(changes[OVERRIDES].newValue);
     if (area === 'local' && changes[CHANNELS]) showChannels(changes[CHANNELS].newValue);
+    if (area === 'sync' && changes[SP_DEF]) showSpDef(changes[SP_DEF].newValue);
+    if (area === 'sync' && changes[SP_RULES]) showSpRules(changes[SP_RULES].newValue);
+    if (area === 'local' && changes[SP_VIDS]) showSpVids(changes[SP_VIDS].newValue);
+    if (area === 'local' && changes[SP_CHS]) { showSpChs(changes[SP_CHS].newValue); showSpLearn(spPicks); }
+    if (area === 'local' && changes[SP_PICKS]) showSpLearn(changes[SP_PICKS].newValue);
   });
 })();

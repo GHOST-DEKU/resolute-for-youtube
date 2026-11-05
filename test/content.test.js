@@ -25,7 +25,7 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
 
 (async () => {
   await tick();
-  assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides', 'channels', 'autoplay', 'saver', 'chat', 'topbar', 'tabicons', 'cinemaSkip', 'cinema', 'spots', 'resumeRewind', 'resumeRules', 'resumeBar', 'spotsOff', 'chOff', 'speedDefault', 'speedVideos', 'speedChannels', 'speedPicks', 'tabActive'], 'sends default, remembered videos, channel defaults, autoplay, saver, chat, top bar, tab icons, cinema, resume and speed settings');
+  assert.deepStrictEqual(posted.map((m) => m.type), ['pref', 'overrides', 'channels', 'autoplay', 'saver', 'chat', 'topbar', 'tabicons', 'cinemaSkip', 'cinema', 'spots', 'resumeRewind', 'resumeRules', 'resumeBar', 'spotsOff', 'chOff', 'speedDefault', 'speedVideos', 'speedChannels', 'speedPicks', 'speedRules', 'tabActive'], 'sends default, remembered videos, channel defaults, autoplay, saver, chat, top bar, tab icons, cinema, resume and speed settings');
   assert.strictEqual(posted[16].value, 1, 'speed is normal (1×) by default');
   assert.strictEqual(JSON.stringify(posted.slice(17, 20).map((m) => m.value)), '[{},{},{}]', 'no saved speeds by default');
   assert.strictEqual(posted[7].value, true, 'tab countdown icons are on by default');
@@ -35,7 +35,8 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
   assert.strictEqual(posted[0].value, 'hd1080');
   assert.strictEqual(JSON.stringify(posted[8].value), '{}', 'no channels left out by default');
   assert.strictEqual(posted[9].value, false, 'cinema mode is off by default');
-  assert.strictEqual(posted[20].value, false, 'tells the page whether its tab is selected');
+  assert.strictEqual(posted[21].value, false, 'tells the page whether its tab is selected');
+  assert.strictEqual(JSON.stringify(posted[20].value), '{"music":true,"live":true}', 'both speed rules are on by default');
   assert.strictEqual(JSON.stringify(posted[15].value), '{}', 'no channels switched off by default');
   assert.strictEqual(JSON.stringify(posted[13].value), '{"flag":true,"back":true,"ghost":true,"button":true}', 'every bar extra is on by default');
   assert.strictEqual(JSON.stringify(posted[14].value), '{}', 'no videos left out by default');
@@ -217,7 +218,8 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
   assert.deepStrictEqual(store.local.speedChannels, { [UCa]: { r: 2, name: 'Alpha' } }, 'saves a channel speed');
   await fromPage({ type: 'speedCh', channelId: UCa, value: null });
   assert.deepStrictEqual(store.local.speedChannels, {}, 'removes a channel speed');
-  for (const v of ['a1a1a1a1a1a', 'a2a2a2a2a2a', 'a2a2a2a2a2a', 'a3a3a3a3a3a', 'a4a4a4a4a4a']) await fromPage({ type: 'speedPick', channelId: UCa, rate: 1.75, videoId: v });
+  for (const v of ['a1a1a1a1a1a', 'a2a2a2a2a2a', 'a2a2a2a2a2a', 'a3a3a3a3a3a', 'a4a4a4a4a4a']) await fromPage({ type: 'speedPick', channelId: UCa, rate: 1.75, videoId: v, name: '  Alpha ' });
+  assert.strictEqual(store.local.speedPicks[UCa].n, 'Alpha', 'keeps the channel name for the popup');
   assert.deepStrictEqual(store.local.speedPicks[UCa]['1.75'], ['a2a2a2a2a2a', 'a3a3a3a3a3a', 'a4a4a4a4a4a'], 'learns up to 3 different videos per speed');
   await fromPage({ type: 'speedNo', channelId: UCa, rate: 1.75 });
   await fromPage({ type: 'speedPick', channelId: UCa, rate: 1.75, videoId: 'a5a5a5a5a5a' });
@@ -227,7 +229,8 @@ const tick = () => new Promise((r) => setTimeout(r, 10));
   posted.length = 0;
   changeListener({ speedVideos: { newValue: { good1234567: 2, bad: 2, worse123456: 7 } }, speedPicks: { newValue: { [UCb]: { '1.5': ['good1234567', 'bad!'], x: [] }, junk: {} } } }, 'local');
   changeListener({ speedDefault: { newValue: 'nope' } }, 'sync');
-  assert.strictEqual(JSON.stringify(posted.map((m) => [m.type, m.value])), JSON.stringify([['speedVideos', { good1234567: 2 }], ['speedPicks', { [UCb]: { '1.5': ['good1234567'] } }], ['speedDefault', 1]]), 'only well-formed speeds reach the page');
+  changeListener({ speedRules: { newValue: { music: false, live: 'no' } } }, 'sync');
+  assert.strictEqual(JSON.stringify(posted.map((m) => [m.type, m.value])), JSON.stringify([['speedVideos', { good1234567: 2 }], ['speedPicks', { [UCb]: { '1.5': ['good1234567'] } }], ['speedDefault', 1], ['speedRules', { music: false, live: true }]]), 'only well-formed speeds reach the page; a rule is off only when exactly false');
 
   console.log('All checks passed');
 })().catch((e) => { console.error(e); process.exit(1); });

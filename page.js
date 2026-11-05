@@ -509,6 +509,7 @@
   let spChs = {};    // { UCchannelId: { r, name } }
   let spPicks = {};  // { UCchannelId: { "1.75": [videoIds] | "no" } } what the channel offer learns from
   const spGot = new Set(); // which of the four stores have arrived
+  let spRules = { music: true, live: true }; // popup switches
   const sp = {
     btn: null, pill: null, menu: null, now: null, chan: null, offer: null, live: null, fine: null, out: null,
     chips: new Map(), rows: {}, open: false, keepAlive: 0, flashTimer: 0, saveTimer: 0, tipText: '',
@@ -534,7 +535,7 @@
   function spChoice(c, skipVideo) {
     const ch = channelFor(c.p, c.vid);
     if (!skipVideo && spVids[c.vid] != null) return { r: spVids[c.vid], from: 'video', ch };
-    if (isMusic(c.p, c.vid)) return { r: 1, from: 'music', ch };
+    if (spRules.music && isMusic(c.p, c.vid)) return { r: 1, from: 'music', ch };
     if (ch && spChs[ch.id]) return { r: spChs[ch.id].r, from: 'channel', ch };
     return { r: spDef, from: 'default', ch };
   }
@@ -582,7 +583,8 @@
     const ids = Array.isArray(m[k]) ? m[k] : [];
     if (ids.includes(c.vid)) return;
     m[k] = [...ids, c.vid].slice(-LEARN_AT);
-    postToExt({ type: 'speedPick', channelId: ch.id, rate: r, videoId: c.vid });
+    if (ch.name) m.n = ch.name; // the popup's Learning list shows it
+    postToExt({ type: 'speedPick', channelId: ch.id, rate: r, videoId: c.vid, name: ch.name });
   }
   /** A speed picked on 3 videos of this channel, not yet kept or refused. */
   function spOffer(ch) {
@@ -621,7 +623,7 @@
   }
   function spLiveCheck() {
     const c = spCtx();
-    if (!c || sp.liveDone || !(c.v.playbackRate > 1)) return;
+    if (!c || !spRules.live || sp.liveDone || !(c.v.playbackRate > 1)) return;
     const d = call(c.p, 'getVideoData');
     if (!d || !d.isLive) return;
     const s = c.v.seekable;
@@ -921,6 +923,11 @@
   /** Saved speeds from the extension; true when the message was one of them. */
   function spMessage(msg) {
     const v = msg.value;
+    if (msg.type === 'speedRules') {
+      spRules = { music: !(v && v.music === false), live: !(v && v.live === false) };
+      spApply();
+      return true;
+    }
     if (msg.type === 'speedDefault') {
       spDef = cleanRate(v) || 1;
     } else if (msg.type === 'speedVideos' && v && typeof v === 'object') {

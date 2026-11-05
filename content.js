@@ -29,7 +29,8 @@
  *  - sync  "speedDefault":      playback speed for all videos (1 unless changed)
  *  - local "speedVideos":       { videoId: speed } speeds picked for single videos
  *  - local "speedChannels":     { UCchannelId: { r: speed, name } } channel speeds
- *  - local "speedPicks":        { UCchannelId: { "1.75": [videoIds] | "no" } } what the "keep it for this channel?" offer learns from
+ *  - local "speedPicks":        { UCchannelId: { n: name, "1.75": [videoIds] | "no" } } what the "keep it for this channel?" offer learns from
+ *  - sync  "speedRules":        { music, live } music stays at 1×, live goes back to 1× at live (both on unless turned off)
  *    (name is only for showing the list; the id is the key, so renames don't matter)
  */
 (() => {
@@ -131,6 +132,8 @@
   const SP_VIDS = 'speedVideos';
   const SP_CHS = 'speedChannels';
   const SP_PICKS = 'speedPicks';
+  const SP_RULES = 'speedRules';
+  const cleanSpRules = (v) => ({ music: !(v && v.music === false), live: !(v && v.live === false) });
   const cleanRate = (r) => (typeof r === 'number' && r >= 0.25 - 1e-9 && r <= 3 + 1e-9 ? Math.round(r * 20) / 20 : null);
   const cleanSpVids = (m) => Object.fromEntries(Object.entries(m && typeof m === 'object' ? m : {})
     .filter(([id, r]) => VIDEO_ID.test(id) && cleanRate(r)).map(([id, r]) => [id, cleanRate(r)]));
@@ -142,8 +145,9 @@
     for (const [id, v] of Object.entries(m && typeof m === 'object' ? m : {})) {
       if (!CHANNEL_ID.test(id) || !v || typeof v !== 'object') continue;
       const one = {};
+      if (typeof v.n === 'string' && v.n) one.n = v.n.slice(0, 100);
       for (const [k, ids] of Object.entries(v)) {
-        if (cleanRate(Number(k)) === null) continue;
+        if (k === 'n' || cleanRate(Number(k)) === null) continue;
         if (ids === 'no') one[k] = 'no';
         else if (Array.isArray(ids)) one[k] = ids.filter((x) => VIDEO_ID.test(x)).slice(-3);
       }
@@ -241,6 +245,7 @@
     send({ type: 'speedVideos', value: await readLocal(SP_VIDS, cleanSpVids) });
     send({ type: 'speedChannels', value: await readLocal(SP_CHS, cleanSpChs) });
     send({ type: 'speedPicks', value: await readLocal(SP_PICKS, cleanSpPicks) });
+    try { send({ type: 'speedRules', value: cleanSpRules((await api.storage.sync.get(SP_RULES))[SP_RULES]) }); } catch { send({ type: 'speedRules', value: cleanSpRules(null) }); }
     // Is this the selected tab of its window? (Vivaldi never marks background tabs "hidden", so ask the browser.)
     try {
       const active = await api.runtime.sendMessage({ type: 'amActive' });
@@ -398,6 +403,7 @@
         if (msg.type === 'speedPick' && cleanRate(msg.rate) && VIDEO_ID.test(msg.videoId) && one[k] !== 'no') {
           const ids = Array.isArray(one[k]) ? one[k].filter((x) => x !== msg.videoId) : [];
           one[k] = [...ids, msg.videoId].slice(-3);
+          if (typeof msg.name === 'string' && msg.name.trim()) one.n = msg.name.trim().slice(0, 100);
         } else if (msg.type === 'speedNo' && cleanRate(msg.rate)) {
           one[k] = 'no';
         }
@@ -469,6 +475,7 @@
       if (area === 'local' && changes[SP_VIDS]) send({ type: 'speedVideos', value: cleanSpVids(changes[SP_VIDS].newValue) });
       if (area === 'local' && changes[SP_CHS]) send({ type: 'speedChannels', value: cleanSpChs(changes[SP_CHS].newValue) });
       if (area === 'local' && changes[SP_PICKS]) send({ type: 'speedPicks', value: cleanSpPicks(changes[SP_PICKS].newValue) });
+      if (area === 'sync' && changes[SP_RULES]) send({ type: 'speedRules', value: cleanSpRules(changes[SP_RULES].newValue) });
       if (area === 'local' && changes[CHANNELS]) {
         send({ type: 'channels', value: cleanChannels(changes[CHANNELS].newValue) });
       }

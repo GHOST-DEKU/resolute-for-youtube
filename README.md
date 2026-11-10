@@ -33,7 +33,7 @@
   <a href="PRIVACY.md">Privacy</a>
 </p>
 
-> **🆕 New in 1.7:** the autoplay button now has three parts: **Opened**, **No queue** and **Queue**. Each can play, wait for you, or (the last two) stop. YouTube's own autoplay switch on the player bar is hidden, so Resolute's is the only one. [See how it works](#autoplay)
+> **🆕 New in 1.7.1:** the autoplay button now has three parts: **Opened**, **No queue** and **Queue**. Each can play, wait for you, or (the last two) stop. YouTube's own autoplay switch on the player bar is hidden, so Resolute's is the only one. [See how it works](#autoplay)
 >
 > **1.5.1:** the popup no longer shows a scrollbar on the Speed page. It still scrolls with the mouse wheel, touch and arrow keys.
 >

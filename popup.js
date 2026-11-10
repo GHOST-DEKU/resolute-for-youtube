@@ -5,8 +5,8 @@
   const THEME = 'uiTheme';
   const OVERRIDES = 'videoOverrides';
   const CHANNELS = 'channelPrefs';
-  const HOLD = { opened: 'holdOpened', next: 'holdNext' };
-  const OLD_AUTOPLAY = 'stopAutoplay'; // older single switch: counts as both until either is set
+  const HOLD = { opened: 'holdOpened', noQueue: 'holdNoQueue', queue: 'holdQueue' };
+  const OLD_AUTOPLAY = 'stopAutoplay'; // older single switch: counts for all until the new settings are set
   const DEFAULT_PREF = 'highest';
   const CHANNEL_ID = /^UC[\w-]{22}$/;
   // Same order as the in-player menu: two modes, then resolutions.
@@ -129,28 +129,39 @@
     }
   });
 
-  // ---------- start paused: two independent switches ----------
-  const holdSwitch = { opened: $('ap-opened'), next: $('ap-next') };
+  // ---------- autoplay: "Opened" waits or plays; the two "ended" cases play, wait or stop ----------
+  const MODES = ['play', 'wait', 'stop'];
+  const openedSwitch = $('ap-opened');
+  const modeRadios = { noQueue: document.querySelectorAll('input[name="ap-noQueue"]'), queue: document.querySelectorAll('input[name="ap-queue"]') };
   const showHold = (r) => {
     const old = r[OLD_AUTOPLAY] === true;
-    for (const k of ['opened', 'next']) holdSwitch[k].checked = typeof r[HOLD[k]] === 'boolean' ? r[HOLD[k]] : old;
+    const was = typeof r.holdNext === 'boolean' ? r.holdNext : old; // older "next videos wait"
+    openedSwitch.checked = typeof r[HOLD.opened] === 'boolean' ? r[HOLD.opened] : old;
+    for (const k of ['noQueue', 'queue']) {
+      const m = MODES.includes(r[HOLD[k]]) ? r[HOLD[k]] : was ? 'wait' : 'play';
+      for (const radio of modeRadios[k]) radio.checked = radio.value === m;
+    }
   };
-  const readHold = () => api.storage.sync.get([HOLD.opened, HOLD.next, OLD_AUTOPLAY]).then(showHold).catch(() => {});
+  const readHold = () => api.storage.sync.get([HOLD.opened, HOLD.noQueue, HOLD.queue, 'holdNext', OLD_AUTOPLAY]).then(showHold).catch(() => {});
   readHold();
-  for (const k of ['opened', 'next']) {
-    holdSwitch[k].addEventListener('change', async () => {
-      const on = holdSwitch[k].checked;
-      try {
-        // Save both, so an old single switch never decides the other one later.
-        await api.storage.sync.set({ [HOLD.opened]: holdSwitch.opened.checked, [HOLD.next]: holdSwitch.next.checked });
-        flash(k === 'opened'
-          ? (on ? 'Videos you open will start paused' : 'Videos you open will play')
-          : (on ? 'Next videos will start paused' : 'Next videos will play by themselves'));
-      } catch {
-        holdSwitch[k].checked = !on; // show the setting that is really saved
-        flash('Could not save. Please try again.');
-      }
-    });
+  const saySet = {
+    noQueue: { play: 'With no queue, the next video plays by itself', wait: 'With no queue, the next video starts paused', stop: 'With no queue, nothing plays next' },
+    queue: { play: 'In a queue or playlist, the next video plays by itself', wait: 'In a queue or playlist, the next video starts paused', stop: 'In a queue or playlist, nothing plays next' }
+  };
+  const chosen = (k) => [...modeRadios[k]].find((x) => x.checked)?.value || 'play';
+  async function saveHold(say) {
+    try {
+      // Save all three, so an older setting never decides one of them later.
+      await api.storage.sync.set({ [HOLD.opened]: openedSwitch.checked, [HOLD.noQueue]: chosen('noQueue'), [HOLD.queue]: chosen('queue') });
+      flash(say);
+    } catch {
+      readHold(); // show the setting that is really saved
+      flash('Could not save. Please try again.');
+    }
+  }
+  openedSwitch.addEventListener('change', () => saveHold(openedSwitch.checked ? 'Opened videos will start paused' : 'Opened videos will play'));
+  for (const k of ['noQueue', 'queue']) {
+    for (const radio of modeRadios[k]) radio.addEventListener('change', () => saveHold(saySet[k][radio.value]));
   }
 
   // ---------- hide live chat ----------
@@ -1068,7 +1079,7 @@
     if (area === 'sync' && changes[KEY]) select(changes[KEY].newValue);
     if (area === 'sync' && changes[GLOW]) showGlow(changes[GLOW].newValue);
     if (area === 'sync' && changes[GLOW_STR]) showStr(changes[GLOW_STR].newValue);
-    if (area === 'sync' && (changes[HOLD.opened] || changes[HOLD.next] || changes[OLD_AUTOPLAY])) readHold();
+    if (area === 'sync' && (changes[HOLD.opened] || changes[HOLD.noQueue] || changes[HOLD.queue] || changes.holdNext || changes[OLD_AUTOPLAY])) readHold();
     if (area === 'sync' && changes[SAVER]) showSaver(changes[SAVER].newValue);
     if (area === 'sync' && changes[HIDE_CHAT]) showHideChat(changes[HIDE_CHAT].newValue);
     if (area === 'sync' && changes[HIDE_BAR]) showHideBar(changes[HIDE_BAR].newValue);

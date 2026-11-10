@@ -91,7 +91,8 @@
   let channelsKnown = false;
   let temp = null;               // { vid, q } pick for the current video only
   let holdOpened = false;        // "Videos I open" start paused
-  let holdNext = false;          // "Next in queue or playlist" start paused
+  let modeNo = 'play';           // video ended, no queue/playlist continues: 'play' | 'wait' | 'stop'
+  let modeQ = 'play';            // video ended, a queue/playlist continues: same three
   let autoplayKnown = false;
   let heldVid = '';              // video whose first start was already checked
   let lastPlayGesture = 0;       // time of the user's last play-like input
@@ -102,6 +103,7 @@
   const PIP_KNOWN = 'pictureInPictureElement' in document; // without it the saver can't tell PiP apart, so it stays off
   let endedAt = 0;               // when a video last played to its end
   let endedVid = '';
+  let endedQueue = false;        // was a queue/playlist running when it ended
   const channelCache = new Map(); // videoId -> { id, name } once detected
   const renamed = new Set();      // "id|name" pairs whose stored name we already refreshed
   let flashTimer = 0;
@@ -315,12 +317,31 @@
     if (!vid || vid === heldVid) return false;  // only the first start of each video
     heldVid = vid; // tracked even when off, so switching on never pauses the video already playing
     const next = endedAt > 0 && endedVid !== vid && endedAt > lastInput; // followed on by itself
+    const mode = next ? (endedQueue ? modeQ : modeNo) : holdOpened ? 'wait' : 'play';
     endedAt = 0;
     if (Date.now() - lastPlayGesture < 1000) return false; // you pressed play: leave it playing
-    if (!(next ? holdNext : holdOpened)) return false;
+    if (mode === 'play') return false; // 'stop' that didn't stop (YouTube went on anyway) still waits
     call(p, 'pauseVideo');
     markHeld(vid);
     return true;
+  }
+  // A queue or playlist is running. shortcut: playlist id / "list=" only; YouTube's separate "Add to queue" list is not checked, upgrade if it proves different.
+  function inQueue() {
+    const p = getPlayer();
+    return !!(p && call(p, 'getPlaylistId')) || new URL(location.href).searchParams.has('list');
+  }
+  // YouTube's own autoplay switch is hidden (see CSS); Resolute turns it on or off to match "No queue" (stops = off).
+  let autonavTimer = 0;
+  function syncAutonav() {
+    clearTimeout(autonavTimer);
+    if (!IS_TOP || !autoplayKnown || !location.pathname.startsWith('/watch')) return;
+    const attempt = (n) => {
+      const t = document.querySelector('.ytp-autonav-toggle-button');
+      if (!t) { if (n < 12) autonavTimer = setTimeout(() => attempt(n + 1), 800); return; } // the player may not be drawn yet
+      if (inQueue()) return;
+      if ((t.getAttribute('aria-checked') === 'true') !== (modeNo !== 'stop')) t.click();
+    };
+    attempt(0);
   }
   const ownControl = (t) => !!(mast.btn && t && t.nodeType === 1 && (mast.btn.contains(t) || mast.menu.contains(t)));
 
@@ -1066,11 +1087,17 @@
   // Pointing at it unfolds a split button: [shape + words] switches both settings, [chevron] opens a menu
   // with a switch for each. It floats over empty space, so YouTube's layout never moves.
   const IS_TOP = window === window.top && location.hostname === 'www.youtube.com';
-  const mast = { btn: null, lead: null, go: null, trail: null, lbl: null, menu: null, rows: {}, live: null, hover: false, open: false, word: '',
+  const mast = { btn: null, lead: null, segs: [], go: null, trail: null, menu: null, rows: {}, chips: [], live: null, hover: false, hi: -1, open: false,
     held: false, heldFor: '', flash: false, timer: 0 };
-  const summary = () => (holdOpened && holdNext ? 'Videos wait for you'
-    : holdOpened ? 'Opened videos wait' : holdNext ? 'Next videos wait' : 'Autoplay on');
-  const shortWord = () => (holdOpened && holdNext ? 'No autoplay' : holdOpened ? 'Opened wait' : holdNext ? 'Next wait' : 'Autoplay');
+  const ORDER = ['play', 'wait', 'stop'];
+  const WORDS = { play: 'plays', wait: 'waits', stop: 'stops' };
+  const SEGS = [
+    { k: 'opened', cap: 'Opened', name: 'Opened, a video I click or tap' },
+    { k: 'noQueue', cap: 'No queue', name: 'No queue or playlist, a video ends and nothing follows' },
+    { k: 'queue', cap: 'Queue', name: 'Queue or playlist, a video ends and the queue continues' }
+  ];
+  const stateOf = (k) => (k === 'opened' ? Number(holdOpened) : ORDER.indexOf(k === 'noQueue' ? modeNo : modeQ));
+  const wordOf = (k) => WORDS[ORDER[stateOf(k)]];
   const NS = 'http://www.w3.org/2000/svg';
   // Shapes are polygons with the same number of points, so clip-path can morph between them.
   const SHAPES = (() => {
@@ -1112,17 +1139,42 @@
     g.append(el('i', 'yqx-ap-l'), el('i', 'yqx-ap-r'));
     return g;
   }
+  const QUEUE_ICON = 'M3 10h11v2H3zm0-4h11v2H3zm0 8h7v2H3zm13-1v8l6-4z';
+  function segIcon(k) {
+    if (k === 'opened') return glyph();
+    const wrap = el('span', 'yqx-segico');
+    if (k === 'noQueue') {
+      const nx = el('span', 'yqx-apm-next'); // skip-next
+      nx.append(el('i'), el('i'));
+      wrap.append(nx);
+    } else {
+      const svg = svgEl('svg', { viewBox: '0 0 24 24', width: '16', height: '16', 'aria-hidden': 'true' });
+      svg.append(svgEl('path', { d: QUEUE_ICON, fill: 'currentColor' }));
+      wrap.append(svg);
+    }
+    return wrap;
+  }
   function buildMast() {
     const btn = el('span', 'yqx-au', { id: 'yqx-autoplay' });
     const row = el('span', 'yqx-au-row');
-    const lead = el('button', 'yqx-au-lead', { type: 'button', 'aria-pressed': 'false' });
-    const ms = el('span', 'yqx-ms', { 'aria-hidden': 'true' });
-    const core = el('span', 'yqx-ms-core');
-    core.append(glyph());
-    ms.append(ring('yqx-wave'), el('span', 'yqx-ms-shape'), core, el('span', 'yqx-held-dot'));
-    const lbl = el('span', 'yqx-au-lbl', { 'aria-hidden': 'true' });
-    lbl.append(el('span', 'yqx-in'), el('span', 'yqx-out'));
-    lead.append(ms, lbl);
+    const segs = SEGS.map((sg, i) => {
+      const b = el('button', 'yqx-au-lead yqx-seg', { type: 'button', 'data-k': sg.k, 'data-i': String(i) });
+      if (i) b.tabIndex = -1;
+      const ms = el('span', 'yqx-ms', { 'aria-hidden': 'true' });
+      const core = el('span', 'yqx-ms-core');
+      core.append(segIcon(sg.k));
+      if (i === 0) ms.append(ring('yqx-wave'));
+      ms.append(el('span', 'yqx-ms-shape'), core);
+      if (i === 0) ms.append(el('span', 'yqx-held-dot'), el('span', 'yqx-badge'));
+      const lbl = el('span', 'yqx-au-lbl', { 'aria-hidden': 'true' });
+      const inn = el('span', 'yqx-in');
+      inn.append(el('span', 'cap'), el('span', 'st'));
+      lbl.append(inn);
+      b.append(ms, lbl);
+      row.append(b);
+      return b;
+    });
+    const lead = segs[0];
     const trail = el('button', 'yqx-au-trail', {
       type: 'button', tabindex: '-1', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-controls': 'yqx-apm', 'aria-label': 'Autoplay settings'
     });
@@ -1135,85 +1187,99 @@
     const goText = el('span');
     goText.textContent = 'Play';
     go.append(tri, goText);
-    row.append(lead, go, trail);
+    row.append(go, trail);
     btn.append(row);
 
-    // The menu: one row per setting. Each row's icon is the part of the button it controls.
-    const menu = el('div', 'yqx-apm', { id: 'yqx-apm', role: 'menu', 'aria-label': 'Start paused' });
+    // The menu: a switch for "Opened", and Plays / Waits / Stops for the two "ended" cases.
+    const menu = el('div', 'yqx-apm', { id: 'yqx-apm', role: 'menu', 'aria-label': 'Autoplay' });
     const title = el('div', 'yqx-apm-title', { 'aria-hidden': 'true' });
-    title.textContent = 'Start paused';
+    title.textContent = 'Autoplay';
     const list = el('div', 'yqx-apm-list');
-    const makeRow = (key, name, hint) => {
-      const r = el('div', `yqx-apm-row yqx-apm-row-${key}`, { role: 'menuitemcheckbox', tabindex: '-1', 'aria-checked': 'false', 'aria-label': `${name}: ${hint}` });
+    const iconBox = (k) => {
       const ico = el('span', 'yqx-apm-ico', { 'aria-hidden': 'true' });
-      if (key === 'opened') ico.append(glyph());
-      else {
-        const nx = el('span', 'yqx-apm-next'); // ⏭
-        nx.append(el('i'), el('i'));
-        ico.append(nx);
-      }
+      ico.append(segIcon(k));
+      return ico;
+    };
+    const textBox = (name, hint) => {
       const text = el('span', 'yqx-apm-text');
       const b = el('span', 'yqx-apm-name');
       b.textContent = name;
       const sm = el('span', 'yqx-apm-hint');
       sm.textContent = hint;
       text.append(b, sm);
-      const sw = el('span', 'yqx-apm-sw', { 'aria-hidden': 'true' });
-      const knob = el('i');
-      const check = svgEl('svg', { class: 'yqx-sw-on', viewBox: '0 0 24 24' });
-      check.append(svgEl('path', { d: 'M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z' }));
-      const cross = svgEl('svg', { class: 'yqx-sw-off', viewBox: '0 0 24 24' });
-      cross.append(svgEl('path', { d: 'M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z' }));
-      knob.append(check, cross);
-      sw.append(knob);
-      r.append(ico, text, sw);
-      r.addEventListener('click', () => toggleHold(key));
-      list.append(r);
-      return r;
+      return text;
     };
-    mast.rows.opened = makeRow('opened', 'Videos I open', 'Clicked, linked or in a new tab');
-    mast.rows.next = makeRow('next', 'Next in queue or playlist', 'When one video follows another');
+    const r = el('div', 'yqx-apm-row yqx-apm-row-opened', { role: 'menuitemcheckbox', tabindex: '-1', 'aria-checked': 'false', 'aria-label': 'Opened: a video I click or tap, starts paused' });
+    const sw = el('span', 'yqx-apm-sw', { 'aria-hidden': 'true' });
+    const knob = el('i');
+    const check = svgEl('svg', { class: 'yqx-sw-on', viewBox: '0 0 24 24' });
+    check.append(svgEl('path', { d: 'M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z' }));
+    const cross = svgEl('svg', { class: 'yqx-sw-off', viewBox: '0 0 24 24' });
+    cross.append(svgEl('path', { d: 'M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z' }));
+    knob.append(check, cross);
+    sw.append(knob);
+    r.append(iconBox('opened'), textBox('Opened', 'A video I click or tap starts paused'), sw);
+    r.addEventListener('click', () => cycle('opened'));
+    list.append(r);
+    mast.rows.opened = r;
+    mast.chips = [];
+    for (const [k, name, hint] of [['noQueue', 'No queue or playlist', 'A video ends and nothing follows'], ['queue', 'Queue or playlist', 'A video ends and the queue continues']]) {
+      const pr = el('div', 'yqx-apm-row yqx-apm-pick', { role: 'group', 'aria-label': name });
+      const top = el('span', 'yqx-apm-top');
+      top.append(iconBox(k), textBox(name, hint));
+      const chips = el('div', 'yqx-apm-chips', { role: 'radiogroup', 'aria-label': name });
+      for (const m of ORDER) {
+        const c = el('button', 'yqx-apm-chip', { type: 'button', role: 'radio', tabindex: '-1', 'aria-checked': 'false', 'data-k': k, 'data-m': m });
+        c.textContent = m === 'play' ? 'Plays' : m === 'wait' ? 'Waits' : 'Stops';
+        c.addEventListener('click', () => setMode(k, m));
+        chips.append(c);
+        mast.chips.push(c);
+      }
+      pr.append(top, chips);
+      list.append(pr);
+    }
     const foot = el('div', 'yqx-apm-foot', { 'aria-hidden': 'true' });
     foot.textContent = 'Pressing play always works.';
     const live = el('div', 'yqx-live', { role: 'status', 'aria-live': 'polite' });
     menu.append(title, list, foot, live);
 
     const narrow = () => btn.classList.contains('yqx-ap-end');
-    lead.addEventListener('click', (e) => {
-      if (mast.held) { playHeld(); return; } // while a video waits, the shape and words mean "play it"
-      if (narrow()) { // no room to unfold: the shape opens the menu
-        if (mast.open) closeApMenu(e.detail === 0);
-        else openApMenu(lead, e.detail === 0);
-        return;
-      }
-      const all = !(holdOpened || holdNext); // one click: everything waits, or everything plays again
-      holdOpened = all;
-      holdNext = all;
-      saveHold();
-      mast.live.textContent = all ? 'Videos will start paused' : 'Autoplay is back on';
+    segs.forEach((b, i) => {
+      b.addEventListener('click', (e) => {
+        if (mast.held && i === 0) { playHeld(); return; } // while a video waits, the first shape means "play it"
+        if (narrow()) { // no room to unfold: the shape opens the menu
+          if (mast.open) closeApMenu(e.detail === 0);
+          else openApMenu(lead, e.detail === 0);
+          return;
+        }
+        cycle(SEGS[i].k);
+      });
+      b.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') { mast.hi = i; layout(); } });
+      b.addEventListener('pointerleave', () => { if (mast.hi === i) { mast.hi = -1; layout(); } });
+      b.addEventListener('focus', () => { if (b.matches(':focus-visible')) { mast.hi = i; layout(); } });
     });
     trail.addEventListener('click', (e) => {
       if (mast.open) closeApMenu(e.detail === 0);
       else openApMenu(trail, e.detail === 0);
     });
     go.addEventListener('click', playHeld);
-    for (const b of [lead, go, trail]) {
+    for (const b of [...segs, go, trail]) {
       b.addEventListener('keydown', (e) => {
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); openApMenu(narrow() ? lead : trail, true); }
         if ([' ', 'Enter', 'ArrowDown', 'ArrowUp', 'k', 'K'].includes(e.key)) e.stopPropagation(); // keep YouTube's shortcuts out
       });
     }
     btn.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') { mast.hover = true; unfold(); } });
-    btn.addEventListener('pointerleave', () => { mast.hover = false; fold(); });
+    btn.addEventListener('pointerleave', () => { mast.hover = false; mast.hi = -1; fold(); });
     btn.addEventListener('focusin', () => { if (btn.querySelector(':focus-visible')) unfold(); });
     btn.addEventListener('focusout', () => setTimeout(fold));
     menu.addEventListener('keydown', onApMenuKey);
     menu.addEventListener('keyup', (e) => e.stopPropagation());
     menu.addEventListener('pointermove', (e) => {
-      const r = e.target.closest('.yqx-apm-row');
-      if (r && menu.contains(document.activeElement) && document.activeElement !== r) r.focus({ preventScroll: true });
+      const t = e.target.closest('.yqx-apm-row-opened');
+      if (t && menu.contains(document.activeElement) && document.activeElement !== t) t.focus({ preventScroll: true });
     });
-    Object.assign(mast, { btn, lead, go, trail, lbl, menu, live });
+    Object.assign(mast, { btn, lead, segs, go, trail, menu, live });
   }
   // ---------- "Video waiting": the button explains a held video until it plays ----------
   function markHeld(vid) {
@@ -1252,28 +1318,74 @@
     call(getPlayer(), 'playVideo');
   }
   function saveHold() {
-    postToExt({ type: 'autoplay', value: { opened: holdOpened, next: holdNext } });
+    postToExt({ type: 'autoplay', value: { opened: holdOpened, noQueue: modeNo, queue: modeQ } });
     updateMast();
+    syncAutonav();
   }
-  function toggleHold(key) {
-    if (key === 'opened') holdOpened = !holdOpened;
-    else holdNext = !holdNext;
+  const SAY = {
+    opened: ['Opened videos will play', 'Opened videos will start paused'],
+    noQueue: { play: 'With no queue, the next video plays by itself', wait: 'With no queue, the next video starts paused', stop: 'With no queue, nothing plays next' },
+    queue: { play: 'In a queue or playlist, the next video plays by itself', wait: 'In a queue or playlist, the next video starts paused', stop: 'In a queue or playlist, nothing plays next' }
+  };
+  function setMode(k, m) {
+    if (k === 'opened') holdOpened = m === 'wait';
+    else if (k === 'noQueue') modeNo = m;
+    else modeQ = m;
     saveHold();
-    const on = key === 'opened' ? holdOpened : holdNext;
-    mast.live.textContent = `${key === 'opened' ? 'Videos you open' : 'Next videos'} will ${on ? 'start paused' : 'play by themselves'}`;
+    mast.live.textContent = k === 'opened' ? SAY.opened[Number(holdOpened)] : SAY[k][m];
+  }
+  /** One click moves a segment to its next state: plays, waits, (stops). */
+  function cycle(k) {
+    const n = k === 'opened' ? 2 : 3;
+    setMode(k, ORDER[(stateOf(k) + 1) % n]);
+  }
+  /** Sizes of the three segments. Their total never changes, so the menu arrow stays under the pointer. */
+  function layout() {
+    const b = mast.btn;
+    if (!b) return;
+    const open = b.classList.contains('yqx-open') && !b.classList.contains('yqx-ap-end');
+    const held = mast.held || mast.flash;
+    const hi = held ? 0 : mast.hi;
+    let w;
+    if (!open) w = [40, 0, 0];
+    else if (held) w = [40 + 8 - 3 + mast.segs[0].querySelector('.yqx-in').offsetWidth + 16, 0, 0];
+    else {
+      const H = mast.segs.map((sg) => 40 + 8 - 3 + sg.querySelector('.yqx-in').offsetWidth + 16);
+      const R = Math.ceil((Math.max(...H) + 80) / 3);
+      w = hi < 0 ? [R, R, R] : H.map((h, i) => (i === hi ? h : (3 * R - H[hi]) / 2));
+    }
+    mast.segs.forEach((sg, i) => {
+      sg.style.width = open || i === 0 ? `${w[i]}px` : '';
+      sg.style.paddingLeft = open && i !== hi ? `${Math.max(0, (w[i] - 40) / 2)}px` : '';
+      sg.classList.toggle('yqx-hv', open && i === hi);
+      if (i) sg.tabIndex = open && !held ? 0 : -1;
+    });
+    paintSegs();
+  }
+  /** Each segment's own shape and tint: circle (plays), cookie (waits), square (stops). Folded, the one shape shows the total. */
+  function paintSegs() {
+    const b = mast.btn;
+    const open = b.classList.contains('yqx-open');
+    const some = SEGS.filter((sg) => stateOf(sg.k) > 0).length;
+    const total = some === 0 ? 0 : some === 3 ? 2 : 1;
+    mast.segs.forEach((sg, i) => {
+      const l = i === 0 && !open ? total : stateOf(SEGS[i].k);
+      sg.dataset.l = String(l);
+      sg.querySelector('.yqx-ms-shape').style.clipPath = SHAPES[l];
+    });
   }
   /** Unfold into the split button (not in narrow windows, where there is no room). */
   function unfold() {
     if (!mast.btn || mast.btn.classList.contains('yqx-ap-end')) return;
     mast.btn.classList.add('yqx-open');
     mast.trail.tabIndex = 0;
-    mast.lead.style.width = `${40 + 8 - 3 + mast.lbl.firstChild.offsetWidth + 16}px`; // the new word only, not the one rolling out
+    layout();
   }
   function fold() {
     if (!mast.btn || mast.hover || mast.open || mast.timer || mast.btn.contains(document.activeElement)) return;
     mast.btn.classList.remove('yqx-open');
-    mast.lead.style.width = '';
     mast.trail.tabIndex = -1;
+    layout();
   }
   function openApMenu(anchor, byKeyboard) {
     if (mast.open) return;
@@ -1307,57 +1419,44 @@
     mast.menu.style.transformOrigin = `${Math.round(r.left + r.width / 2 - left)}px 0`;
   }
   function onApMenuKey(e) {
-    const rows = [mast.rows.opened, mast.rows.next];
-    const i = rows.indexOf(document.activeElement);
+    const items = [mast.rows.opened, ...mast.chips];
+    const i = items.indexOf(document.activeElement);
     let handled = true;
     switch (e.key) {
-      case 'ArrowDown': case 'ArrowUp': rows[(i + 1) % 2].focus(); break;
-      case 'Home': rows[0].focus(); break;
-      case 'End': rows[1].focus(); break;
-      case ' ': case 'Enter': if (i >= 0) toggleHold(i === 0 ? 'opened' : 'next'); break;
+      case 'ArrowDown': case 'ArrowRight': items[(i + 1) % items.length].focus(); break;
+      case 'ArrowUp': case 'ArrowLeft': items[(i + items.length - 1) % items.length].focus(); break;
+      case 'Home': items[0].focus(); break;
+      case 'End': items[items.length - 1].focus(); break;
+      case ' ': case 'Enter': if (i >= 0) items[i].click(); break;
       case 'Escape': case 'Tab': closeApMenu(true); break;
       default: handled = false;
     }
     if (handled) e.preventDefault();
     e.stopPropagation(); // keep YouTube's shortcuts out while in the menu
   }
-  /** Roll the label: the old word slides up and out, the new one rolls in from below. */
-  function rollWord(w) {
-    if (w === mast.word) return;
-    const inEl = mast.lbl.firstChild;
-    const outEl = mast.lbl.lastChild;
-    outEl.textContent = mast.word;
-    inEl.textContent = w;
-    for (const [node, op, tf] of [[outEl, '1', 'none'], [inEl, '0', 'translateY(8px)']]) {
-      node.style.transition = 'none';
-      node.style.opacity = op;
-      node.style.transform = tf;
-      void node.offsetWidth; // restart from that frame
-      node.style.transition = '';
-      node.style.opacity = '';
-      node.style.transform = '';
-    }
-    mast.word = w;
-  }
   function updateMast() {
     if (!mast.btn) return;
     const b = mast.btn;
-    const level = Number(holdOpened) + Number(holdNext);
+    const stops = SEGS.some((sg) => stateOf(sg.k) === 2);
     b.dataset.opened = String(holdOpened);
-    b.dataset.next = String(holdNext);
-    b.dataset.level = String(level); // 0 none, 1 one, 2 both
-    b.querySelector('.yqx-ms-shape').style.clipPath = SHAPES[level];
+    b.dataset.next = String(modeNo !== 'play' && modeQ !== 'play'); // the ring shows while some next video plays by itself
+    b.dataset.stop = String(stops);
     const narrow = b.classList.contains('yqx-ap-end');
-    mast.lead.setAttribute('aria-pressed', String(level > 0));
-    mast.lead.setAttribute('aria-label', mast.held ? 'Video waiting: Resolute paused it. Play'
-      : narrow ? `Autoplay: ${summary()}. Opens settings`
-      : `Autoplay: ${summary()}. Click to ${level ? 'allow autoplay' : 'pause all videos'}`);
+    const mid = mast.held ? 'Video waiting' : mast.flash ? 'Playing' : '';
+    mast.segs.forEach((sg, i) => {
+      const k = SEGS[i].k;
+      sg.querySelector('.cap').textContent = i === 0 && mid ? '' : SEGS[i].cap;
+      sg.querySelector('.st').textContent = i === 0 && mid ? mid : wordOf(k);
+      sg.setAttribute('aria-label', i === 0 && mast.held ? 'Video waiting: Resolute paused it. Play'
+        : narrow ? `Autoplay settings. ${SEGS[i].name}: ${wordOf(k)}. Opens the menu`
+        : `${SEGS[i].name}: ${wordOf(k)}. Click to change`);
+    });
     mast.rows.opened.setAttribute('aria-checked', String(holdOpened));
-    mast.rows.next.setAttribute('aria-checked', String(holdNext));
+    for (const c of mast.chips) c.setAttribute('aria-checked', String((c.dataset.k === 'noQueue' ? modeNo : modeQ) === c.dataset.m));
     mast.menu.dataset.opened = String(holdOpened);
-    rollWord(mast.held ? 'Video waiting' : mast.flash ? 'Playing' : shortWord());
-    // new word, new width (only if still unfolded by the time the frame comes)
-    if (b.classList.contains('yqx-open')) requestAnimationFrame(() => { if (b.classList.contains('yqx-open')) unfold(); });
+    layout();
+    // new words, new widths (only if still unfolded by the time the frame comes)
+    if (b.classList.contains('yqx-open')) requestAnimationFrame(() => { if (b.classList.contains('yqx-open')) layout(); });
   }
   function ensureMast() {
     if (!IS_TOP || !autoplayKnown) return;
@@ -1918,12 +2017,14 @@
       overrides = { ...msg.value };
       overridesKnown = true;
       scheduleApply(false);
-    } else if (msg.type === 'autoplay' && msg.value && typeof msg.value.opened === 'boolean' && typeof msg.value.next === 'boolean') {
+    } else if (msg.type === 'autoplay' && msg.value && typeof msg.value.opened === 'boolean' && ORDER.includes(msg.value.noQueue) && ORDER.includes(msg.value.queue)) {
       holdOpened = msg.value.opened;
-      holdNext = msg.value.next;
+      modeNo = msg.value.noQueue;
+      modeQ = msg.value.queue;
       autoplayKnown = true;
       ensureMast();
       updateMast();
+      syncAutonav();
       return;
     } else if (msg.type === 'tabActive' && typeof msg.value === 'boolean') {
       tabActive = msg.value;
@@ -2929,7 +3030,7 @@ html[yqx-glow-tint]:not([yqx-glow-ad]) .yqx-au:not(.yqx-open) .yqx-ms-shape{back
   }
 
   document.addEventListener('yt-navigate-start', () => { saveSpot(true); hideResumePill(); hideBack(); closeResumeMenu(false); lastT = 0; resumeVid = ''; closeMenu(false); spClose(false); spHideChip(); sp.vid = ''; clearHeld(); });
-  document.addEventListener('yt-navigate-finish', () => { updateBar(); checkCinema(); if (glowOn) glowSync(); });
+  document.addEventListener('yt-navigate-finish', () => { syncAutonav(); updateBar(); checkCinema(); if (glowOn) glowSync(); });
   for (const type of ['yt-navigate-finish', 'yt-player-updated', 'yt-page-data-updated']) {
     document.addEventListener(type, () => {
       ensureUI();
@@ -2945,6 +3046,7 @@ html[yqx-glow-tint]:not([yqx-glow-ad]) .yqx-au:not(.yqx-open) .yqx-ms-shape{back
         checkVideoChange();
         scheduleResume(e.type === 'playing' ? 500 : 2500);
         updateResumeUI();
+        if (e.type === 'loadedmetadata') syncAutonav();
         if (e.type === 'playing') {
           saverPlaying(true);
           if (!holdIfAutoplayed() && mast.held) releaseHeld(); // a later start = someone pressed play
@@ -2993,6 +3095,9 @@ html[yqx-glow-tint]:not([yqx-glow-ad]) .yqx-au:not(.yqx-open) .yqx-ms-shape{back
     if (p && e.target instanceof HTMLVideoElement && p.contains(e.target) && !p.classList.contains('ad-showing')) {
       endedAt = Date.now();
       endedVid = videoIdOf(p);
+      endedQueue = inQueue();
+      // "Stops" in a queue: don't let the page hear that the video ended, so it doesn't move on. shortcut: unverified on live YouTube; if it does not hold, the next video still starts paused.
+      if (endedQueue && modeQ === 'stop') e.stopPropagation();
       clearSpot(endedVid); // watched to the end: next time starts fresh
     }
   }, true);
@@ -3250,10 +3355,15 @@ html[yqx-glow-tint]:not([yqx-glow-ad]) .yqx-au:not(.yqx-open) .yqx-ms-shape{back
   --yqx-menu:rgba(30,20,19,.58);--yqx-item:rgba(255,255,255,.07);--yqx-sel:rgba(147,0,10,.62);--yqx-edge:rgba(255,255,255,.14);
   --yqx-outline:#a08c8a;--yqx-track:#3d3231;--yqx-focus:#3ea6ff}
 
+/* YouTube's own autoplay switch on the player bar: Resolute's button replaces it */
+.ytp-autonav-toggle-button-container,.ytp-autonav-toggle-button{display:none!important}
+
 /* ---------- the button: a shape at rest, a split button when unfolded ---------- */
 .yqx-au{position:relative;flex:none;width:40px;height:40px;margin:0 0 0 8px;z-index:5;color:var(--yqx-fg)}
 .yqx-au.yqx-ap-end{margin:0 8px 0 0}
-.yqx-au-row{position:absolute;top:0;left:0;height:40px;display:flex;gap:2px}
+.yqx-au-row{position:absolute;top:0;left:0;height:40px;display:flex}
+.yqx-au.yqx-open .yqx-seg+.yqx-seg,.yqx-au.yqx-open .yqx-au-trail,.yqx-au.yqx-held.yqx-open .yqx-au-go{margin-left:2px}
+.yqx-au.yqx-held .yqx-seg+.yqx-seg{margin-left:0!important}
 .yqx-ap-end .yqx-au-row{left:auto;right:0}
 .yqx-au button{height:40px;margin:0;border:0;padding:0;cursor:pointer;color:inherit;display:flex;align-items:center;background:transparent;
   font:600 14px/1 "Roboto",Arial,sans-serif;-webkit-tap-highlight-color:transparent}
@@ -3263,6 +3373,10 @@ html[yqx-glow-tint]:not([yqx-glow-ad]) .yqx-au:not(.yqx-open) .yqx-ms-shape{back
 .yqx-au-trail{width:0;overflow:hidden;justify-content:center;border-radius:6px 20px 20px 6px;opacity:0;
   transition:width .55s var(--yqx-sp),opacity .2s var(--yqx-ease),background-color .25s var(--yqx-ease),border-radius .55s var(--yqx-sp),box-shadow .3s var(--yqx-ease)}
 .yqx-au.yqx-open .yqx-au-lead{background:var(--yqx-cont);border-radius:20px 6px 6px 20px;box-shadow:0 4px 16px rgba(0,0,0,.12)}
+.yqx-au.yqx-open .yqx-seg+.yqx-seg{border-radius:6px}
+.yqx-seg+.yqx-seg{width:0;opacity:0;pointer-events:none;padding:0}
+.yqx-au.yqx-open:not(.yqx-held) .yqx-seg+.yqx-seg{opacity:1;pointer-events:auto}
+.yqx-au.yqx-held .yqx-seg+.yqx-seg{width:0!important}
 .yqx-au.yqx-open .yqx-au-lead:hover{background:var(--yqx-cont-h)}
 .yqx-au.yqx-open .yqx-au-trail{width:36px;opacity:1;background:var(--yqx-cont);box-shadow:0 4px 16px rgba(0,0,0,.12);transition-delay:.06s,.1s,0s,0s,0s}
 .yqx-au.yqx-open .yqx-au-trail:hover{background:var(--yqx-cont-h)}
@@ -3281,11 +3395,13 @@ html[yqx-glow-tint]:not([yqx-glow-ad]) .yqx-au:not(.yqx-open) .yqx-ms-shape{back
   transform:scale(0);transition:transform .5s var(--yqx-sp)}
 [dark] .yqx-held-dot{box-shadow:0 0 0 2px #0f0f0f}
 .yqx-au.yqx-held:not(.yqx-open) .yqx-held-dot{transform:none}
-/* rolling label */
-.yqx-au-lbl{display:grid;justify-items:start;opacity:0;transform:translateX(-8px);transition:opacity .2s var(--yqx-ease),transform .55s var(--yqx-sp)}
-.yqx-au.yqx-open .yqx-au-lbl{opacity:1;transform:none;transition-delay:.08s}
-.yqx-au-lbl span{grid-area:1/1;transition:opacity .2s var(--yqx-ease),transform .45s var(--yqx-sp)}
-.yqx-au-lbl .yqx-out{opacity:0;transform:translateY(-8px)}
+/* labels: only the segment under the pointer shows words (small title over its state) */
+.yqx-au-lbl{display:block;opacity:0;transform:translateX(-8px);transition:opacity .2s var(--yqx-ease),transform .55s var(--yqx-sp)}
+.yqx-seg.yqx-hv .yqx-au-lbl{opacity:1;transform:none;transition-delay:.08s}
+.yqx-in{display:inline-flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:52px;line-height:1.1;text-align:left}
+.yqx-in .cap{font-size:10.5px;font-weight:500;opacity:.7}
+.yqx-in .cap:empty{display:none}
+.yqx-in .st{font-size:14px;font-weight:700}
 
 /* the shape: circle -> cookie -> rounded square (clip-path set from JS), tint = how much is on */
 .yqx-ms{position:relative;flex:none;width:34px;height:34px;margin:3px}
@@ -3293,15 +3409,22 @@ html[yqx-glow-tint]:not([yqx-glow-ad]) .yqx-au:not(.yqx-open) .yqx-ms-shape{back
   transition:clip-path .7s var(--yqx-sp),background-color .3s var(--yqx-ease),transform .7s var(--yqx-sp)}
 .yqx-au.yqx-open .yqx-ms-shape{background:var(--yqx-shape0)}
 .yqx-au:not(.yqx-open) .yqx-au-lead:hover .yqx-ms-shape{background:var(--yqx-rest-h)}
-.yqx-au[data-level="1"] .yqx-ms-shape{background:var(--yqx-pc)!important}
-.yqx-au[data-level="2"] .yqx-ms-shape{background:var(--yqx-p)!important}
+.yqx-seg[data-l="1"] .yqx-ms-shape{background:var(--yqx-pc)!important}
+.yqx-seg[data-l="2"] .yqx-ms-shape{background:var(--yqx-p)!important}
 .yqx-ms-core{position:absolute;inset:0;display:grid;place-items:center;color:var(--yqx-fg);transition:color .3s var(--yqx-ease)}
-.yqx-au[data-level="1"] .yqx-ms-core{color:var(--yqx-opc)}
-.yqx-au[data-level="2"] .yqx-ms-core{color:var(--yqx-op)}
+.yqx-seg[data-l="1"] .yqx-ms-core{color:var(--yqx-opc)}
+.yqx-seg[data-l="2"] .yqx-ms-core{color:var(--yqx-op)}
+.yqx-segico{position:relative;display:grid;place-items:center;width:16px;height:16px}
+.yqx-segico .yqx-apm-next{width:12px;height:12px}
+/* "stops": a line through the icon; folded, a small x on the shape when anything stops */
+.yqx-seg[data-l="2"] .yqx-segico::after{content:"";position:absolute;left:-2px;right:-2px;top:50%;height:2px;border-radius:1px;background:currentColor;box-shadow:0 0 0 1.5px var(--yqx-p);transform:rotate(-40deg)}
+.yqx-badge{position:absolute;right:-1px;bottom:-1px;width:12px;height:12px;border-radius:50%;background:var(--yqx-p);opacity:0;transform:scale(0);transition:transform .4s var(--yqx-sp),opacity .2s;
+  background-image:linear-gradient(45deg,transparent 43%,var(--yqx-op) 43% 57%,transparent 57%),linear-gradient(-45deg,transparent 43%,var(--yqx-op) 43% 57%,transparent 57%);background-size:60% 60%;background-position:center;background-repeat:no-repeat}
+.yqx-au[data-stop="true"]:not(.yqx-open) .yqx-badge{opacity:1;transform:none}
 .yqx-au-lead:hover .yqx-ms-shape{transform:rotate(18deg)}
 .yqx-au-lead:active .yqx-ms-shape{transform:rotate(18deg) scale(.9)}
-.yqx-au[data-level="2"] .yqx-au-lead:hover .yqx-ms-shape{transform:scale(1.06)} /* a tilted square reads as a card */
-.yqx-au[data-level="2"] .yqx-au-lead:active .yqx-ms-shape{transform:scale(.9)}
+.yqx-seg[data-l="2"]:hover .yqx-ms-shape{transform:scale(1.06)} /* a tilted square reads as a card */
+.yqx-seg[data-l="2"]:active .yqx-ms-shape{transform:scale(.9)}
 
 /* wavy ring = YouTube's "up next" countdown = next videos play by themselves; it unwinds when they wait */
 .yqx-wave{position:absolute;inset:-3px;width:calc(100% + 6px);height:calc(100% + 6px);transform:rotate(-90deg);overflow:visible;pointer-events:none}
@@ -3348,6 +3471,15 @@ html[yqx-glow-tint]:not([yqx-glow-ad]) .yqx-au:not(.yqx-open) .yqx-ms-shape{back
 .yqx-apm-next i{position:absolute;top:0;bottom:0;background:currentColor}
 .yqx-apm-next i:first-child{left:0;width:8.5px;clip-path:polygon(0 0,100% 50%,0 100%)}
 .yqx-apm-next i:last-child{right:0;width:2.4px;border-radius:1px}
+.yqx-apm-pick{flex-wrap:wrap;cursor:default;min-height:0;gap:8px}
+.yqx-apm-top{display:flex;align-items:center;gap:12px;flex:1 1 100%}
+.yqx-apm-chips{display:flex;gap:2px;flex:1 1 100%}
+.yqx-apm-chip{flex:1;height:32px;border:0;padding:0;border-radius:6px;cursor:pointer;color:inherit;background:var(--yqx-cont);font:500 13px/1 "Roboto",Arial,sans-serif;
+  transition:background-color .25s var(--yqx-ease),color .25s var(--yqx-ease),border-radius .5s var(--yqx-sp)}
+.yqx-apm-chip:first-child{border-radius:16px 6px 6px 16px}.yqx-apm-chip:last-child{border-radius:6px 16px 16px 6px}
+.yqx-apm-chip:hover{background:var(--yqx-cont-h)}
+.yqx-apm-chip[aria-checked="true"]{background:var(--yqx-p);color:var(--yqx-op);border-radius:16px}
+.yqx-apm-chip:focus-visible{outline:2px solid var(--yqx-focus);outline-offset:1px}
 .yqx-apm-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .yqx-apm-name{font-weight:500;font-size:14.5px}
 .yqx-apm-hint{font-size:12px;opacity:.8}

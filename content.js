@@ -7,8 +7,9 @@
  * Stored:
  *  - sync  "qualityPreference": the default for all videos
  *  - sync  "holdOpened":        true = videos you open start paused (off unless turned on)
- *  - sync  "holdNext":          true = the next video in a queue/playlist starts paused (off unless turned on)
- *    (older versions stored one "stopAutoplay" switch; it counts as both until either is set)
+ *  - sync  "holdNoQueue":       'play' | 'wait' | 'stop' = what happens when a video ends and no queue/playlist continues
+ *  - sync  "holdQueue":         'play' | 'wait' | 'stop' = what happens when a video ends and a queue/playlist continues
+ *    (older versions stored "holdNext" (true = wait) and before that one "stopAutoplay"; they count for both until the new keys are set)
  *  - sync  "hideChat":          true = close YouTube's live chat panel when a stream opens (off unless turned on)
  *  - sync  "cinemaMode":      true = videos open in theater, the top bar hides while they play, the video fills the window (off unless turned on)
  *  - sync  "ambientGlow":     true = the picture's colours glow around the player and fill its black bars (off unless turned on)
@@ -43,7 +44,10 @@
   const api = globalThis.browser ?? globalThis.chrome;
   const KEY = 'qualityPreference';
   const HOLD_OPENED = 'holdOpened';
-  const HOLD_NEXT = 'holdNext';
+  const HOLD_NEXT = 'holdNext'; // old key, only read for migration
+  const HOLD_NOQ = 'holdNoQueue';
+  const HOLD_Q = 'holdQueue';
+  const MODES = ['play', 'wait', 'stop'];
   const OLD_AUTOPLAY = 'stopAutoplay';
   const SAVER = 'bgSaver';
   const HIDE_CHAT = 'hideChat';
@@ -68,7 +72,7 @@
     to: v && v.to === 'large' ? 'large' : 'tiny'
   });
   const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-  const isPair = (v) => v && typeof v === 'object' && typeof v.opened === 'boolean' && typeof v.next === 'boolean';
+  const isPair = (v) => v && typeof v === 'object' && typeof v.opened === 'boolean' && MODES.includes(v.noQueue) && MODES.includes(v.queue);
   const OVERRIDES = 'videoOverrides';
   const SPOTS = 'resumeSpots';
   const REWIND = 'resumeRewind';
@@ -196,14 +200,17 @@
   }
   async function readAutoplay() {
     try {
-      const r = await api.storage.sync.get([HOLD_OPENED, HOLD_NEXT, OLD_AUTOPLAY]);
+      const r = await api.storage.sync.get([HOLD_OPENED, HOLD_NEXT, HOLD_NOQ, HOLD_Q, OLD_AUTOPLAY]);
       const old = r[OLD_AUTOPLAY] === true;
+      const was = typeof r[HOLD_NEXT] === 'boolean' ? r[HOLD_NEXT] : old; // old "next videos wait"
+      const mode = (v) => (MODES.includes(v) ? v : was ? 'wait' : 'play');
       return {
         opened: typeof r[HOLD_OPENED] === 'boolean' ? r[HOLD_OPENED] : old,
-        next: typeof r[HOLD_NEXT] === 'boolean' ? r[HOLD_NEXT] : old
+        noQueue: mode(r[HOLD_NOQ]),
+        queue: mode(r[HOLD_Q])
       };
     } catch {
-      return { opened: false, next: false };
+      return { opened: false, noQueue: 'play', queue: 'play' };
     }
   }
   async function readOverrides() {
@@ -329,7 +336,7 @@
       if (msg.type === 'hello') {
         await sendAll();
       } else if (msg.type === 'autoplay' && isPair(msg.value)) {
-        await api.storage.sync.set({ [HOLD_OPENED]: msg.value.opened, [HOLD_NEXT]: msg.value.next });
+        await api.storage.sync.set({ [HOLD_OPENED]: msg.value.opened, [HOLD_NOQ]: msg.value.noQueue, [HOLD_Q]: msg.value.queue });
       } else if (msg.type === 'saverSkip' && ['back-early', 'paused', 'muted', 'pip', 'already-low', 'no-video', 'no-quality'].includes(msg.reason)) {
         await api.storage.local.set({ [LAST]: { at: Date.now(), skipped: msg.reason } });
       } else if (msg.type === 'saverOn' && typeof msg.label === 'string' && typeof msg.title === 'string') {
@@ -450,7 +457,7 @@
       if (area === 'sync' && changes[KEY] && VALID.has(changes[KEY].newValue)) {
         send({ type: 'pref', value: changes[KEY].newValue });
       }
-      if (area === 'sync' && (changes[HOLD_OPENED] || changes[HOLD_NEXT] || changes[OLD_AUTOPLAY])) {
+      if (area === 'sync' && (changes[HOLD_OPENED] || changes[HOLD_NOQ] || changes[HOLD_Q] || changes[HOLD_NEXT] || changes[OLD_AUTOPLAY])) {
         readAutoplay().then((value) => send({ type: 'autoplay', value }));
       }
       if (area === 'sync' && changes[HIDE_CHAT]) {

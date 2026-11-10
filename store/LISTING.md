@@ -36,7 +36,7 @@ Auto, Highest available, 144p, 240p, 360p, 480p, 720p, 1080p, 1440p and 2160p (4
 • If you choose a quality a video doesn't have, the closest lower quality is used, and the menu tells you which one.
 
 NO AUTOPLAY (OPTIONAL)
-• Two separate settings: "Videos I open" and "Next in queue or playlist" can each start paused until you press play.
+• Three settings: "Opened" (a video you click or tap), "No queue or playlist" and "Queue or playlist". Each can play, wait paused until you press play, or (the last two) stop. YouTube's own autoplay switch is replaced by Resolute's button.
 • Switch them with the button next to YouTube's search box (it unfolds when you point at it) or in the toolbar popup.
 • When Resolute holds a video, the button says "Video waiting" with a Play button. Pressing play any other way works too.
 
@@ -54,7 +54,7 @@ DETAILS
 • Works on youtube.com and on YouTube videos embedded in other websites.
 • Waits for ads to finish before applying your quality.
 • Keyboard friendly: Tab to the button, arrow keys to move, Enter to choose, Esc to close.
-• The toolbar icon lets you set your global default, switch the two autoplay settings, hide live chat and the background saver, see, edit and remove channel defaults, and clear remembered videos.
+• The toolbar icon lets you set your global default, change the three autoplay settings, hide live chat and the background saver, see, edit and remove channel defaults, and clear remembered videos.
 
 PRIVACY
 Your settings stay in your browser. The extension sends no data anywhere and has no analytics or ads.

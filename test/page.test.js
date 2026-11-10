@@ -40,9 +40,11 @@ Object.assign(p, {
   setPlaybackQualityRange: (a, b) => { calls.push(a); playing = a; },
   setPlaybackQuality: () => {},
   pauseVideo: () => { pauses += 1; videoPaused = true; },
-  playVideo: () => { plays += 1; }
+  playVideo: () => { plays += 1; },
+  getPlaylistId: () => playlistId
 });
 let pauses = 0;
+let playlistId = '';
 let plays = 0;
 let videoPaused = true; // jsdom can't play media, so the test sets this
 const videoEl = p.querySelector('video');
@@ -291,7 +293,7 @@ const open = () => document.querySelector('#yqx-button').dispatchEvent(new windo
     await wait(20);
   };
   const ends = () => videoEl.dispatchEvent(new window.Event('ended'));
-  const both = (opened, next) => toPage('autoplay', { opened, next });
+  const both = (opened, next) => toPage('autoplay', { opened, noQueue: next ? 'wait' : 'play', queue: next ? 'wait' : 'play' });
   let before3 = pauses;
   await startsPlaying('ap0');
   assert.strictEqual(pauses, before3, 'both off: autoplay left alone');
@@ -342,6 +344,44 @@ const open = () => document.querySelector('#yqx-button').dispatchEvent(new windo
   assert.strictEqual(pauses, before3 + 5, 'both off: everything autoplays again');
   videoPaused = true;
 
+  // Queue vs no queue, and "stops"
+  toPage('autoplay', { opened: false, noQueue: 'play', queue: 'wait' });
+  const beforeQ = pauses;
+  playlistId = 'PLabc';
+  ends(); await startsPlaying('qq1');
+  assert.strictEqual(pauses, beforeQ + 1, 'in a playlist: "Queue" waits -> the next video starts paused');
+  playlistId = '';
+  ends(); await startsPlaying('qq2');
+  assert.strictEqual(pauses, beforeQ + 1, 'no playlist: "No queue" plays');
+  toPage('autoplay', { opened: false, noQueue: 'wait', queue: 'play' });
+  ends(); await startsPlaying('qq3');
+  assert.strictEqual(pauses, beforeQ + 2, 'no playlist: "No queue" waits');
+  const toggle = document.createElement('button');
+  toggle.className = 'ytp-autonav-toggle-button';
+  toggle.setAttribute('aria-checked', 'true');
+  toggle.addEventListener('click', () => toggle.setAttribute('aria-checked', String(toggle.getAttribute('aria-checked') !== 'true')));
+  document.body.append(toggle);
+  toPage('autoplay', { opened: false, noQueue: 'stop', queue: 'play' });
+  assert.strictEqual(toggle.getAttribute('aria-checked'), 'false', '"No queue: stops" switches YouTube\'s own autoplay off');
+  toPage('autoplay', { opened: false, noQueue: 'play', queue: 'play' });
+  assert.strictEqual(toggle.getAttribute('aria-checked'), 'true', 'and back on when it plays again');
+  toggle.remove();
+  toPage('autoplay', { opened: false, noQueue: 'play', queue: 'stop' });
+  playlistId = 'PLabc';
+  let heard = 0; const hear = () => { heard += 1; };
+  videoEl.addEventListener('ended', hear);
+  ends();
+  assert.strictEqual(heard, 0, '"Queue: stops" keeps the end of the video from reaching YouTube');
+  toPage('autoplay', { opened: false, noQueue: 'play', queue: 'play' });
+  ends();
+  assert.strictEqual(heard, 1, 'otherwise the end goes through untouched');
+  videoEl.removeEventListener('ended', hear);
+  playlistId = '';
+  both(false, false);
+  before3 += pauses - beforeQ; // the pauses made in this block
+  await startsPlaying('qq9'); await wait(1500); // a held video plays: the button settles
+  videoPaused = true;
+
   // The unfolding split button beside the search box
   const ap = document.getElementById('yqx-autoplay');
   const apm = document.getElementById('yqx-apm');
@@ -349,24 +389,39 @@ const open = () => document.querySelector('#yqx-button').dispatchEvent(new windo
   assert.strictEqual(ap.previousElementSibling.id, 'voice-search-button', 'sits right after the mic button');
   const lead = ap.querySelector('.yqx-au-lead');
   const trail = ap.querySelector('.yqx-au-trail');
-  assert.strictEqual(ap.dataset.level, '0');
+  assert.strictEqual(lead.dataset.l, '0');
+  assert.strictEqual(ap.querySelectorAll('.yqx-seg').length, 3, 'three segments: opened, no queue, queue');
   assert.match(ap.querySelector('.yqx-ms-shape').style.clipPath, /^polygon\(/, 'shape drawn as a morphable polygon');
-  assert.strictEqual(lead.querySelector('.yqx-in').textContent, 'Autoplay', 'label says the state');
+  assert.strictEqual(lead.querySelector('.st').textContent, 'plays', 'label says the state');
   // unfold on hover
   ap.dispatchEvent(new window.PointerEvent('pointerenter', { pointerType: 'mouse' }));
   assert.ok(ap.classList.contains('yqx-open'), 'unfolds when pointed at');
   assert.strictEqual(trail.tabIndex, 0, 'chevron reachable once unfolded');
-  // shape/words: one click switches both
-  lead.dispatchEvent(new window.MouseEvent('click', { bubbles: true, detail: 1 }));
-  assert.deepStrictEqual(sent.at(-1), { source: 'yqx-page', type: 'autoplay', value: { opened: true, next: true } }, 'shape click pauses all');
-  assert.strictEqual(ap.dataset.level, '2', 'both on = solid');
-  assert.strictEqual(lead.querySelector('.yqx-in').textContent, 'No autoplay', 'label rolls to the new state');
-  assert.match(lead.getAttribute('aria-label'), /Videos wait for you/);
+  // each segment moves on its own: opened plays<->waits, the other two plays -> waits -> stops
+  const [segOpened, segNo, segQ] = ap.querySelectorAll('.yqx-seg');
+  assert.strictEqual(segOpened, lead);
+  assert.strictEqual(segNo.tabIndex, 0, 'unfolded segments reachable');
+  const click = (el) => el.dispatchEvent(new window.MouseEvent('click', { bubbles: true, detail: 1 }));
+  click(lead);
+  assert.deepStrictEqual(sent.at(-1), { source: 'yqx-page', type: 'autoplay', value: { opened: true, noQueue: 'play', queue: 'play' } }, 'opened segment waits');
+  click(segNo); click(segQ);
+  assert.deepStrictEqual(sent.at(-1).value, { opened: true, noQueue: 'wait', queue: 'wait' }, 'the other two wait');
+  assert.strictEqual(lead.dataset.l, '1', 'unfolded: the shape shows its own setting');
+  assert.strictEqual(segNo.querySelector('.st').textContent, 'waits');
+  assert.match(lead.getAttribute('aria-label'), /waits/);
+  const widths = () => [...ap.querySelectorAll('.yqx-seg')].map((x) => parseFloat(x.style.width));
+  const sum = (a) => a.reduce((x, y) => x + y, 0);
+  const rest = sum(widths());
+  segNo.dispatchEvent(new window.PointerEvent('pointerenter', { pointerType: 'mouse' }));
+  assert.ok(segNo.classList.contains('yqx-hv') && widths()[1] > widths()[0], 'pointing at a segment grows it');
+  assert.ok(Math.abs(sum(widths()) - rest) < 1, 'the others give way: total width never changes, so the arrow stays put');
+  segNo.dispatchEvent(new window.PointerEvent('pointerleave', { pointerType: 'mouse' }));
+  assert.ok(Math.abs(sum(widths()) - rest) < 1, 'still the same total after leaving');
   await startsPlaying('ap7');
   assert.strictEqual(pauses, before3 + 6, 'works immediately');
   // 1A: the button says the video is waiting, until it plays (any way)
   assert.ok(ap.classList.contains('yqx-held'), 'held video: button shows it');
-  assert.strictEqual(lead.querySelector('.yqx-in').textContent, 'Video waiting');
+  assert.strictEqual(lead.querySelector('.st').textContent, 'Video waiting');
   assert.ok(ap.classList.contains('yqx-open'), 'unfolds on its own');
   assert.strictEqual(ap.querySelector('.yqx-au-go').tabIndex, 0, 'Play segment reachable');
   const playsBefore = plays;
@@ -374,43 +429,47 @@ const open = () => document.querySelector('#yqx-button').dispatchEvent(new windo
   assert.strictEqual(plays, playsBefore + 1, 'Play segment plays the video');
   lead.dispatchEvent(new window.MouseEvent('click', { bubbles: true, detail: 1 }));
   assert.strictEqual(plays, playsBefore + 2, 'while waiting, the shape plays too (no settings change)');
-  assert.deepStrictEqual(sent.at(-1).value, { opened: true, next: true }, 'settings untouched while waiting');
+  assert.deepStrictEqual(sent.at(-1).value, { opened: true, noQueue: 'wait', queue: 'wait' }, 'settings untouched while waiting');
   // the user presses Space / the player's button instead: the video just starts playing
   videoPaused = false; videoEl.dispatchEvent(new window.Event('playing')); await wait(20);
   assert.ok(!ap.classList.contains('yqx-held'), 'any play releases the button');
-  assert.strictEqual(lead.querySelector('.yqx-in').textContent, 'Playing', 'says Playing once');
+  assert.strictEqual(lead.querySelector('.st').textContent, 'Playing', 'says Playing once');
   assert.strictEqual(pauses, before3 + 6, 'a play you start is never undone');
   await wait(1500);
-  assert.strictEqual(lead.querySelector('.yqx-in').textContent, 'No autoplay', 'then back to the setting');
+  assert.strictEqual(lead.querySelector('.st').textContent, 'waits', 'then back to the setting');
   videoPaused = true; videoEl.dispatchEvent(new window.Event('pause'));
   videoPaused = false; videoEl.dispatchEvent(new window.Event('playing')); await wait(20);
-  assert.ok(!ap.classList.contains('yqx-held') && lead.querySelector('.yqx-in').textContent === 'No autoplay', 'your own pause/play stays quiet');
+  assert.ok(!ap.classList.contains('yqx-held') && lead.querySelector('.st').textContent === 'waits', 'your own pause/play stays quiet');
   // held, then you open a different video yourself: nothing to explain
   document.body.dispatchEvent(new window.MouseEvent('pointerdown', { bubbles: true })); await wait(1050);
   await startsPlaying('ap8');
   assert.ok(ap.classList.contains('yqx-held'));
   document.body.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'k', bubbles: true }));
   await startsPlaying('ap9');
-  assert.ok(!ap.classList.contains('yqx-held') && lead.querySelector('.yqx-in').textContent !== 'Playing', 'a different video clears it silently');
+  assert.ok(!ap.classList.contains('yqx-held') && lead.querySelector('.st').textContent !== 'Playing', 'a different video clears it silently');
   ap.dispatchEvent(new window.PointerEvent('pointerleave', { pointerType: 'mouse' }));
   await wait(1500);
   lead.dispatchEvent(new window.MouseEvent('click', { bubbles: true, detail: 1 }));
-  assert.deepStrictEqual(sent.at(-1).value, { opened: false, next: false }, 'not waiting: click allows autoplay again');
+  assert.deepStrictEqual(sent.at(-1).value, { opened: false, noQueue: 'wait', queue: 'wait' }, 'not waiting: the opened segment plays again');
   // chevron: menu with a switch per setting
   trail.dispatchEvent(new window.MouseEvent('click', { bubbles: true, detail: 1 }));
   assert.ok(apm.classList.contains('yqx-show'), 'chevron opens the menu');
   assert.strictEqual(trail.getAttribute('aria-expanded'), 'true');
-  assert.strictEqual(apm.querySelectorAll('[role=menuitemcheckbox]').length, 2, 'two switches');
+  assert.strictEqual(apm.querySelectorAll('[role=menuitemcheckbox]').length, 1, 'one switch (opened)');
+  assert.strictEqual(apm.querySelectorAll('.yqx-apm-chip').length, 6, 'plays / waits / stops for each of the other two');
   apm.querySelector('.yqx-apm-row-opened').click();
-  assert.deepStrictEqual(sent.at(-1).value, { opened: true, next: false }, 'saves "Videos I open" alone');
-  assert.strictEqual(ap.dataset.level, '1', 'one on = soft tint');
-  assert.strictEqual(lead.querySelector('.yqx-in').textContent, 'Opened wait');
+  assert.deepStrictEqual(sent.at(-1).value, { opened: true, noQueue: 'wait', queue: 'wait' }, 'saves "opened" alone');
+  assert.strictEqual(lead.dataset.l, '2', 'folded: the one shape shows the total (all three wait = solid)');
+  assert.strictEqual(lead.querySelector('.st').textContent, 'waits');
   assert.ok(apm.classList.contains('yqx-show'), 'menu stays open after a switch');
-  const rowNext = apm.querySelector('.yqx-apm-row-next');
-  rowNext.focus();
-  rowNext.dispatchEvent(new window.KeyboardEvent('keydown', { key: ' ', bubbles: true }));
-  assert.strictEqual(ap.dataset.next, 'true', 'Space toggles the focused switch');
-  rowNext.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  const chipStop = apm.querySelector('.yqx-apm-chip[data-k="queue"][data-m="stop"]');
+  chipStop.focus();
+  chipStop.dispatchEvent(new window.KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+  assert.deepStrictEqual(sent.at(-1).value, { opened: true, noQueue: 'wait', queue: 'stop' }, 'Space picks the focused choice');
+  assert.strictEqual(chipStop.getAttribute('aria-checked'), 'true');
+  assert.strictEqual(segQ.dataset.l, '2', 'stops = square');
+  assert.strictEqual(ap.dataset.stop, 'true');
+  chipStop.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   assert.ok(!apm.classList.contains('yqx-show'), 'Escape closes');
   assert.strictEqual(document.activeElement, trail, 'focus back on the chevron');
   trail.dispatchEvent(new window.MouseEvent('click', { bubbles: true, detail: 1 }));
@@ -421,7 +480,7 @@ const open = () => document.querySelector('#yqx-button').dispatchEvent(new windo
   await wait(20);
   assert.ok(!ap.classList.contains('yqx-open'), 'folds back when the pointer leaves');
   both(false, false); // changed in the popup
-  assert.strictEqual(ap.dataset.level, '0', 'follows the popup');
+  assert.strictEqual(lead.dataset.l, '0', 'follows the popup');
   assert.strictEqual(apm.querySelector('.yqx-apm-row-opened').getAttribute('aria-checked'), 'false');
   ap.remove(); await wait(400);
   assert.strictEqual(document.querySelectorAll('#yqx-autoplay').length, 1, 'comes back once if YouTube re-renders the bar');

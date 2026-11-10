@@ -11,7 +11,7 @@ Resolute for YouTube ("the extension") lets you choose the video quality and the
 | What | When | Where it is stored |
 |---|---|---|
 | Your **default quality** (for example "1080p" or "Highest available") | When you pick a default in the popup or click **Make default for all videos** in the player menu | Your browser's extension storage (`storage.sync`). If you have turned on Chrome Sync or Firefox Sync, your browser copies this setting to your other signed-in browsers. That copying is done by your browser and your Google or Mozilla account, not by the extension or its developer. |
-| Your two **autoplay settings** ("Videos I open" and "Next in queue or playlist", each on or off) | When you switch them in the toolbar popup or with the button next to YouTube's search box | Your browser's extension storage (`storage.sync`), synced by your browser like the default quality. |
+| Your three **autoplay settings** ("Opened": plays or waits; "No queue or playlist" and "Queue or playlist": plays, waits or stops) | When you switch them in the toolbar popup or with the button next to YouTube's search box | Your browser's extension storage (`storage.sync`), synced by your browser like the default quality. |
 | Your **hide live chat** setting (on or off) | When you switch it in the toolbar popup | Your browser's extension storage (`storage.sync`), synced by your browser like the default quality. |
 | Your **hide top bar** setting (on or off) | When you switch it in the toolbar popup | Your browser's extension storage (`storage.sync`), synced by your browser like the default quality. |
 | Your **tab countdown icons** setting (on or off) | When you switch it in the toolbar popup | Your browser's extension storage (`storage.sync`). |

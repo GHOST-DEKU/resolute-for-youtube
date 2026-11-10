@@ -33,7 +33,9 @@
   <a href="PRIVACY.md">Privacy</a>
 </p>
 
-> **🆕 New in 1.5.1:** the popup no longer shows a scrollbar on the Speed page. It still scrolls with the mouse wheel, touch and arrow keys.
+> **🆕 New in 1.6:** the autoplay button now has three parts: **Opened**, **No queue** and **Queue**. Each can play, wait for you, or (the last two) stop. YouTube's own autoplay switch on the player bar is hidden, so Resolute's is the only one. [See how it works](#autoplay)
+>
+> **1.5.1:** the popup no longer shows a scrollbar on the Speed page. It still scrolls with the mouse wheel, touch and arrow keys.
 >
 > **Ambient glow (1.5):** The video's colours softly light up the page around the player, and black bars fill with a blur of the scene, in dark and light theme. Pick Candle, Lamp or Daylight in the popup, which takes on your video's colours too. [See how it works](#glow).
 >

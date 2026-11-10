@@ -199,7 +199,7 @@ Point at it and it **opens up into three segments and an arrow**. It floats over
 - The three segments are **Opened**, **No queue** and **Queue**.
 - Point at one and **it grows** to show its name and its state ("No queue / waits"). The other two **shrink to make room**, so the arrow on the right never moves from under your pointer.
 - **Click a segment** to change that one setting: Plays, then Waits, then Stops, then Plays again (Opened just goes between Plays and Waits). A segment that stops has a line through its icon.
-- Click the **arrow** to open a small menu: one switch for **Opened**, and a Plays / Waits / Stops choice for each of the other two. The menu looks like frosted glass: you can see the page behind it, a little blurred.
+- Click the **arrow** to open a small menu: one switch for **Opened**, and a Plays / Waits / Stops choice for each of the other two. The menu looks like frosted glass: you can see the page behind it, a little blurred. Point at **Plays**, **Waits** or **Stops** and a short line under the menu says what it does for that setting (the popup shows the same line as a tooltip).
 
 <p align="center">
   <img src="docs/autoplay-menu.png" alt="The frosted menu with a switch for Opened and Plays, Waits, Stops choices for No queue and Queue" width="100%"><br>

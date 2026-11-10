@@ -1091,6 +1091,11 @@
     held: false, heldFor: '', flash: false, timer: 0 };
   const ORDER = ['play', 'wait', 'stop'];
   const WORDS = { play: 'plays', wait: 'waits', stop: 'stops' };
+  // What each choice means: shown under the menu while the pointer or focus is on it.
+  const DEFS = {
+    noQueue: { play: 'A video ends and YouTube starts another by itself, as it normally does.', wait: 'The next video opens, but paused. Press play to start it.', stop: 'Nothing starts after a video ends.' },
+    queue: { play: 'The next video in the queue or playlist starts by itself.', wait: 'The next video in the queue or playlist opens paused. Press play.', stop: 'The queue or playlist does not move on after a video ends.' }
+  };
   const SEGS = [
     { k: 'opened', cap: 'Opened', name: 'Opened, a video I click or tap' },
     { k: 'noQueue', cap: 'No queue', name: 'No queue or playlist, a video ends and nothing follows' },
@@ -1139,6 +1144,8 @@
     g.append(el('i', 'yqx-ap-l'), el('i', 'yqx-ap-r'));
     return g;
   }
+  const FOOT = 'Pressing play always works.';
+  const explain = (text) => { if (mast.foot) mast.foot.textContent = text || FOOT; };
   const QUEUE_ICON = 'M3 10h11v2H3zm0-4h11v2H3zm0 8h7v2H3zm13-1v8l6-4z';
   function segIcon(k) {
     if (k === 'opened') return glyph();
@@ -1231,6 +1238,12 @@
       for (const m of ORDER) {
         const c = el('button', 'yqx-apm-chip', { type: 'button', role: 'radio', tabindex: '-1', 'aria-checked': 'false', 'data-k': k, 'data-m': m });
         c.textContent = m === 'play' ? 'Plays' : m === 'wait' ? 'Waits' : 'Stops';
+        c.title = DEFS[k][m];
+        c.setAttribute('aria-label', `${c.textContent}: ${DEFS[k][m]}`);
+        c.addEventListener('pointerenter', () => explain(DEFS[k][m]));
+        c.addEventListener('focus', () => explain(DEFS[k][m]));
+        c.addEventListener('pointerleave', () => explain(''));
+        c.addEventListener('blur', () => explain(''));
         c.addEventListener('click', () => setMode(k, m));
         chips.append(c);
         mast.chips.push(c);
@@ -1239,7 +1252,8 @@
       list.append(pr);
     }
     const foot = el('div', 'yqx-apm-foot', { 'aria-hidden': 'true' });
-    foot.textContent = 'Pressing play always works.';
+    foot.textContent = FOOT;
+    mast.foot = foot;
     const live = el('div', 'yqx-live', { role: 'status', 'aria-live': 'polite' });
     menu.append(title, list, foot, live);
 

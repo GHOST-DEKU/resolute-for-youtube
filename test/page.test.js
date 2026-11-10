@@ -467,6 +467,13 @@ const open = () => document.querySelector('#yqx-button').dispatchEvent(new windo
   chipStop.dispatchEvent(new window.KeyboardEvent('keydown', { key: ' ', bubbles: true }));
   assert.deepStrictEqual(sent.at(-1).value, { opened: true, noQueue: 'wait', queue: 'stop' }, 'Space picks the focused choice');
   assert.strictEqual(chipStop.getAttribute('aria-checked'), 'true');
+  const foot = apm.querySelector('.yqx-apm-foot');
+  const chipWait = apm.querySelector('.yqx-apm-chip[data-k="noQueue"][data-m="wait"]');
+  chipWait.dispatchEvent(new window.Event('pointerenter'));
+  assert.strictEqual(foot.textContent, 'The next video opens, but paused. Press play to start it.', 'pointing at a choice explains it');
+  assert.match(chipWait.getAttribute('aria-label'), /^Waits: /);
+  chipWait.dispatchEvent(new window.Event('pointerleave'));
+  assert.strictEqual(foot.textContent, 'Pressing play always works.', 'and the note comes back');
   assert.strictEqual(segQ.dataset.l, '2', 'stops = square');
   assert.strictEqual(ap.dataset.stop, 'true');
   chipStop.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));

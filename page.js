@@ -331,11 +331,20 @@
     return !!(p && call(p, 'getPlaylistId')) || new URL(location.href).searchParams.has('list');
   }
   // YouTube's own autoplay switch is hidden (see CSS); Resolute turns it on or off to match "No queue" (stops = off).
+  // YouTube's playlist manager decides whether a playlist moves on by itself; another public userscript
+  // switches that by writing canAutoAdvance_ on it. shortcut: private YouTube field, unverified here, if it is missing "Stops" falls back to blocking the end signal.
+  function allowAdvance(allow) {
+    const m = document.querySelector('yt-playlist-manager');
+    const c = m && [m, m.polymerController, m.inst].find((x) => x && 'canAutoAdvance_' in x);
+    if (c) c.canAutoAdvance_ = allow;
+    return !!c;
+  }
   let autonavTimer = 0;
   function syncAutonav() {
     clearTimeout(autonavTimer);
     if (!IS_TOP || !autoplayKnown || !location.pathname.startsWith('/watch')) return;
     const attempt = (n) => {
+      if (inQueue()) allowAdvance(modeQ !== 'stop');
       const t = document.querySelector('.ytp-autonav-toggle-button');
       if (!t) { if (n < 12) autonavTimer = setTimeout(() => attempt(n + 1), 800); return; } // the player may not be drawn yet
       if (inQueue()) return;
@@ -3110,8 +3119,8 @@ html[yqx-glow-tint]:not([yqx-glow-ad]) .yqx-au:not(.yqx-open) .yqx-ms-shape{back
       endedAt = Date.now();
       endedVid = videoIdOf(p);
       endedQueue = inQueue();
-      // "Stops" in a queue: don't let the page hear that the video ended, so it doesn't move on. shortcut: unverified on live YouTube; if it does not hold, the next video still starts paused.
-      if (endedQueue && modeQ === 'stop') e.stopPropagation();
+      // "Stops" in a queue: switch the playlist's own advance off. Without that field, don't let the page hear the video ended. shortcut: unverified on live YouTube; if neither holds, the next video still starts paused.
+      if (endedQueue && !allowAdvance(modeQ !== 'stop') && modeQ === 'stop') e.stopPropagation();
       clearSpot(endedVid); // watched to the end: next time starts fresh
     }
   }, true);

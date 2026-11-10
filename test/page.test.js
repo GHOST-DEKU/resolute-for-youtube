@@ -376,6 +376,16 @@ const open = () => document.querySelector('#yqx-button').dispatchEvent(new windo
   ends();
   assert.strictEqual(heard, 1, 'otherwise the end goes through untouched');
   videoEl.removeEventListener('ended', hear);
+  // With YouTube's playlist manager present, "Stops" switches its own advance off and lets the end go through
+  const mgr = document.createElement('yt-playlist-manager'); mgr.canAutoAdvance_ = true; document.body.append(mgr);
+  toPage('autoplay', { opened: false, noQueue: 'play', queue: 'stop' });
+  assert.strictEqual(mgr.canAutoAdvance_, false, '"Queue: stops" turns the playlist\'s own advance off');
+  heard = 0; videoEl.addEventListener('ended', hear); ends();
+  assert.strictEqual(heard, 1, 'and the end of the video is not blocked');
+  videoEl.removeEventListener('ended', hear);
+  toPage('autoplay', { opened: false, noQueue: 'play', queue: 'wait' });
+  assert.strictEqual(mgr.canAutoAdvance_, true, 'back on when the queue plays or waits');
+  mgr.remove();
   playlistId = '';
   both(false, false);
   before3 += pauses - beforeQ; // the pauses made in this block

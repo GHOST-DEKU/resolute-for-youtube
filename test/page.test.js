@@ -492,6 +492,17 @@ const open = () => document.querySelector('#yqx-button').dispatchEvent(new windo
   trail.dispatchEvent(new window.MouseEvent('click', { bubbles: true, detail: 1 }));
   document.body.dispatchEvent(new window.MouseEvent('pointerdown', { bubbles: true }));
   assert.ok(!apm.classList.contains('yqx-show'), 'outside click closes');
+  // a mouse click leaves focus on the arrow: closing the menu by clicking it, then leaving, must still fold
+  ap.dispatchEvent(new window.PointerEvent('pointerenter', { pointerType: 'mouse' }));
+  trail.focus(); // jsdom calls any focus "visible"; a browser does not for a mouse click, so say so:
+  const qsAll = ap.querySelector; ap.querySelector = (q) => (q === ':focus-visible' ? null : qsAll.call(ap, q));
+  trail.dispatchEvent(new window.MouseEvent('click', { bubbles: true, detail: 1 }));
+  trail.dispatchEvent(new window.MouseEvent('click', { bubbles: true, detail: 1 }));
+  assert.ok(!apm.classList.contains('yqx-show'), 'clicking the arrow again closes the menu');
+  ap.dispatchEvent(new window.PointerEvent('pointerleave', { pointerType: 'mouse' }));
+  await wait(20);
+  assert.ok(!ap.classList.contains('yqx-open'), 'folds when the pointer leaves, even with the arrow still focused by the click');
+  ap.querySelector = qsAll;
   trail.blur();
   ap.dispatchEvent(new window.PointerEvent('pointerleave', { pointerType: 'mouse' }));
   await wait(20);

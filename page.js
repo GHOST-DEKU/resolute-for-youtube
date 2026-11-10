@@ -1405,7 +1405,7 @@
     layout();
   }
   function fold() {
-    if (!mast.btn || mast.hover || mast.open || mast.timer || mast.btn.contains(document.activeElement)) return;
+    if (!mast.btn || mast.hover || mast.open || mast.timer || mast.btn.querySelector(':focus-visible')) return; // a click leaves focus on the arrow: only keyboard focus keeps it open
     mast.btn.classList.remove('yqx-open');
     mast.trail.tabIndex = -1;
     layout();

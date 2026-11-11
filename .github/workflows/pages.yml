@@ -3,9 +3,14 @@ name: Deploy website
 on:
   push:
     branches: [main]
-    paths:
-      - 'website/**'
-      - '.github/workflows/pages.yml'
+    # Any change to the extension redeploys the site, so the Chrome ZIP is always the latest one.
+    # Only files that cannot change the ZIP or the site are ignored.
+    paths-ignore:
+      - 'docs/**'
+      - 'store/**'
+      - 'test/**'
+      - '*.md'
+      - '.gitignore'
   workflow_dispatch:
 
 permissions:
@@ -32,6 +37,13 @@ jobs:
         working-directory: website
       - run: npm run build
         working-directory: website
+      - name: Build the Chrome ZIP and put it on the site
+        run: |
+          python3 scripts/build.py chrome
+          mkdir -p website/dist/downloads
+          cp dist/resolute-chrome-v*.zip website/dist/downloads/
+          cp dist/resolute-chrome-v*.zip website/dist/downloads/resolute-chrome.zip
+          ls -l website/dist/downloads
       - uses: actions/upload-pages-artifact@v3
         with:
           path: website/dist

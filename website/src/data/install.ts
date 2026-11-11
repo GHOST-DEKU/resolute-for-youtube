@@ -1,7 +1,7 @@
 export interface Step { t: string; d: string; sc: 'gh' | 'fold' | 'ext'; a: string; hl?: 'addr' | 'dev' | 'load'; dev?: boolean; dlg?: boolean }
 // Wording follows README.md > Install > Chrome (and other Chromium browsers).
 export const STEPS: Step[] = [
-  { t: 'Download the ZIP', d: 'On the GitHub page press Code, then Download ZIP.', sc: 'gh', a: 'https://github.com/ghost-deku/resolute-for-youtube' },
+  { t: 'Download the ZIP', d: 'Press the Download ZIP button on this card. You get one file, resolute-chrome.zip.', sc: 'gh', a: 'ghost-deku.github.io/resolute-for-youtube' },
   { t: 'Unzip and keep the folder', d: 'Move the folder somewhere it can stay, like Documents. Chrome keeps using these files, so do not delete or move it later.', sc: 'fold', a: 'Downloads' },
   { t: 'Open chrome://extensions', d: 'Type it in the address bar and press Enter. Edge: edge://extensions. Brave: brave://extensions.', sc: 'ext', a: 'chrome://extensions', hl: 'addr' },
   { t: 'Turn on Developer mode', d: 'It is the switch at the top right.', sc: 'ext', a: 'chrome://extensions', hl: 'dev', dev: true },

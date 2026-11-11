@@ -1,7 +1,7 @@
 ---
 import Section from './Section.astro';
 import { STEPS, FIREFOX_STEPS } from '../data/install';
-import { AMO, REPO } from '../data/links';
+import { AMO, REPO, CHROME_ZIP, VERSION } from '../data/links';
 ---
 <Section id="install" eyebrow="Install" title="Pick your browser. We show the steps." lede="Firefox is one click. Chrome and friends take five short steps.">
   <div class="inst-grid">
@@ -11,7 +11,7 @@ import { AMO, REPO } from '../data/links';
       <p>One click from Mozilla Add-ons. Firefox keeps it up to date for you.</p>
       <ol class="steps2">{FIREFOX_STEPS.map((s) => <li><span>{s}</span></li>)}</ol>
       <p class="note2">If the button does not appear, open <code>about:addons</code>, click Resolute, go to Permissions, and allow YouTube.</p>
-      <div style="margin-top:16px"><a class="btn primary" href={AMO} rel="noopener">Add to Firefox</a></div>
+      <div style="margin-top:16px"><a class="btn primary" href={AMO} target="_blank" rel="noopener">Add to Firefox</a></div>
     </div>
     <div class="card2">
       <span class="tag" style="background:var(--tertiary-container);color:var(--on-tertiary-container)">No store needed</span>
@@ -22,7 +22,7 @@ import { AMO, REPO } from '../data/links';
         <div data-mount="install" class="inst-stage"></div>
       </div>
       <p class="note2"><b>Updating:</b> download the new ZIP, unzip it over the old folder, open the extensions page and press the round reload arrow on Resolute, then refresh your YouTube tab.</p>
-      <div style="margin-top:16px"><a class="btn primary" href={REPO} rel="noopener">Open GitHub</a></div>
+      <div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center"><a class="btn primary" href={CHROME_ZIP} download="resolute-chrome.zip">Download ZIP for Chrome · v{VERSION}</a><a class="btn tonal" href={REPO} target="_blank" rel="noopener">View on GitHub</a></div>
     </div>
   </div>
   <p class="note2" style="text-align:center">Safari and phone browsers are not supported. Resolute works on youtube.com in a desktop browser.</p>

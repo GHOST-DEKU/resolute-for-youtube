@@ -31,3 +31,9 @@ html[data-world] .site::after{content:"";position:fixed;inset:0;z-index:0;pointe
 .links{margin-left:auto}.pagepill:not([hidden]){margin-left:14px}
 @container (max-width:900px){.pagepill{display:none}}
 @media (prefers-reduced-motion:reduce){.bigh.res{animation:none}}
+
+/* top bar: both browsers, same weight */
+.nav .btn.tonal.sm{margin-left:0}
+.pagepill:not([hidden]) ~ .btn.tonal{margin-left:0}
+@container (max-width:640px){.nav .lg{display:none}.nav .btn.sm{padding:0 14px}.nav .btn.tonal.sm{margin-left:auto}.nav .btn.primary.sm{margin-left:0}}
+.nav .btn.sm{gap:0}

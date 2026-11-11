@@ -1,4 +1,7 @@
 import { makeCtx } from './core';
+import { startWorld } from './world';
+
+startWorld();
 
 /* theme toggle (the first paint is set by the inline script in Base.astro) */
 const body = document.body;

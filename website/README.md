@@ -24,3 +24,9 @@ Notes
 - `src/scripts/world.ts` paints a fixed canvas scene that sharpens from 144p to 4K while you scroll, and crossfades the four scenes like a day. It also drives the "Page quality" pill in the nav and the "resolve" animation on the big headings.
 - With JavaScript off, or with reduced motion, the page shows the normal soft wall and sharp 4K headings.
 - Headings use the width axis of Google Sans Flex (`public/fonts/gsf-wdth.woff2`, 119 KB) in `src/styles/world.css`.
+
+## The Chrome ZIP (always the latest)
+- The "Download ZIP" buttons point to `/downloads/resolute-chrome.zip` on the site itself. Nobody uploads that file by hand.
+- The deploy workflow (`.github/workflows/pages.yml`) runs `python3 scripts/build.py chrome` and copies the result into the site on every push to `main` that touches the extension or the site. The button label shows the version from `manifest.json`.
+- Add a new file to the extension? Add it to `FILES` in `scripts/build.py`. If `manifest.json` points to a file that is not listed there, the build fails and the deploy stops, so the site never serves a broken ZIP.
+- The Firefox buttons open the Mozilla Add-ons page in a new tab. Firefox updates come from Mozilla, not from this ZIP.

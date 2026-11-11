@@ -1,6 +1,6 @@
 ---
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
-import { AMO } from '../data/links';
+import { AMO, CHROME_ZIP } from '../data/links';
 ---
 <a class="skip" href="#main">Skip to content</a>
 <header class="nav">
@@ -16,5 +16,6 @@ import { AMO } from '../data/links';
     <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 109 9 7 7 0 01-9-9z"/></svg>
     <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 7a5 5 0 100 10 5 5 0 000-10zM2 13h2v-2H2zm18 0h2v-2h-2zM11 2v2h2V2zm0 18v2h2v-2z"/></svg>
   </button>
-  <a class="btn primary sm" href={AMO} rel="noopener">Add to Firefox</a>
+  <a class="btn tonal sm" href={CHROME_ZIP} download="resolute-chrome.zip" aria-label="Download the ZIP for Chrome"><span class="lg">Download for&nbsp;</span>Chrome</a>
+  <a class="btn primary sm" href={AMO} target="_blank" rel="noopener" aria-label="Add to Firefox"><span class="lg">Add to&nbsp;</span>Firefox</a>
 </header>

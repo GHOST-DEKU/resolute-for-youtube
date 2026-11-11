@@ -1,0 +1,38 @@
+---
+import Section from './Section.astro';
+import { PRIVACY_POLICY } from '../data/links';
+const LOCK = 'M18 8h-1V6A5 5 0 007 6v2H6a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V10a2 2 0 00-2-2zM9 6a3 3 0 016 0v2H9z';
+const X = 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z';
+// Examples of what Resolute can remember. All of it is saved by the browser on this device (storage.local).
+const ROWS: [string, string][] = [
+  ['Orbit Lab', '4K · channel default'],
+  ['Slow Kitchen', '720p · channel default'],
+  ['Slow Kitchen', '1.5× · channel speed'],
+  ['Cooking video', 'Resumed at 12:29'],
+];
+const PERMS = [
+  ['Storage', 'Saves your choices in your browser.'],
+  ['Notifications', 'Only for the Background saver: one message on your own screen when it lowers a video in a tab you left. Nothing is sent anywhere.'],
+  ['YouTube pages', 'youtube.com and youtube-nocookie.com, so the button can get into the player. Resolute does not run on any other website.'],
+];
+---
+<Section id="privacy" eyebrow="Privacy" title="Nothing leaves your browser." lede="No servers, no tracking, no network requests in the code.">
+  <div class="life" data-mount="privacy">
+    <div class="vault">
+      <h4><svg viewBox="0 0 24 24" aria-hidden="true"><path d={LOCK} /></svg> Stored in your browser (examples)</h4>
+      <div id="priv-list">
+        {ROWS.map(([a, b], i) => (
+          <div class="vrow" data-i={i}><span><b>{a}</b> <small style="color:var(--on-surface-variant)">{b}</small></span><button type="button" hidden aria-label={`Forget ${a}, ${b}`}>Forget</button></div>
+        ))}
+      </div>
+      <div class="chiprow" style="justify-content:flex-start;margin-top:8px" hidden id="priv-btns"><button type="button" class="cp" id="priv-forget-all">Forget all</button><button type="button" class="cp" id="priv-restore">Put them back</button></div>
+    </div>
+    <div class="net"><div class="cloud">Internet</div><div class="no" aria-hidden="true"><svg viewBox="0 0 24 24"><path d={X} /></svg></div><p>Nothing leaves your browser.<br />No servers. No tracking.</p></div>
+  </div>
+  <ul class="perm-static">
+    {PERMS.map(([t, d]) => <li><b>{t}.</b> {d}</li>)}
+    <li><b>Nothing else.</b> No history, bookmarks, cookies, downloads, camera or microphone. Its Firefox listing says it collects no data.</li>
+    <li><b>Your choices follow your browser account only if you use sync.</b> Remembered videos, speeds, resume spots and channel defaults stay on this device. Uninstalling Resolute deletes everything it saved.</li>
+  </ul>
+  <p class="note2" style="text-align:center">The full list of what is stored is in the <a href={PRIVACY_POLICY} rel="noopener">privacy policy</a>. The rows above are examples; your real lists are in the Resolute popup.</p>
+</Section>

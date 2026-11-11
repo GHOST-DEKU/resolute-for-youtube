@@ -1,0 +1,18 @@
+---
+import Section from './Section.astro';
+---
+<Section id="how" eyebrow="How it works" title="It picks. You can override. It remembers." lede="Resolute checks your choices in order and uses the first one it finds.">
+  <div data-enhance>
+    <div class="how-static">
+      <ol>
+        <li><b>The chip you picked just now.</b> It wins, and it is not saved.</li>
+        <li><b>Remembered for this video.</b></li>
+        <li><b>The channel’s default.</b></li>
+        <li><b>Your default for all videos.</b> If nothing is set, YouTube decides (Auto).</li>
+      </ol>
+      <p>A small dot on the quality pill tells you where the quality came from: no dot for your default or Auto, a hollow ring for a pick you made just now, a pink dot for remembered for this video, a gold dot for a channel default.</p>
+    </div>
+    <div data-mount="how-ladder"></div>
+    <div data-mount="how-dots" style="margin-top:28px"></div>
+  </div>
+</Section>

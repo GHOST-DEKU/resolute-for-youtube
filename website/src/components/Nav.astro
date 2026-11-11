@@ -1,0 +1,19 @@
+---
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+import { AMO } from '../data/links';
+---
+<a class="skip" href="#main">Skip to content</a>
+<header class="nav">
+  <a class="brand" href={base + '/'} aria-label="Resolute for YouTube, home">
+    <svg class="app" viewBox="0 0 32 32" aria-hidden="true" style="width:34px;height:34px"><rect width="32" height="32" rx="9" fill="#232428"/><rect x="7" y="16" width="5" height="9" rx="2.5" fill="#fff"/><rect x="14" y="12" width="5" height="13" rx="2.5" fill="#fff"/><rect x="21" y="6" width="5" height="19" rx="2.5" fill="#3b9cff"/></svg>
+    <span><b>Resolute</b><small>for YouTube</small></span>
+  </a>
+  <nav class="links" aria-label="Main">
+    <a href="#features">Features</a><a href="#how">How it works</a><a href="#install">Install</a><a href="#privacy">Privacy</a><a href="#faq">FAQ</a>
+  </nav>
+  <button class="themebtn" id="themebtn" type="button" aria-label="Switch between light and dark theme">
+    <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 109 9 7 7 0 01-9-9z"/></svg>
+    <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 7a5 5 0 100 10 5 5 0 000-10zM2 13h2v-2H2zm18 0h2v-2h-2zM11 2v2h2V2zm0 18v2h2v-2z"/></svg>
+  </button>
+  <a class="btn primary sm" href={AMO} rel="noopener">Add to Firefox</a>
+</header>

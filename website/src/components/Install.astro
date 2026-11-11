@@ -1,0 +1,29 @@
+---
+import Section from './Section.astro';
+import { STEPS, FIREFOX_STEPS } from '../data/install';
+import { AMO, REPO } from '../data/links';
+---
+<Section id="install" eyebrow="Install" title="Pick your browser. We show the steps." lede="Firefox is one click. Chrome and friends take five short steps.">
+  <div class="inst-grid">
+    <div class="card2">
+      <span class="tag">Recommended</span>
+      <h3 style="margin-top:10px">Firefox 140 or newer</h3>
+      <p>One click from Mozilla Add-ons. Firefox keeps it up to date for you.</p>
+      <ol class="steps2">{FIREFOX_STEPS.map((s) => <li><span>{s}</span></li>)}</ol>
+      <p class="note2">If the button does not appear, open <code>about:addons</code>, click Resolute, go to Permissions, and allow YouTube.</p>
+      <div style="margin-top:16px"><a class="btn primary" href={AMO} rel="noopener">Add to Firefox</a></div>
+    </div>
+    <div class="card2">
+      <span class="tag" style="background:var(--tertiary-container);color:var(--on-tertiary-container)">No store needed</span>
+      <h3 style="margin-top:10px">Chrome, Edge, Brave, Opera, Vivaldi</h3>
+      <p>Resolute is not on the Chrome Web Store, so you load it from a folder on your computer. You only do this once. Chrome 111 or newer.</p>
+      <div data-enhance>
+        <ol class="steps2 inst-static">{STEPS.map((s) => <li><span><b>{s.t}.</b> {s.d}</span></li>)}</ol>
+        <div data-mount="install" class="inst-stage"></div>
+      </div>
+      <p class="note2"><b>Updating:</b> download the new ZIP, unzip it over the old folder, open the extensions page and press the round reload arrow on Resolute, then refresh your YouTube tab.</p>
+      <div style="margin-top:16px"><a class="btn primary" href={REPO} rel="noopener">Open GitHub</a></div>
+    </div>
+  </div>
+  <p class="note2" style="text-align:center">Safari and phone browsers are not supported. Resolute works on youtube.com in a desktop browser.</p>
+</Section>

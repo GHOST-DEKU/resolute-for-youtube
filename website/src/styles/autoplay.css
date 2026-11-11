@@ -1,0 +1,164 @@
+/* ---------- "open videos paused" button beside the search box ---------- */
+/* @yqx-ap-css-start (the design preview page copies this block) */
+/* Material 3 Expressive tokens (seed: Resolute red). Springs are CSS linear() approximations. */
+.yqx-au,.yqx-apm{
+  --yqx-sp:linear(0,.0105 1.4%,.0436 3%,.1754 6.6%,.4153 11.8%,.6593 17.9%,.8448 24.5%,.9578 31.8%,1.0148 39.8%,1.0306 47.6%,1.0222 58.5%,1.0039 76%,1);
+  --yqx-ease:cubic-bezier(.2,0,0,1);
+  --yqx-fg:#231918;--yqx-sub:#534341;--yqx-rest:#f2f2f2;--yqx-rest-h:#e5e5e5;--yqx-shape0:#fff;
+  --yqx-cont:#f6e9e7;--yqx-cont-h:#eeddda;--yqx-pc:#ffdad6;--yqx-opc:#410002;--yqx-p:#b3261e;--yqx-op:#fff;
+  --yqx-menu:rgba(255,240,238,.62);--yqx-item:rgba(255,255,255,.55);--yqx-sel:rgba(255,218,214,.82);--yqx-edge:rgba(255,255,255,.7);
+  --yqx-outline:#857371;--yqx-track:#f5e2df;--yqx-focus:#065fd4}
+[data-theme=dark] .yqx-au,[data-theme=dark] .yqx-apm{
+  --yqx-fg:#f1dedc;--yqx-sub:#d8c2bf;--yqx-rest:#272727;--yqx-rest-h:#3f3f3f;--yqx-shape0:#4a3e3c;
+  --yqx-cont:#322826;--yqx-cont-h:#3d3231;--yqx-pc:#93000a;--yqx-opc:#ffdad6;--yqx-p:#ffb4ab;--yqx-op:#690005;
+  --yqx-menu:rgba(30,20,19,.58);--yqx-item:rgba(255,255,255,.07);--yqx-sel:rgba(147,0,10,.62);--yqx-edge:rgba(255,255,255,.14);
+  --yqx-outline:#a08c8a;--yqx-track:#3d3231;--yqx-focus:#3ea6ff}
+
+/* YouTube's own autoplay switch on the player bar: Resolute's button replaces it */
+.ytp-autonav-toggle-button-container,.ytp-autonav-toggle-button{display:none!important}
+
+/* ---------- the button: a shape at rest, a split button when unfolded ---------- */
+.yqx-au{position:relative;flex:none;width:40px;height:40px;margin:0 0 0 8px;z-index:5;color:var(--yqx-fg)}
+.yqx-au.yqx-ap-end{margin:0 8px 0 0}
+.yqx-au-row{position:absolute;top:0;left:0;height:40px;display:flex}
+.yqx-au.yqx-open .yqx-seg+.yqx-seg,.yqx-au.yqx-open .yqx-au-trail,.yqx-au.yqx-held.yqx-open .yqx-au-go{margin-left:2px}
+.yqx-au.yqx-held .yqx-seg+.yqx-seg{margin-left:0!important}
+.yqx-ap-end .yqx-au-row{left:auto;right:0}
+.yqx-au button{height:40px;margin:0;border:0;padding:0;cursor:pointer;color:inherit;display:flex;align-items:center;background:transparent;
+  font:600 14px/1 "Roboto",Arial,sans-serif;-webkit-tap-highlight-color:transparent}
+.yqx-au button:focus-visible{outline:2px solid var(--yqx-focus);outline-offset:2px}
+.yqx-au-lead{width:40px;overflow:hidden;gap:8px;white-space:nowrap;border-radius:20px;
+  transition:width .6s var(--yqx-sp),background-color .25s var(--yqx-ease),border-radius .55s var(--yqx-sp),box-shadow .3s var(--yqx-ease)}
+.yqx-au-trail{width:0;overflow:hidden;justify-content:center;border-radius:6px 20px 20px 6px;opacity:0;
+  transition:width .55s var(--yqx-sp),opacity .2s var(--yqx-ease),background-color .25s var(--yqx-ease),border-radius .55s var(--yqx-sp),box-shadow .3s var(--yqx-ease)}
+.yqx-au.yqx-open .yqx-au-lead{background:var(--yqx-cont);border-radius:20px 6px 6px 20px;box-shadow:0 4px 16px rgba(0,0,0,.12)}
+.yqx-au.yqx-open .yqx-seg+.yqx-seg{border-radius:6px}
+.yqx-seg+.yqx-seg{width:0;opacity:0;pointer-events:none;padding:0}
+.yqx-au.yqx-open:not(.yqx-held) .yqx-seg+.yqx-seg{opacity:1;pointer-events:auto}
+.yqx-au.yqx-held .yqx-seg+.yqx-seg{width:0!important}
+.yqx-au.yqx-open .yqx-au-lead:hover{background:var(--yqx-cont-h)}
+.yqx-au.yqx-open .yqx-au-trail{width:36px;opacity:1;background:var(--yqx-cont);box-shadow:0 4px 16px rgba(0,0,0,.12);transition-delay:.06s,.1s,0s,0s,0s}
+.yqx-au.yqx-open .yqx-au-trail:hover{background:var(--yqx-cont-h)}
+.yqx-au .yqx-au-trail[aria-expanded="true"]{width:40px;border-radius:20px;background:var(--yqx-pc);color:var(--yqx-opc)}
+.yqx-chev{width:12px;height:12px;flex:none;transition:transform .55s var(--yqx-sp)}
+.yqx-au-trail[aria-expanded="true"] .yqx-chev{transform:rotate(180deg)}
+/* "Video waiting": a red Play segment while Resolute holds a video, and a dot once folded */
+.yqx-au-go{width:0;opacity:0;overflow:hidden;gap:6px;justify-content:center;border-radius:6px 20px 20px 6px;
+  background:var(--yqx-p)!important;color:var(--yqx-op)!important;
+  transition:width .55s var(--yqx-sp),opacity .2s var(--yqx-ease),border-radius .55s var(--yqx-sp),transform .3s var(--yqx-sp)}
+.yqx-au.yqx-held.yqx-open .yqx-au-go{width:84px;opacity:1;transition-delay:.08s,.12s,0s,0s}
+.yqx-au.yqx-held .yqx-au-trail{display:none}
+.yqx-au-go:active{border-radius:20px;transform:scale(.96)}
+.yqx-tri{width:9px;height:10px;flex:none;background:currentColor;clip-path:polygon(0 0,100% 50%,0 100%)}
+.yqx-held-dot{position:absolute;top:1px;right:1px;width:10px;height:10px;border-radius:50%;background:#ff0033;box-shadow:0 0 0 2px #fff;
+  transform:scale(0);transition:transform .5s var(--yqx-sp)}
+[data-theme=dark] .yqx-held-dot{box-shadow:0 0 0 2px #0f0f0f}
+.yqx-au.yqx-held:not(.yqx-open) .yqx-held-dot{transform:none}
+/* labels: only the segment under the pointer shows words (small title over its state) */
+.yqx-au-lbl{display:block;opacity:0;transform:translateX(-8px);transition:opacity .2s var(--yqx-ease),transform .55s var(--yqx-sp)}
+.yqx-seg.yqx-hv .yqx-au-lbl{opacity:1;transform:none;transition-delay:.08s}
+.yqx-in{display:inline-flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:52px;line-height:1.1;text-align:left}
+.yqx-in .cap{font-size:10.5px;font-weight:500;opacity:.7}
+.yqx-in .cap:empty{display:none}
+.yqx-in .st{font-size:14px;font-weight:700}
+
+/* the shape: circle -> cookie -> rounded square (clip-path set from JS), tint = how much is on */
+.yqx-ms{position:relative;flex:none;width:34px;height:34px;margin:3px}
+.yqx-ms-shape{position:absolute;inset:3px;background:var(--yqx-rest);
+  transition:clip-path .7s var(--yqx-sp),background-color .3s var(--yqx-ease),transform .7s var(--yqx-sp)}
+.yqx-au.yqx-open .yqx-ms-shape{background:var(--yqx-shape0)}
+.yqx-au:not(.yqx-open) .yqx-au-lead:hover .yqx-ms-shape{background:var(--yqx-rest-h)}
+.yqx-seg[data-l="1"] .yqx-ms-shape{background:var(--yqx-pc)!important}
+.yqx-seg[data-l="2"] .yqx-ms-shape{background:var(--yqx-p)!important}
+.yqx-ms-core{position:absolute;inset:0;display:grid;place-items:center;color:var(--yqx-fg);transition:color .3s var(--yqx-ease)}
+.yqx-seg[data-l="1"] .yqx-ms-core{color:var(--yqx-opc)}
+.yqx-seg[data-l="2"] .yqx-ms-core{color:var(--yqx-op)}
+.yqx-segico{position:relative;display:grid;place-items:center;width:16px;height:16px}
+.yqx-segico .yqx-apm-next{width:12px;height:12px}
+/* "stops": a line through the icon; folded, a small x on the shape when anything stops */
+.yqx-seg[data-l="2"] .yqx-segico::after{content:"";position:absolute;left:-2px;right:-2px;top:50%;height:2px;border-radius:1px;background:currentColor;box-shadow:0 0 0 1.5px var(--yqx-p);transform:rotate(-40deg)}
+.yqx-badge{position:absolute;right:-1px;bottom:-1px;width:12px;height:12px;border-radius:50%;background:var(--yqx-p);opacity:0;transform:scale(0);transition:transform .4s var(--yqx-sp),opacity .2s;
+  background-image:linear-gradient(45deg,transparent 43%,var(--yqx-op) 43% 57%,transparent 57%),linear-gradient(-45deg,transparent 43%,var(--yqx-op) 43% 57%,transparent 57%);background-size:60% 60%;background-position:center;background-repeat:no-repeat}
+.yqx-au[data-stop="true"]:not(.yqx-open) .yqx-badge{opacity:1;transform:none}
+.yqx-au-lead:hover .yqx-ms-shape{transform:rotate(18deg)}
+.yqx-au-lead:active .yqx-ms-shape{transform:rotate(18deg) scale(.9)}
+.yqx-seg[data-l="2"]:hover .yqx-ms-shape{transform:scale(1.06)} /* a tilted square reads as a card */
+.yqx-seg[data-l="2"]:active .yqx-ms-shape{transform:scale(.9)}
+
+/* wavy ring = YouTube's "up next" countdown = next videos play by themselves; it unwinds when they wait */
+.yqx-wave{position:absolute;inset:-3px;width:calc(100% + 6px);height:calc(100% + 6px);transform:rotate(-90deg);overflow:visible;pointer-events:none}
+.yqx-wave .yqx-act{fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:72 28;opacity:.75;
+  transition:stroke-dasharray .7s var(--yqx-ease),opacity .4s var(--yqx-ease)}
+.yqx-wave .yqx-track{fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-dasharray:0 76 20 4;opacity:.22;transition:opacity .4s var(--yqx-ease)}
+.yqx-au[data-next="true"] .yqx-act{stroke-dasharray:0 100;opacity:0}
+.yqx-au[data-next="true"] .yqx-track{opacity:0}
+.yqx-au-lead:hover .yqx-wave{animation:yqx-sweep 1.4s var(--yqx-ease)}
+@keyframes yqx-sweep{from{transform:rotate(-90deg)}to{transform:rotate(270deg)}}
+
+/* glyph = videos you open: ▶ split in two halves, each half becomes one bar of ⏸ */
+.yqx-ap-glyph{position:relative;display:block;width:11px;height:14px;transition:transform .5s var(--yqx-sp)}
+.yqx-ap-glyph i{position:absolute;inset:0;background:currentColor;transition:clip-path .55s var(--yqx-sp)}
+.yqx-ap-l{clip-path:polygon(0 0,50% 25%,50% 75%,0 100%)}
+.yqx-ap-r{clip-path:polygon(50% 25%,100% 50%,100% 50%,50% 75%);transition-delay:.04s!important}
+[data-opened="true"] .yqx-ap-glyph{transform:translateX(-1px)}
+[data-opened="true"] .yqx-ap-l{clip-path:polygon(0 0,36% 0,36% 100%,0 100%)}
+[data-opened="true"] .yqx-ap-r{clip-path:polygon(64% 0,100% 0,100% 100%,64% 100%)}
+
+/* ---------- the menu (M3 Expressive) ---------- */
+.yqx-apm{position:absolute;z-index:2300;box-sizing:border-box;width:312px;max-width:calc(100vw - 16px);padding:6px;border-radius:24px;
+  background:var(--yqx-menu);color:var(--yqx-fg);
+  -webkit-backdrop-filter:blur(28px) saturate(1.6);backdrop-filter:blur(28px) saturate(1.6); /* frosted, like the quality menu */
+  box-shadow:inset 0 0 0 1px var(--yqx-edge),0 2px 6px rgba(0,0,0,.1),0 16px 40px rgba(0,0,0,.22);
+  font:400 14px/1.35 "Roboto",Arial,sans-serif;user-select:none;-webkit-user-select:none;
+  opacity:0;visibility:hidden;transform:translateY(-8px) scale(.9);
+  transition:opacity .15s var(--yqx-ease),transform .25s var(--yqx-ease),visibility 0s linear .25s}
+.yqx-apm.yqx-show{opacity:1;visibility:visible;transform:none;transition:opacity .2s var(--yqx-ease),transform .55s var(--yqx-sp),visibility 0s}
+.yqx-apm-title{padding:10px 14px 8px;font-size:13px;font-weight:500;letter-spacing:.2px;color:var(--yqx-sub)}
+.yqx-apm-list{display:flex;flex-direction:column;gap:2px}
+.yqx-apm-row{display:flex;align-items:center;gap:12px;min-height:60px;padding:8px 12px;border-radius:6px;background:var(--yqx-item);cursor:pointer;outline:none;
+  transition:background-color .25s var(--yqx-ease),color .25s var(--yqx-ease),border-radius .5s var(--yqx-sp)}
+.yqx-apm-row:first-child{border-radius:18px 18px 6px 6px}
+.yqx-apm-row:last-child{border-radius:6px 6px 18px 18px}
+.yqx-apm-row:hover{background:color-mix(in srgb,var(--yqx-fg) 6%,var(--yqx-item))}
+.yqx-apm-row[aria-checked="true"]{background:var(--yqx-sel);color:var(--yqx-opc);border-radius:18px}
+.yqx-apm-row:focus-visible{box-shadow:inset 0 0 0 2px var(--yqx-focus)}
+.yqx-apm-ico{width:36px;height:36px;flex:none;display:grid;place-items:center;border-radius:50%;background:var(--yqx-cont);
+  transition:border-radius .55s var(--yqx-sp),background-color .25s var(--yqx-ease),color .25s var(--yqx-ease)}
+.yqx-apm-row[aria-checked="true"] .yqx-apm-ico{background:var(--yqx-p);color:var(--yqx-op);border-radius:12px}
+.yqx-apm-ico .yqx-ap-glyph{width:10px;height:12px}
+.yqx-apm-next{position:relative;display:block;width:12px;height:12px}
+.yqx-apm-next i{position:absolute;top:0;bottom:0;background:currentColor}
+.yqx-apm-next i:first-child{left:0;width:8.5px;clip-path:polygon(0 0,100% 50%,0 100%)}
+.yqx-apm-next i:last-child{right:0;width:2.4px;border-radius:1px}
+.yqx-apm-pick{flex-wrap:wrap;cursor:default;min-height:0;gap:8px}
+.yqx-apm-top{display:flex;align-items:center;gap:12px;flex:1 1 100%}
+.yqx-apm-chips{display:flex;gap:2px;flex:1 1 100%}
+.yqx-apm-chip{flex:1;height:32px;border:0;padding:0;border-radius:6px;cursor:pointer;color:inherit;background:var(--yqx-cont);font:500 13px/1 "Roboto",Arial,sans-serif;
+  transition:background-color .25s var(--yqx-ease),color .25s var(--yqx-ease),border-radius .5s var(--yqx-sp)}
+.yqx-apm-chip:first-child{border-radius:16px 6px 6px 16px}.yqx-apm-chip:last-child{border-radius:6px 16px 16px 6px}
+.yqx-apm-chip:hover{background:var(--yqx-cont-h)}
+.yqx-apm-chip[aria-checked="true"]{background:var(--yqx-p);color:var(--yqx-op);border-radius:16px}
+.yqx-apm-chip:focus-visible{outline:2px solid var(--yqx-focus);outline-offset:1px}
+.yqx-apm-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.yqx-apm-name{font-weight:500;font-size:14.5px}
+.yqx-apm-hint{font-size:12px;opacity:.8}
+/* M3 switch with icons in the thumb */
+.yqx-apm-sw{position:relative;flex:none;width:52px;height:32px;border-radius:16px;background:color-mix(in srgb,var(--yqx-track) 80%,transparent);box-shadow:inset 0 0 0 2px var(--yqx-outline);
+  transition:background-color .25s var(--yqx-ease),box-shadow .25s var(--yqx-ease)}
+.yqx-apm-sw i{position:absolute;top:50%;left:16px;width:16px;height:16px;border-radius:50%;background:var(--yqx-outline);transform:translate(-50%,-50%);
+  display:grid;place-items:center;color:var(--yqx-track);transition:left .5s var(--yqx-sp),width .4s var(--yqx-sp),height .4s var(--yqx-sp),background-color .25s var(--yqx-ease)}
+.yqx-apm-sw svg{grid-area:1/1;width:12px;height:12px;fill:currentColor;transition:opacity .2s var(--yqx-ease)}
+.yqx-sw-on{opacity:0}
+.yqx-apm-row[aria-checked="true"] .yqx-apm-sw{background:var(--yqx-p);box-shadow:none}
+.yqx-apm-row[aria-checked="true"] .yqx-apm-sw i{left:36px;width:24px;height:24px;background:var(--yqx-op);color:var(--yqx-p)}
+.yqx-apm-row[aria-checked="true"] .yqx-sw-on{opacity:1}
+.yqx-apm-row[aria-checked="true"] .yqx-sw-off{opacity:0}
+.yqx-apm-row:active .yqx-apm-sw i{width:28px;height:28px}
+.yqx-apm-foot{padding:10px 14px 8px;font-size:12px;color:var(--yqx-sub)}
+/* no backdrop blur in this browser: use solid surfaces rather than a see-through menu that's hard to read */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .yqx-apm{background:#fff0ee}.yqx-apm .yqx-apm-row{background:#fff}.yqx-apm .yqx-apm-row[aria-checked="true"]{background:#ffdad6}
+  [data-theme=dark] .yqx-apm{background:#231918}[data-theme=dark] .yqx-apm .yqx-apm-row{background:#322826}[data-theme=dark] .yqx-apm .yqx-apm-row[aria-checked="true"]{background:#93000a}
+}
+@media (prefers-reduced-motion: reduce){.yqx-au *,.yqx-apm,.yqx-apm *{transition:none!important;animation:none!important}}
+/* @yqx-ap-css-end */

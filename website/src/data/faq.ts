@@ -1,0 +1,12 @@
+export interface QA { q: string; a: string; label: string }
+// Answers are shortened from README.md > FAQ and kept consistent with it.
+export const QA: QA[] = [
+  { q: "Does it send my data anywhere?", a: "No. Resolute has no code that uses the internet. Settings are saved in your browser’s extension storage and sync with your browser account if you use sync. Remembered videos, speeds, resume spots and channel defaults stay on this device only.", label: "Data" },
+  { q: "Why does a video sometimes play in 720p when I picked 1080p?", a: "That video does not have 1080p, so Resolute uses the best quality below it. The menu shows “Using 720p”, so you always know.", label: "720p" },
+  { q: "How does it know which channel a video is from?", a: "It reads the channel’s permanent ID from YouTube’s own player data, never the name, so a channel that changes its name keeps its setting. If no ID shows up within about 2 seconds, your default for all videos is used and the menu says “Channel not detected”.", label: "Channel" },
+  { q: "What if YouTube changes how its page looks?", a: "Your videos still play normally. If YouTube moves its controls, the quality button becomes a small floating button above the progress bar. If the top bar changes, the autoplay button may not show, but the switch in the popup still works. If the chat changes, it just stays open.", label: "Page changes" },
+  { q: "Why didn’t it offer to keep my speed for a channel?", a: "It needs 3 of your last 4 videos of that channel at the exact same speed (1.5× and 1.55× are different), each watched for at least 2 minutes at that speed. If you said No to that speed before, it is never offered again.", label: "Speed offer" },
+  { q: "It did not jump to where I stopped. Why?", a: "Common reasons: the link has a time in it, the video is a Short or shorter than 3 minutes, you stopped in the first 10 seconds or the last 30 seconds, or you chose “Don’t save this video”, “Don’t save this channel” or “Forget this spot”.", label: "Resume" },
+  { q: "Where are my spots saved? Can I delete them?", a: "On your device only, in the browser’s extension storage. They are never sent anywhere and never synced. Use “Forget this spot” in the menu by the clock to delete one. To delete all of them, remove the extension or clear its data.", label: "Saved spots" },
+  { q: "Does it work on Shorts or on the phone website?", a: "No. Shorts and m.youtube.com use a different player. Safari and phone browsers are not supported.", label: "Shorts and phones" },
+];

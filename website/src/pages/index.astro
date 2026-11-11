@@ -1,0 +1,31 @@
+---
+import Base from '../layouts/Base.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import Hero from '../components/Hero.astro';
+import Features from '../components/Features.astro';
+import How from '../components/How.astro';
+import Install from '../components/Install.astro';
+import Privacy from '../components/Privacy.astro';
+import Faq from '../components/Faq.astro';
+---
+<Base
+  title="Resolute for YouTube: pick the quality and speed, inside the player"
+  description="Resolute adds a quality and speed button inside the YouTube player and remembers your choice for each video and each channel. Free browser extension for Firefox, Chrome, Edge, Brave, Opera and Vivaldi.">
+  <div class="wall"></div><div class="scrim"></div>
+  <div class="device">
+    <Nav />
+    <main id="main">
+      <Hero />
+      <Features />
+      <How />
+      <Install />
+      <Privacy />
+      <Faq />
+    </main>
+    <Footer />
+  </div>
+  <script>
+    import '../scripts/main';
+  </script>
+</Base>

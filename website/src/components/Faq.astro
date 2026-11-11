@@ -1,0 +1,29 @@
+---
+import Section from './Section.astro';
+import { QA } from '../data/faq';
+import { ISSUES } from '../data/links';
+const COLORS = ['#7b5cb0', '#2e7d6b', '#b36b00', '#3b6fb5', '#a2385a', '#5b6b2a', '#6a4b9a', '#2c6b8f'];
+---
+<Section id="faq" eyebrow="FAQ" title="Quick answers." lede="Short and plain. Each one comes from the README.">
+  <noscript><style>.fq-c .expand{grid-template-rows:1fr!important}</style></noscript>
+  <div class="ytw" style="padding:6px 18px 14px" data-mount="faq">
+    <div class="fq-ct">{QA.length} questions</div>
+    {QA.map((x, i) => (
+      <div class="fq-c">
+        <span class="fq-av" style={`background:${COLORS[i]}`} aria-hidden="true">{'ABCDEFGH'[i]}</span>
+        <div class="fq-cb">
+          <div class="fq-cn">@viewer{i + 1}</div>
+          <h3 class="fq-cq">{x.q}</h3>
+          <button type="button" class="fq-vr" aria-expanded={i === 0 ? 'true' : 'false'} aria-controls={`faq-a${i}`}>
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M7 10l5 5 5-5z" /></svg><span>1 reply</span>
+          </button>
+          <div class:list={['expand', { open: i === 0 }]} id={`faq-a${i}`}><div><div class="fq-rp">
+            <span class="fq-av sm" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="#fff" d="M5 9h3v10H5zm5-4h3v14h-3zm5 7h3v7h-3z" /></svg></span>
+            <div><div class="fq-cn">@Resolute <span class="fq-pin">Pinned</span></div><div class="fq-ans">{x.a}</div></div>
+          </div></div></div>
+        </div>
+      </div>
+    ))}
+  </div>
+  <p class="note2" style="text-align:center">Still stuck? <a href={ISSUES} rel="noopener">Open an issue on GitHub</a>.</p>
+</Section>

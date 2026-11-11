@@ -1,0 +1,27 @@
+
+.chips{flex-wrap:wrap;border-radius:22px}
+.cchip.unset{background:transparent;border:1px dashed var(--outline-variant);color:var(--on-surface-variant)}
+.notif{display:flex;gap:8px;align-items:center;padding:0 12px;border-radius:18px;background:var(--surface-container-high);max-height:0;opacity:0;overflow:hidden;font-size:13.5px;margin-top:0;transition:max-height .5s var(--spring),opacity .3s,margin .5s,padding .5s}
+.site[data-theme=dark] .notif{background:rgba(255,255,255,.08)}
+.notif.on{max-height:56px;opacity:1;margin-top:10px;padding:10px 12px}
+.notif svg{width:18px;height:18px;color:var(--primary)}
+.linkb{color:var(--primary);text-decoration:underline;text-underline-offset:3px;font-weight:500}
+.sandbox p{color:#d8c2bf;text-align:center;min-height:2.8em;font-size:14.5px}
+.sandbox .split{margin:14px 0}
+.cap2{text-align:center}
+.pill-note{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.mini .ytrow{overflow:hidden}.mini .ytrow>span:first-of-type{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.mini .tl{display:inline!important}
+.pvbig{aspect-ratio:16/9;border-radius:22px}
+.rep .hl2::before{border-radius:inherit}
+.tag{display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:13px;background:var(--secondary-container);color:var(--on-secondary-container);font-size:12.5px;font-weight:500}
+.detected{display:inline-flex;gap:8px;align-items:center;margin-bottom:12px;font-size:13.5px;color:var(--on-surface-variant)}
+.symrow{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.ghost{display:inline-flex;align-items:center;gap:6px}
+.site[data-theme=dark] .cp[aria-pressed=true],.site[data-theme=dark] .cp[aria-checked=true]{background:var(--primary);color:var(--on-primary)}
+.site[data-theme=dark] .autob.big .sg[data-v=Waits]{background:var(--primary-container);color:var(--on-primary-container)}
+.site[data-theme=dark] .autob.big .sg[data-v=Stops],.site[data-theme=dark] .autob.big .sg[data-v=Paused]{background:var(--primary);color:var(--on-primary)}
+.autob.big .sg[data-v=Paused]{background:var(--primary);color:var(--on-primary);border-radius:14px}
+.pv .lab{color:#fff;padding:5px 11px;font-size:12.5px}
+.lrow,.drow,.chcard,.permrow>button,.qa>button{text-align:left}
+.site[data-theme=dark] .gdots i.on,.gdots i.on{background:var(--primary)}

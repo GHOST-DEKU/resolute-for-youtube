@@ -1,0 +1,14 @@
+---
+import Section from './Section.astro';
+import { CHAPTERS } from '../data/features';
+---
+<Section id="features" eyebrow="Features" title="Everything you need, inside the player." lede="Quality and speed first. Cinema, glow, hiding things and the rest are optional.">
+  <div data-enhance>
+    <ul class="f1-static">
+      {CHAPTERS.map((c) => (
+        <li><b>{c.t}{c.opt && <span class="opt"> Optional</span>}</b> {c.text}</li>
+      ))}
+    </ul>
+    <div data-mount="features"></div>
+  </div>
+</Section>

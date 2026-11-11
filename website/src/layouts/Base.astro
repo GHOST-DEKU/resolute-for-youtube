@@ -7,6 +7,7 @@ import '../styles/extra3.css';
 import '../styles/autoplay.css';
 import '../styles/player.css';
 import '../styles/resume.css';
+import '../styles/world.css';
 interface Props { title: string; description: string }
 const { title, description } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -23,6 +24,8 @@ const og = new URL(base + '/og.png', Astro.site).href;
   <link rel="canonical" href={url} />
   <link rel="icon" type="image/png" href={base + '/favicon.png'} />
   <meta name="color-scheme" content="light dark" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href={base + '/fonts/gsf-wdth.woff2'} />
+  <style set:html={`@font-face{font-family:"GSFW";src:url(${base}/fonts/gsf-wdth.woff2) format("woff2");font-weight:1 1000;font-stretch:25% 151%;font-display:swap}`}></style>
   <meta property="og:type" content="website" />
   <meta property="og:title" content={title} />
   <meta property="og:description" content={description} />

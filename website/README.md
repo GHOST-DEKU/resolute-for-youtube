@@ -18,3 +18,9 @@ Notes
 - The ported demo scripts start with `// @ts-nocheck`. They were written and tested as plain JavaScript and are not type-checked.
 - The website is not part of the extension. `scripts/build.py` only packs the files it lists, so `website/` never ends up in the ZIP.
 - The site is published by `.github/workflows/pages.yml` when `website/` changes on `main`. In the repository settings, Pages must be set to the "GitHub Actions" source.
+
+
+## The world (scroll look)
+- `src/scripts/world.ts` paints a fixed canvas scene that sharpens from 144p to 4K while you scroll, and crossfades the four scenes like a day. It also drives the "Page quality" pill in the nav and the "resolve" animation on the big headings.
+- With JavaScript off, or with reduced motion, the page shows the normal soft wall and sharp 4K headings.
+- Headings use the width axis of Google Sans Flex (`public/fonts/gsf-wdth.woff2`, 119 KB) in `src/styles/world.css`.

@@ -121,3 +121,17 @@
 .fq-gl{border-radius:24px;padding:16px;background:linear-gradient(135deg,#25508f,#7b5cb0 55%,#e0856b)}
 .fq-m{position:static!important;opacity:1;visibility:visible;transform:none!important;width:100%;max-width:none!important;min-width:0!important}
 @container (max-width:700px){.fq-g{grid-template-columns:1fr}}
+
+/* hero Speed menu: same glass menu, second panel (the real extension has two menus too) */
+.mwrap[data-m=q] .smenu,.mwrap[data-m=s] .qmenu:not(.smenu){display:none}
+.smenu .chan.sch{max-height:26px;opacity:1;padding-block:3px;background:rgba(255,255,255,.1);color:inherit}
+.smenu .chan.sch.on{background:var(--tc);color:var(--otc)}
+.chip.sp{flex-direction:column;gap:1px;height:46px}.chip.sp small{font-size:10.5px;opacity:.72}
+.sfine{display:flex;align-items:center;gap:8px;height:40px;margin:8px 2px 0;padding:0 14px;border-radius:20px;background:rgba(255,255,255,.08);font-size:12px}
+.sfine input{flex:1;min-width:0;margin:0;accent-color:var(--p,#ffb4ab);cursor:pointer}
+.sfine output{min-width:40px;text-align:right;font-weight:500;font-size:13px;font-variant-numeric:tabular-nums}
+.mrow.sr.on.c .ib{background:var(--tc);color:var(--otc);border-radius:9px}.mrow.sr.on.a .ib{background:var(--pc);color:var(--opc);border-radius:9px}
+.mrow[aria-disabled=true]{opacity:.42;pointer-events:none}
+.split .spd[aria-expanded=true]{background:var(--p);color:var(--op);border-radius:9px}
+.split .spd[data-from=v]::after,.split .spd[data-from=c]::after{content:"";position:absolute;top:2px;right:2px;width:7px;height:7px;border-radius:50%;background:#e7bdb8}
+.split .spd[data-from=c]::after{background:#dec48c}

@@ -3,8 +3,8 @@ interface Props { id: string; eyebrow: string; title: string; lede: string }
 const { id, eyebrow, title, lede } = Astro.props;
 ---
 <section class="sect" id={id} aria-labelledby={id + '-h'}>
-  <p class="eyebrow"><i></i><span>{eyebrow}</span></p>
-  <h2 id={id + '-h'}>{title}</h2>
+  <p class="qtag"><span class="qq">4K</span> {eyebrow}</p>
+  <h2 id={id + '-h'} class="bigh" data-res>{title}</h2>
   <p class="lede">{lede}</p>
   <div class="body"><slot /></div>
 </section>
